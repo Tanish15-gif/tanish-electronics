@@ -38,6 +38,10 @@ public partial class TanishElectronicsDbContext : DbContext
 
     public virtual DbSet<EnquiryStatus> EnquiryStatuses { get; set; }
 
+    public virtual DbSet<ExternalLogin> ExternalLogins { get; set; }
+
+    public virtual DbSet<OtpCode> OtpCodes { get; set; }
+
     public virtual DbSet<Product> Products { get; set; }
 
     public virtual DbSet<ProductCategory> ProductCategories { get; set; }
@@ -45,6 +49,8 @@ public partial class TanishElectronicsDbContext : DbContext
     public virtual DbSet<ProductCondition> ProductConditions { get; set; }
 
     public virtual DbSet<ProductImage> ProductImages { get; set; }
+
+    public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
     public virtual DbSet<Role> Roles { get; set; }
 
@@ -63,6 +69,8 @@ public partial class TanishElectronicsDbContext : DbContext
     public virtual DbSet<ServiceStatus> ServiceStatuses { get; set; }
 
     public virtual DbSet<ShopBusinessSetting> ShopBusinessSettings { get; set; }
+
+    public virtual DbSet<UserAuthEvent> UserAuthEvents { get; set; }
 
     public virtual DbSet<WebsiteVisit> WebsiteVisits { get; set; }
 
@@ -149,13 +157,21 @@ public partial class TanishElectronicsDbContext : DbContext
 
             entity.HasIndex(e => e.Email, "IX_AppUsers_Email");
 
-            entity.HasIndex(e => e.ClerkUserId, "UQ__AppUsers__D0CE606F00987E66").IsUnique();
+            entity.HasIndex(e => e.ClerkUserId, "UX_AppUsers_ClerkUserId_NotNull")
+                .IsUnique()
+                .HasFilter("([ClerkUserId] IS NOT NULL)");
+
+            entity.HasIndex(e => e.NormalizedEmail, "UX_AppUsers_NormalizedEmail_Active")
+                .IsUnique()
+                .HasFilter("([DeletedAt] IS NULL)");
 
             entity.Property(e => e.ClerkUserId).HasMaxLength(150);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.Email).HasMaxLength(150);
             entity.Property(e => e.FullName).HasMaxLength(120);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.NormalizedEmail).HasMaxLength(150);
+            entity.Property(e => e.PasswordHash).HasMaxLength(500);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
         });
 
@@ -338,6 +354,45 @@ public partial class TanishElectronicsDbContext : DbContext
             entity.Property(e => e.StatusName).HasMaxLength(50);
         });
 
+        modelBuilder.Entity<ExternalLogin>(entity =>
+        {
+            entity.HasKey(e => e.ExternalLoginId).HasName("PK__External__A8FDB3AEFF7E58AD");
+
+            entity.HasIndex(e => e.AppUserId, "IX_ExternalLogins_AppUserId");
+
+            entity.HasIndex(e => new { e.Provider, e.ProviderUserId }, "UX_ExternalLogins_Provider_ProviderUserId").IsUnique();
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())", "DF_ExternalLogins_CreatedAt");
+            entity.Property(e => e.Email).HasMaxLength(150);
+            entity.Property(e => e.Provider).HasMaxLength(50);
+            entity.Property(e => e.ProviderUserId).HasMaxLength(200);
+
+            entity.HasOne(d => d.AppUser).WithMany(p => p.ExternalLogins)
+                .HasForeignKey(d => d.AppUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_ExternalLogins_AppUsers");
+        });
+
+        modelBuilder.Entity<OtpCode>(entity =>
+        {
+            entity.HasKey(e => e.OtpCodeId).HasName("PK__OtpCodes__A67C33971CBB5268");
+
+            entity.HasIndex(e => e.ExpiresAt, "IX_OtpCodes_ExpiresAt");
+
+            entity.HasIndex(e => new { e.NormalizedEmail, e.Purpose, e.CreatedAt }, "IX_OtpCodes_NormalizedEmail_Purpose").IsDescending(false, false, true);
+
+            entity.Property(e => e.CodeHash).HasMaxLength(256);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())", "DF_OtpCodes_CreatedAt");
+            entity.Property(e => e.CreatedByIp).HasMaxLength(100);
+            entity.Property(e => e.Email).HasMaxLength(150);
+            entity.Property(e => e.NormalizedEmail).HasMaxLength(150);
+            entity.Property(e => e.Purpose).HasMaxLength(50);
+
+            entity.HasOne(d => d.AppUser).WithMany(p => p.OtpCodes)
+                .HasForeignKey(d => d.AppUserId)
+                .HasConstraintName("FK_OtpCodes_AppUsers");
+        });
+
         modelBuilder.Entity<Product>(entity =>
         {
             entity.HasKey(e => e.ProductId).HasName("PK__Products__B40CC6CD13B5D931");
@@ -404,6 +459,29 @@ public partial class TanishElectronicsDbContext : DbContext
                 .HasForeignKey(d => d.ProductId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__ProductIm__Produ__00200768");
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.RefreshTokenId).HasName("PK__RefreshT__F5845E3949FF50F0");
+
+            entity.HasIndex(e => e.AppUserId, "IX_RefreshTokens_AppUserId");
+
+            entity.HasIndex(e => e.ExpiresAt, "IX_RefreshTokens_ExpiresAt");
+
+            entity.HasIndex(e => e.TokenHash, "UX_RefreshTokens_TokenHash").IsUnique();
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())", "DF_RefreshTokens_CreatedAt");
+            entity.Property(e => e.CreatedByIp).HasMaxLength(100);
+            entity.Property(e => e.ReplacedByTokenHash).HasMaxLength(256);
+            entity.Property(e => e.RevokedByIp).HasMaxLength(100);
+            entity.Property(e => e.TokenHash).HasMaxLength(256);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+
+            entity.HasOne(d => d.AppUser).WithMany(p => p.RefreshTokens)
+                .HasForeignKey(d => d.AppUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_RefreshTokens_AppUsers");
         });
 
         modelBuilder.Entity<Role>(entity =>
@@ -600,6 +678,28 @@ public partial class TanishElectronicsDbContext : DbContext
             entity.Property(e => e.SecondaryPhone).HasMaxLength(20);
             entity.Property(e => e.ShopName).HasMaxLength(150);
             entity.Property(e => e.WhatsAppNumber).HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<UserAuthEvent>(entity =>
+        {
+            entity.HasKey(e => e.UserAuthEventId).HasName("PK__UserAuth__B4D04386A20A8D24");
+
+            entity.HasIndex(e => new { e.AppUserId, e.CreatedAt }, "IX_UserAuthEvents_AppUserId_CreatedAt").IsDescending(false, true);
+
+            entity.HasIndex(e => new { e.Email, e.CreatedAt }, "IX_UserAuthEvents_Email_CreatedAt").IsDescending(false, true);
+
+            entity.HasIndex(e => new { e.EventType, e.CreatedAt }, "IX_UserAuthEvents_EventType_CreatedAt").IsDescending(false, true);
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())", "DF_UserAuthEvents_CreatedAt");
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Email).HasMaxLength(150);
+            entity.Property(e => e.EventType).HasMaxLength(100);
+            entity.Property(e => e.IpAddress).HasMaxLength(100);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+
+            entity.HasOne(d => d.AppUser).WithMany(p => p.UserAuthEvents)
+                .HasForeignKey(d => d.AppUserId)
+                .HasConstraintName("FK_UserAuthEvents_AppUsers");
         });
 
         modelBuilder.Entity<WebsiteVisit>(entity =>
