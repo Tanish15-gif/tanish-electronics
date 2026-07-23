@@ -1,0 +1,359 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-ui: "Inter", Arial, sans-serif;
+
+  --warm-bg-light: #f7f5ef;
+  --warm-bg-dark: #11110f;
+  --warm-card-dark: #1a1712;
+  --warm-border-dark: #302c24;
+  --warm-text-dark: #e8e3d8;
+  --warm-muted-dark: #a8a093;
+
+  --scrollbar-track: #ebe5d8;
+  --scrollbar-thumb: #b99a58;
+  --scrollbar-thumb-hover: #9f7f3f;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--warm-bg-light);
+  color: #0f172a;
+  font-family: var(--font-display);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.04em;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+.dark body {
+  background: var(--warm-bg-dark);
+  color: var(--warm-text-dark);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  display: block;
+}
+
+::selection {
+  background: #d6b46a;
+  color: #11110f;
+}
+
+.dark ::selection {
+  background: #d6b46a;
+  color: #11110f;
+}
+input,
+textarea,
+select {
+  color-scheme: light;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  color-scheme: dark;
+}
+
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #0f172a;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+}
+
+.dark input:-webkit-autofill,
+.dark textarea:-webkit-autofill,
+.dark select:-webkit-autofill {
+  -webkit-text-fill-color: var(--warm-text-dark);
+  box-shadow: 0 0 0 1000px #090909 inset;
+}
+
+@layer components {
+  .input-style {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-500/10 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:focus:border-[#e8e3d8]/50 dark:focus:ring-[#e8e3d8]/10;
+  }
+}
+select option {
+  background: #fffaf0;
+  color: #1f1a12;
+}
+
+.dark select option {
+  background: #11110f;
+  color: #e8e3d8;
+}
+
+select option:checked {
+  background: #d6b46a;
+  color: #11110f;
+}
+
+.dark select option:checked {
+  background: #d6b46a;
+  color: #11110f;
+}
+@layer components {
+  .admin-input {
+    @apply w-full rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] px-4 py-3 text-sm font-semibold text-[#1f1a12] outline-none transition placeholder:text-[#9b907d] focus:border-[#d6b46a] focus:ring-4 focus:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:placeholder:text-[#8f8778] dark:focus:border-[#d6b46a];
+  }
+}
+
+@keyframes te-spin-fast {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-fast {
+  animation: te-spin-fast 0.38s linear infinite;
+}
+.te-scrollbar,
+.te-modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.te-scrollbar::-webkit-scrollbar,
+.te-modal-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.te-scrollbar::-webkit-scrollbar-track,
+.te-modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.te-scrollbar::-webkit-scrollbar-thumb,
+.te-modal-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+.te-scrollbar::-webkit-scrollbar-thumb:hover,
+.te-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.te-scrollbar::-webkit-scrollbar-button,
+.te-modal-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+@keyframes announcement-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes announcement-progress {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.announcement-enter {
+  animation: announcement-enter 520ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.announcement-progress {
+  width: 100%;
+  transform-origin: left;
+  animation: announcement-progress 6s linear both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-enter,
+  .announcement-progress {
+    animation: none;
+  }
+}
+@layer components {
+  .product-input {
+    @apply w-full rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-4 py-3 text-sm font-semibold text-[#1f1a12] outline-none transition placeholder:text-[#9b907d] focus:border-[#d6b46a] focus:ring-4 focus:ring-[#d6b46a]/15 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:placeholder:text-[#817a6e];
+  }
+}
+.home-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 650ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 650ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--home-reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.home-reveal[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.home-soft-float {
+  animation: home-soft-float 6s ease-in-out infinite;
+}
+
+.home-orb {
+  animation: home-orb-move 9s ease-in-out infinite;
+}
+
+.home-orb-delayed {
+  animation: home-orb-move 11s ease-in-out infinite reverse;
+}
+
+.home-status-dot {
+  animation: home-status-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes home-soft-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes home-orb-move {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(18px, 12px, 0) scale(1.08);
+  }
+}
+
+@keyframes home-status-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0.35);
+  }
+
+  50% {
+    box-shadow: 0 0 0 7px rgb(16 185 129 / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .home-soft-float,
+  .home-orb,
+  .home-orb-delayed,
+  .home-status-dot {
+    animation: none;
+  }
+}
+
+html.dark {
+  --scrollbar-track: #11110f;
+  --scrollbar-thumb: #665736;
+  --scrollbar-thumb-hover: #d6b46a;
+}
+
+/* Firefox */
+html,
+body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Chrome, Edge and Safari */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  min-height: 45px;
+  border: 3px solid var(--scrollbar-track);
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  transition: background 180ms ease;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active {
+  background: #d6b46a;
+  background-clip: padding-box;
+}
+
+/* Remove the ugly top and bottom arrow buttons */
+html::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Bottom-right corner where two scrollbars meet */
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}

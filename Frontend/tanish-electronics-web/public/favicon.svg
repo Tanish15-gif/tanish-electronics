@@ -1,0 +1,7 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="16" fill="#e8e3d8"></rect>
+  <rect x="4" y="4" width="56" height="56" rx="13" stroke="#d6b46a" stroke-width="3"></rect>
+  <text x="32" y="39" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="900" fill="#11110f">
+    TE
+  </text>
+</svg>
