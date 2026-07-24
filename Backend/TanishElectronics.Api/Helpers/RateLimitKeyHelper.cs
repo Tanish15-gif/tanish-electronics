@@ -4,26 +4,17 @@ namespace TanishElectronics.Api.Helpers;
 
 public static class RateLimitKeyHelper
 {
-    public static string GetClientKey(HttpContext context)
+    public static string GetUserOrIpKey(HttpContext context)
     {
-        var clerkUserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+        var appUserId =
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier) ??
             context.User.FindFirstValue("sub");
 
-        if (!string.IsNullOrWhiteSpace(clerkUserId)) return $"user:{clerkUserId}";
-
-        var forwardFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-
-        if (!string.IsNullOrWhiteSpace(forwardFor))
+        if (!string.IsNullOrWhiteSpace(appUserId))
         {
-            var firstIp = forwardFor.Split(",")[0].Trim();
-
-            if (!string.IsNullOrWhiteSpace(firstIp))
-            {
-                return $"ip:{firstIp}";
-            }
+            return $"user:{appUserId}";
         }
-        var remoteIp = context.Connection.RemoteIpAddress?.ToString();
 
-        return $"ip:{remoteIp ?? "unknown"}";
+        return $"ip:{context.Connection.RemoteIpAddress}";
     }
 }

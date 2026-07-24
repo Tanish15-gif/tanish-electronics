@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TanishElectronics.Api.Constants;
 using TanishElectronics.Api.DTOs.Admin.ServiceRequests;
-using TanishElectronics.Api.Filters;
 using TanishElectronics.Api.Interfaces.Services;
 
 namespace TanishElectronics.Api.Controllers;

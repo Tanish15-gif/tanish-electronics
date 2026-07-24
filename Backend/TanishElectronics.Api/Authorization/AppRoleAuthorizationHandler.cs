@@ -19,9 +19,11 @@ public class AppRoleAuthorizationHandler
         AppRoleRequirement requirement
     )
     {
-        var appUserId = await ResolveAppUserIdAsync(context.User);
+        var appUserIdValue =
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+            context.User.FindFirstValue("sub");
 
-        if (appUserId == null)
+        if (!int.TryParse(appUserIdValue, out var appUserId))
         {
             return;
         }
@@ -29,7 +31,7 @@ public class AppRoleAuthorizationHandler
         foreach (var role in requirement.AllowRoles!)
         {
             var hasRole = await _authRepository.AppUserHasRoleAsync(
-                appUserId.Value,
+                appUserId,
                 role
             );
 
@@ -39,26 +41,5 @@ public class AppRoleAuthorizationHandler
                 return;
             }
         }
-    }
-
-    private async Task<int?> ResolveAppUserIdAsync(ClaimsPrincipal user)
-    {
-        var nameIdentifier = user.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (int.TryParse(nameIdentifier, out var customAppUserId))
-        {
-            return customAppUserId;
-        }
-
-        var clerkUserId =
-            nameIdentifier ??
-            user.FindFirstValue("sub");
-
-        if (string.IsNullOrWhiteSpace(clerkUserId))
-        {
-            return null;
-        }
-
-        return await _authRepository.GetAppUserIdByClerkIdAsync(clerkUserId);
     }
 }

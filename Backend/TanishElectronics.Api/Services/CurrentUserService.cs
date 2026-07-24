@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using TanishElectronics.Api.Interfaces.Repositories;
 using TanishElectronics.Api.Interfaces.Services;
 
 namespace TanishElectronics.Api.Services;
@@ -7,45 +6,31 @@ namespace TanishElectronics.Api.Services;
 public class CurrentUserService : ICurrentUserService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly IAuthRepository _repository;
-    public CurrentUserService(IHttpContextAccessor httpContextAccessor, IAuthRepository repository)
+
+    public CurrentUserService(IHttpContextAccessor httpContextAccessor)
     {
         _httpContextAccessor = httpContextAccessor;
-        _repository = repository;
     }
-    public async Task<int?> GetCurrentAppUserIdAsync()
+
+    public Task<int?> GetCurrentAppUserIdAsync()
     {
         var user = _httpContextAccessor.HttpContext?.User;
 
-        var nameIdentifier = user?.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (int.TryParse(nameIdentifier, out var appUserId))
+        if (user == null || user.Identity?.IsAuthenticated != true)
         {
-            return appUserId;
+            return Task.FromResult<int?>(null);
         }
 
-        var clerkUserId = GetCurrentClerkUserId();
+        var appUserIdValue =
+            user.FindFirstValue(ClaimTypes.NameIdentifier) ??
+            user.FindFirstValue("sub");
 
-        if (string.IsNullOrWhiteSpace(clerkUserId))
+        if (!int.TryParse(appUserIdValue, out var appUserId))
         {
-            return null;
+            return Task.FromResult<int?>(null);
         }
 
-        return await _repository.GetAppUserIdByClerkIdAsync(clerkUserId);
-    }
-
-    public string? GetCurrentClerkUserId()
-    {
-        var user = _httpContextAccessor.HttpContext?.User;
-
-        var nameIdentifier = user?.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (int.TryParse(nameIdentifier, out _))
-        {
-            return null;
-        }
-
-        return nameIdentifier ?? user?.FindFirstValue("sub");
+        return Task.FromResult<int?>(appUserId);
     }
 
     public async Task<int> GetRequiredCurrentAppUserIdAsync()

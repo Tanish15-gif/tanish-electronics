@@ -3,7 +3,6 @@ using TanishElectronics.Api.DTOs.Products;
 using TanishElectronics.Api.DTOs.Admin.Products;
 using TanishElectronics.Api.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
-using TanishElectronics.Api.Filters;
 using TanishElectronics.Api.Constants;
 using Microsoft.AspNetCore.RateLimiting;
 

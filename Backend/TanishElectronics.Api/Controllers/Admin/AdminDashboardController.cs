@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TanishElectronics.Api.Constants;
-using TanishElectronics.Api.Filters;
 using TanishElectronics.Api.Interfaces.Services;
 
 namespace TanishElectronics.Api.Controllers;

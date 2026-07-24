@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.RateLimiting;
 using TanishElectronics.Api.Constants;
-using TanishElectronics.Api.DTOs.Admin.Announcements;
-using TanishElectronics.Api.Filters;
 using TanishElectronics.Api.Interfaces.Services;
 
 namespace TanishElectronics.Api.Controllers;

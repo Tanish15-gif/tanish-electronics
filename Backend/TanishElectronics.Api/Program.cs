@@ -33,8 +33,6 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "HH:mm:ss ";
 });
 
-var clerkKey = builder.Configuration["Clerk:Authority"];
-
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -53,25 +51,32 @@ if (jwtSettings == null || string.IsNullOrWhiteSpace(jwtSettings.SecretKey))
     throw new InvalidOperationException("Jwt settings are missing");
 }
 
-builder.Services.AddAuthentication().AddJwtBearer(AuthSchemes.CustomJwt, options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+builder.Services
+    .AddAuthentication(options =>
     {
-        ValidateIssuer = true,
-        ValidIssuer = jwtSettings.Issuer,
+        options.DefaultAuthenticateScheme = AuthSchemes.CustomJwt;
+        options.DefaultChallengeScheme = AuthSchemes.CustomJwt;
+        options.DefaultScheme = AuthSchemes.CustomJwt;
+    })
+    .AddJwtBearer(AuthSchemes.CustomJwt, options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtSettings.Issuer,
 
-        ValidateAudience = true,
-        ValidAudience = jwtSettings.Audience,
+            ValidateAudience = true,
+            ValidAudience = jwtSettings.Audience,
 
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtSettings.SecretKey)
             ),
 
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.FromMinutes(1)
-    };
-});
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
 
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -116,21 +121,6 @@ builder.Services.AddCors(options =>
         .AllowAnyMethod();
     });
 });
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = clerkKey;
-
-        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = clerkKey,
-
-            ValidateAudience = false,
-            ValidateLifetime = true
-        };
-    });
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -151,7 +141,7 @@ builder.Services.AddRateLimiter(options =>
 
     options.AddPolicy(RateLimitPolicies.PublicRead, httpcontext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: RateLimitKeyHelper.GetClientKey(httpcontext),
+            partitionKey: RateLimitKeyHelper.GetUserOrIpKey(httpcontext),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 120,
@@ -163,7 +153,7 @@ builder.Services.AddRateLimiter(options =>
         ));
     options.AddPolicy(RateLimitPolicies.FormSubmit, httpcontext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: RateLimitKeyHelper.GetClientKey(httpcontext),
+            partitionKey: RateLimitKeyHelper.GetUserOrIpKey(httpcontext),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
@@ -175,7 +165,7 @@ builder.Services.AddRateLimiter(options =>
         ));
     options.AddPolicy(RateLimitPolicies.ImageUpload, httpcontext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: RateLimitKeyHelper.GetClientKey(httpcontext),
+            partitionKey: RateLimitKeyHelper.GetUserOrIpKey(httpcontext),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 8,
@@ -187,7 +177,7 @@ builder.Services.AddRateLimiter(options =>
         ));
     options.AddPolicy(RateLimitPolicies.AdminAction, httpcontext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: RateLimitKeyHelper.GetClientKey(httpcontext),
+            partitionKey: RateLimitKeyHelper.GetUserOrIpKey(httpcontext),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 80,
@@ -237,7 +227,6 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AppPolicies.AdminOnly, policy =>
     {
-        policy.AuthenticationSchemes.Add(AuthSchemes.ClerkJwt);
         policy.AuthenticationSchemes.Add(AuthSchemes.CustomJwt);
 
         policy.RequireAuthenticatedUser();
@@ -245,8 +234,6 @@ builder.Services.AddAuthorization(options =>
     });
     options.AddPolicy(AppPolicies.CustomerOnly, policy =>
     {
-
-        policy.AuthenticationSchemes.Add(AuthSchemes.ClerkJwt);
         policy.AuthenticationSchemes.Add(AuthSchemes.CustomJwt);
 
         policy.RequireAuthenticatedUser();
@@ -254,15 +241,12 @@ builder.Services.AddAuthorization(options =>
     });
     options.AddPolicy(AppPolicies.AdminOrCustomer, policy =>
     {
-        policy.AuthenticationSchemes.Add(AuthSchemes.ClerkJwt);
         policy.AuthenticationSchemes.Add(AuthSchemes.CustomJwt);
 
         policy.RequireAuthenticatedUser();
         policy.AddRequirements(new AppRoleRequirement(RoleNames.Admin, RoleNames.Owner, RoleNames.Customer));
     });
 });
-
-builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<ShopSettings>(
     builder.Configuration.GetSection("ShopSettings"));
@@ -282,7 +266,6 @@ builder.Services.AddScoped<IAdminDashboardRepository, AdminDashboardRepository>(
 builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();
 
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 

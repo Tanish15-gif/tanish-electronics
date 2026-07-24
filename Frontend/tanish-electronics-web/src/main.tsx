@@ -4,12 +4,6 @@ import "./index.css";
 import App from "./App.tsx";
 import { CustomAuthProvider } from "./contexts/CustomAuthContext.tsx";
 
-const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-
-if (!publishableKey) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in .env");
-}
-
 const savedTheme = localStorage.getItem("theme");
 
 if (savedTheme === "dark") {
