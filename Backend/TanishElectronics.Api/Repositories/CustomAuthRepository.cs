@@ -120,4 +120,29 @@ public class CustomAuthRepository : ICustomAuthRepository
 
         await _dbContext.SaveChangesAsync();
     }
+
+    public async Task CreateCustomerProfileIfMissingAsync(AppUser appUser)
+    {
+        var exists = await _dbContext.Customers
+        .AnyAsync(customer => customer.AppUserId == appUser.AppUserId);
+
+        if (exists)
+        {
+            return;
+        }
+
+        _dbContext.Customers.Add(new Customer
+        {
+            AppUserId = appUser.AppUserId,
+            FullName = appUser.FullName,
+            PhoneNumber = string.IsNullOrWhiteSpace(appUser.PhoneNumber)
+                ? "0000000000"
+                : appUser.PhoneNumber,
+            Email = appUser.Email,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _dbContext.SaveChangesAsync();
+    }
 }

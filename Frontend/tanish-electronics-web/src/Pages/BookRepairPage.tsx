@@ -16,7 +16,7 @@ import {
 } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../hooks/useApiAuth";
 import UniversalDropdown, {
   type DropdownOption
 } from "../components/UI/UniversalDropdown";
@@ -153,7 +153,7 @@ function BookRepairPage() {
   const [selectedImages, setSelectedImage] = useState<File[]>([]);
   const [imageError, setImageError] = useState<string>("");
 
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useApiAuth();
 
   const { settings } = useShopSettings();
 

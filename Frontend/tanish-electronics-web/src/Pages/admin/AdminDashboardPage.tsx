@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -9,7 +9,7 @@ import {
 type DashboardTab = "overview" | "activity";
 
 function AdminDashboardPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [summary, setSummary] = useState<AdminDashboardSummary | null>(null);
 

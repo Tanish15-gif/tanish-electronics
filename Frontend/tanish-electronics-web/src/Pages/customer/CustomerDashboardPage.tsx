@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -12,7 +12,7 @@ import CustomerDashboardAnnouncements from "../../components/customer/CustomerDa
 import CustomerDashboardAnnouncementPopup from "../../components/customer/CustomerDashboardAnnouncementPopup";
 
 function CustomerDashboardPage() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useApiAuth();
 
   const [dashboard, setDashboard] = useState<CustomerDashboard | null>(null);
   const [loading, setLoading] = useState(true);

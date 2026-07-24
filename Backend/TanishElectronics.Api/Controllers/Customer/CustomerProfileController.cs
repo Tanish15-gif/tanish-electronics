@@ -20,84 +20,49 @@ public class CustomerProfileController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetProfile()
     {
-        var clerkUserId = GetClerkUserId();
-
-        var result = await _service.GetProfileAsync(clerkUserId);
+        var result = await _service.GetProfileAsync();
         return Ok(result);
     }
     [HttpPut("details")]
     public async Task<IActionResult> UpdateDetails(UpdateCustomerProfileDto dto)
     {
-        var clerkUserId = GetClerkUserId();
-
-        var result = await _service.UpdateProfileAsync(clerkUserId, dto);
+        var result = await _service.UpdateProfileAsync(dto);
         return Ok(result);
     }
     [HttpGet("addresses")]
     public async Task<IActionResult> GetAddresses()
     {
-        var clerkUserId = GetClerkUserId();
-
-        var result = await _service.GetAddressesAsync(clerkUserId);
+        var result = await _service.GetAddressesAsync();
         return Ok(result);
     }
     [HttpPost("addresses")]
     public async Task<IActionResult> AddAddress(UpsertCustomerAddressDto dto)
     {
-        var clerkUserId = GetClerkUserId();
-        var result = await _service.AddAddressAsync(clerkUserId, dto);
+        var result = await _service.AddAddressAsync(dto);
         return Ok(result);
     }
     [HttpPut("addresses/{addressId:int}")]
-    public async Task<IActionResult> UpdateAddress(
-    int addressId,
-    UpsertCustomerAddressDto dto
-    )
+    public async Task<IActionResult> UpdateAddress(int addressId, UpsertCustomerAddressDto dto)
     {
-        var clerkUserId = GetClerkUserId();
-
-        var result = await _service.UpdateAddressAsync(
-            clerkUserId,
-            addressId,
-            dto
-        );
+        var result = await _service.UpdateAddressAsync(addressId, dto);
 
         return Ok(result);
     }
     [HttpPut("addresses/{addressId:int}/default")]
     public async Task<IActionResult> SetDefaultAddress(int addressId)
     {
-        var clerkUserId = GetClerkUserId();
-
-        var result = await _service.SetDefaultAddressAsync(
-            clerkUserId,
-            addressId
-        );
+        var result = await _service.SetDefaultAddressAsync(addressId);
 
         return Ok(result);
     }
     [HttpDelete("addresses/{addressId:int}")]
     public async Task<IActionResult> DeleteAddress(int addressId)
     {
-        var clerkUserId = GetClerkUserId();
-        await _service.DeleteAddressAsync(clerkUserId, addressId);
+        await _service.DeleteAddressAsync(addressId);
 
         return Ok(new
         {
             message = "Address deleted successfully."
         });
-    }
-    private string GetClerkUserId()
-    {
-        var clerkUserId =
-            User.FindFirstValue(ClaimTypes.NameIdentifier) ??
-            User.FindFirstValue("sub");
-
-        if (string.IsNullOrWhiteSpace(clerkUserId))
-        {
-            throw new UnauthorizedAccessException("Invalid authentication token.");
-        }
-
-        return clerkUserId;
     }
 }

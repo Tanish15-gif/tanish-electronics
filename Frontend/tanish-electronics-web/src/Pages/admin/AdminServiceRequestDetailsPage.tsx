@@ -6,7 +6,7 @@ import {
   type ReactNode
 } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   getAdminServiceRequestById,
   getServiceStatuses,
@@ -75,7 +75,7 @@ function AdminServiceRequestDetailsPage() {
 
   const [activeTab, setActiveTab] = useState<RequestTab>("overview");
 
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   useEffect(() => {
     if (request) {

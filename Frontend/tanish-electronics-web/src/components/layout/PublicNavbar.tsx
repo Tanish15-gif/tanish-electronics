@@ -1,13 +1,13 @@
-import { UserButton, useAuth } from "@clerk/clerk-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { getCurrentAuthUser, type AuthUser } from "../../Services/authService";
 import ThemeToggle from "../UI/ThemeToggle";
 import { useShopSettings } from "../../hooks/useShopSettings";
+import { useApiAuth } from "../../hooks/useApiAuth";
 
 function PublicNavbar() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useApiAuth();
 
   const location = useLocation();
 
@@ -187,8 +187,6 @@ function PublicNavbar() {
 
           <div className="ml-3 flex shrink-0 items-center gap-2">
             <ThemeToggle />
-            <UserButton afterSignOutUrl="/" />
-
             <button
               type="button"
               aria-label="Open navigation menu"
@@ -247,9 +245,7 @@ function PublicNavbar() {
                   {dashboardLabel}
                 </Link>
 
-                <div className="flex h-11 w-11 items-center justify-center">
-                  <UserButton afterSignOutUrl="/" />
-                </div>
+                <div className="flex h-11 w-11 items-center justify-center"></div>
               </>
             )}
 
@@ -449,9 +445,7 @@ function MobileNavigationDrawer({
               ) : (
                 <div className="rounded-xl border border-[#d8cdb6] bg-[#fffdf7] p-3 dark:border-[#302c24] dark:bg-[#1a1712]">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center">
-                      <UserButton afterSignOutUrl="/" />
-                    </div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center"></div>
 
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-black">Signed-in account</p>

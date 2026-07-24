@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -10,7 +10,7 @@ import {
 } from "../../Services/customerNotificationService";
 
 function CustomerNotificationBell() {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useApiAuth();
   const navigate = useNavigate();
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);

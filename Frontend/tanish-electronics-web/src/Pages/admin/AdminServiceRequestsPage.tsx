@@ -6,7 +6,7 @@ import {
   type ReactNode
 } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { Download } from "lucide-react";
 import {
   getAdminServiceRequests,
@@ -34,7 +34,7 @@ function AdminServiceRequestsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const startRecord = totalRecords === 0 ? 0 : (pageNumber - 1) * pageSize + 1;
 

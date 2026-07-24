@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -23,7 +23,7 @@ type LoadOptions = {
 };
 
 function CustomerDashboardAnnouncements() {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useApiAuth();
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 

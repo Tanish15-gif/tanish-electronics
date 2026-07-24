@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useEffect,
   useMemo,
@@ -26,7 +26,7 @@ type EnquiryTab = "overview" | "follow-up";
 
 function AdminEnquiryDetailsPage() {
   const { id } = useParams();
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [enquiry, setEnquiry] = useState<AdminEnquiryDetails | null>(null);
 

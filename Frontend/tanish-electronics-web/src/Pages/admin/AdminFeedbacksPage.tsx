@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -35,7 +35,7 @@ const visibilityOptions: DropdownOption<PublicFilter>[] = [
 ];
 
 function AdminFeedbacksPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [feedbacks, setFeedbacks] = useState<AdminRepairFeedback[]>([]);
 

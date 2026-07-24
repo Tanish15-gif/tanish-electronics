@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useEffect,
   useMemo,
@@ -22,7 +22,7 @@ import type { LookUpItem } from "../../Services/serviceRequestService";
 import { exportProducts } from "../../Services/adminExportService";
 
 function AdminProductsPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [products, setProducts] = useState<AdminProductListItem[]>([]);
   const [categories, setCategories] = useState<LookUpItem[]>([]);

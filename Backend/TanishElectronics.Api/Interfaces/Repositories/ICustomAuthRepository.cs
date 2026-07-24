@@ -22,4 +22,6 @@ public interface ICustomAuthRepository
 
     Task<RefreshToken?> GetRefreshTokenByHashAsync(string tokenHash);
     Task RevokeRefreshTokenAsync(RefreshToken refreshToken, string? revokedByIp, string replacedByTokenHash = null!);
+
+    Task CreateCustomerProfileIfMissingAsync(AppUser appUser);
 }

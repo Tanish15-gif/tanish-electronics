@@ -1,4 +1,5 @@
-import { UserButton, useAuth, useUser } from "@clerk/clerk-react";
+import { useCustomAuth } from "../../contexts/CustomAuthContext";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -8,7 +9,13 @@ import {
   type RefObject
 } from "react";
 import { createPortal } from "react-dom";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate
+} from "react-router-dom";
 
 import ThemeToggle from "../UI/ThemeToggle";
 import AdminNotificationBell from "../../Pages/admin/AdminNotificationBell";
@@ -19,16 +26,23 @@ import {
 } from "../../Services/adminNotificationService";
 
 function AdminLayout() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useApiAuth();
+  const { user, logout } = useCustomAuth();
 
-  const { user } = useUser();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
 
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+
+  async function handleLogout() {
+    await logout();
+
+    navigate("/sign-in", { replace: true });
+  }
 
   const loadNotifications = useCallback(async () => {
     if (!isLoaded || !isSignedIn) {
@@ -133,13 +147,11 @@ function AdminLayout() {
     (notification) => !notification.isRead
   ).length;
 
-  const displayName =
-    user?.fullName?.trim() || user?.firstName?.trim() || "Administrator";
+  const displayName = user?.fullName?.trim() || "Administrator";
 
-  const displayEmail =
-    user?.primaryEmailAddress?.emailAddress || "Owner account";
+  const displayEmail = user?.email || "Owner account";
 
-  const profileImageUrl = user?.imageUrl || null;
+  const profileImageUrl = null;
 
   const pageTitle = getAdminPageTitle(location.pathname);
 
@@ -288,9 +300,42 @@ function AdminLayout() {
 
               <ThemeToggle />
 
-              <div className="flex h-10 w-10 items-center justify-center">
-                <UserButton afterSignOutUrl="/" />
-              </div>
+              <div className="flex h-10 w-10 items-center justify-center"></div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                aria-label="Sign out"
+                title="Sign out"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  className="h-5 w-5"
+                >
+                  <path
+                    d="M10 6H6v12h4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M14 8l4 4-4 4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M18 12H9"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
 
               <button
                 type="button"

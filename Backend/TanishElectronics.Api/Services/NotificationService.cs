@@ -1,6 +1,5 @@
 using TanishElectronics.Api.DTOs.Admin.Notifications;
 using TanishElectronics.Api.DTOs.Customer.Notifications;
-using TanishElectronics.Api.Exceptions;
 using TanishElectronics.Api.Interfaces.Repositories;
 using TanishElectronics.Api.Interfaces.Services;
 
@@ -10,7 +9,11 @@ public class NotificationService : INotificationService
 {
     private readonly INotificationRepository _repository;
     private readonly ICustomerAccountResolver _customerAccountResolver;
-    public NotificationService(INotificationRepository repository, ICustomerAccountResolver customerAccountResolver)
+
+    public NotificationService(
+        INotificationRepository repository,
+        ICustomerAccountResolver customerAccountResolver
+    )
     {
         _repository = repository;
         _customerAccountResolver = customerAccountResolver;
@@ -23,39 +26,35 @@ public class NotificationService : INotificationService
 
     public async Task<bool> AdminMarkAllAsReadAsync()
     {
-        var allreaded = await _repository.AdminMarkAllAsReadAsync();
-        return allreaded;
+        return await _repository.AdminMarkAllAsReadAsync();
     }
 
     public async Task<bool> AdminMarkAsReadAsync(int notificationId)
     {
-        var readed = await _repository.AdminMarkAsReadAsync(notificationId);
-        return readed;
+        return await _repository.AdminMarkAsReadAsync(notificationId);
     }
 
     public async Task<bool> CustomerMarkAllAsReadAsync()
     {
-        var customer = await _customerAccountResolver.GetCurrentCustomerAsync();
-        if (customer == null) throw new CustomerProfileIncompleteException("Complete your customer profile first");
+        var customerId = await _customerAccountResolver.GetRequiredCustomerIdAsync();
 
-        return await _repository.CustomerMarkAllAsReadAsync(customer.CustomerId);
+        return await _repository.CustomerMarkAllAsReadAsync(customerId);
     }
 
     public async Task<bool> CustomerMarkAsReadAsync(int notificationId)
     {
-        var customer = await _customerAccountResolver.GetCurrentCustomerAsync();
+        var customerId = await _customerAccountResolver.GetRequiredCustomerIdAsync();
 
-        if (customer == null) throw new CustomerProfileIncompleteException("Complete your customer profile first");
-
-        return await _repository.CustomerMarkAsReadAsync(customer.CustomerId, notificationId);
+        return await _repository.CustomerMarkAsReadAsync(
+            customerId,
+            notificationId
+        );
     }
 
     public async Task<List<GetCustomerNotificatonDto>> GetCurrentCustomerNotificationsAsync()
     {
-        var customer = await _customerAccountResolver.GetCurrentCustomerAsync();
+        var customerId = await _customerAccountResolver.GetRequiredCustomerIdAsync();
 
-        if (customer == null) throw new CustomerProfileIncompleteException("Complete your customer profile first");
-
-        return await _repository.GetByCustomerIdAsync(customer.CustomerId);
+        return await _repository.GetByCustomerIdAsync(customerId);
     }
 }

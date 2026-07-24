@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -13,7 +13,7 @@ import ActionButton from "../../components/UI/ActionButton";
 
 function CustomerRepairDetailsPage() {
   const { id } = useParams();
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [repair, setRepair] = useState<CustomerRepairDetails | null>(null);
   const [loading, setLoading] = useState(true);

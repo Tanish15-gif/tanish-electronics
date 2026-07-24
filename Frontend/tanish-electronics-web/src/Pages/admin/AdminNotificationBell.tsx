@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -25,7 +25,7 @@ type PanelPosition = {
 const mobileBreakpoint = 640;
 
 function AdminNotificationBell() {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useApiAuth();
 
   const navigate = useNavigate();
   const location = useLocation();

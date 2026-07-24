@@ -74,6 +74,8 @@ public class CustomAuthService : ICustomAuthService
 
         await _authRepository.AssignRoleAsync(user.AppUserId, RoleNames.Customer);
 
+        await _authRepository.CreateCustomerProfileIfMissingAsync(user);
+
         var roles = await _authRepository.GetUserRolesAsync(user.AppUserId);
 
         var refreshToken = _jwtTokenService.GenerateRefreshToken();

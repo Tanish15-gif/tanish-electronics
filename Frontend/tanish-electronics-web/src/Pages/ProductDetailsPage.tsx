@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../hooks/useApiAuth";
 import {
   useEffect,
   useRef,
@@ -21,7 +21,7 @@ const SWIPE_THRESHOLD = 50;
 
 function ProductDetailsPage() {
   const { id } = useParams();
-  const { isSignedIn, isLoaded, getToken } = useAuth();
+  const { isSignedIn, isLoaded, getToken } = useApiAuth();
 
   const enquirySectionRef = useRef<HTMLDivElement | null>(null);
 

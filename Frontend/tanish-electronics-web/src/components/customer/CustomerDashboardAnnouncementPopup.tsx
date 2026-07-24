@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -24,7 +24,7 @@ type LoadPopupOptions = {
 };
 
 function CustomerDashboardAnnouncementPopup() {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useApiAuth();
 
   const dialogRef = useRef<HTMLElement | null>(null);
 

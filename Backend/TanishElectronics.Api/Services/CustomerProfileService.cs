@@ -6,47 +6,78 @@ namespace TanishElectronics.Api.Services;
 public class CustomerProfileService : ICustomerProfileService
 {
     private readonly ICustomerProfileRepository _repository;
-    public CustomerProfileService(ICustomerProfileRepository repository)
+    private readonly ICurrentUserService _currentUserService;
+
+    public CustomerProfileService(
+        ICustomerProfileRepository repository,
+        ICurrentUserService currentUserService
+    )
     {
         _repository = repository;
+        _currentUserService = currentUserService;
     }
 
-    public async Task<CustomerAddressDto> AddAddressAsync(string clerkUserId, UpsertCustomerAddressDto dto)
+    public async Task<CustomerAddressDto> AddAddressAsync(
+        UpsertCustomerAddressDto dto
+    )
     {
         ValidateAddress(dto);
-        return await _repository.AddAddressAsync(clerkUserId, dto);
+
+        var appUserId = await _currentUserService.GetRequiredCurrentAppUserIdAsync();
+
+        return await _repository.AddAddressAsync(appUserId, dto);
     }
 
-    public async Task DeleteAddressAsync(string clerkUserId, int addressId)
+    public async Task DeleteAddressAsync(int addressId)
     {
-        await _repository.DeleteAddressAsync(clerkUserId, addressId);
+        var appUserId = await _currentUserService.GetRequiredCurrentAppUserIdAsync();
+
+        await _repository.DeleteAddressAsync(appUserId, addressId);
     }
 
-    public async Task<List<CustomerAddressDto>> GetAddressesAsync(string clerkUserId)
+    public async Task<List<CustomerAddressDto>> GetAddressesAsync()
     {
-        return await _repository.GetAddressessAsync(clerkUserId);
+        var appUserId = await _currentUserService.GetRequiredCurrentAppUserIdAsync();
+
+        return await _repository.GetAddressessAsync(appUserId);
     }
 
-    public async Task<CustomerProfileDto> GetProfileAsync(string clerkUserId)
+    public async Task<CustomerProfileDto> GetProfileAsync()
     {
-        var profile = await _repository.GetProfileAsync(clerkUserId);
+        var appUserId = await _currentUserService.GetRequiredCurrentAppUserIdAsync();
 
-        if (profile == null) throw new KeyNotFoundException("Customer profile not found");
+        var profile = await _repository.GetProfileAsync(appUserId);
+
+        if (profile == null)
+        {
+            throw new KeyNotFoundException("Customer profile not found");
+        }
+
         return profile;
     }
 
-    public async Task<CustomerAddressDto> SetDefaultAddressAsync(string clerkUserId, int addressId)
+    public async Task<CustomerAddressDto> SetDefaultAddressAsync(int addressId)
     {
-        return await _repository.SetDefaultAddressAsync(clerkUserId, addressId);
+        var appUserId = await _currentUserService.GetRequiredCurrentAppUserIdAsync();
+
+        return await _repository.SetDefaultAddressAsync(appUserId, addressId);
     }
 
-    public async Task<CustomerAddressDto> UpdateAddressAsync(string clerkUserId, int addressId, UpsertCustomerAddressDto dto)
+    public async Task<CustomerAddressDto> UpdateAddressAsync(
+        int addressId,
+        UpsertCustomerAddressDto dto
+    )
     {
         ValidateAddress(dto);
-        return await _repository.UpdateAddressAsync(clerkUserId, addressId, dto);
+
+        var appUserId = await _currentUserService.GetRequiredCurrentAppUserIdAsync();
+
+        return await _repository.UpdateAddressAsync(appUserId, addressId, dto);
     }
 
-    public async Task<CustomerProfileDto> UpdateProfileAsync(string clerkUserId, UpdateCustomerProfileDto dto)
+    public async Task<CustomerProfileDto> UpdateProfileAsync(
+        UpdateCustomerProfileDto dto
+    )
     {
         if (string.IsNullOrWhiteSpace(dto.FullName))
         {
@@ -57,14 +88,19 @@ public class CustomerProfileService : ICustomerProfileService
         {
             throw new InvalidOperationException("Phone number is required.");
         }
+
         var digitsOnly = new string(dto.PhoneNumber.Where(char.IsDigit).ToArray());
 
         if (digitsOnly.Length < 10)
         {
             throw new InvalidOperationException("Enter a valid PhoneNumber");
         }
-        return await _repository.UpdateProfileAsync(clerkUserId, dto);
+
+        var appUserId = await _currentUserService.GetRequiredCurrentAppUserIdAsync();
+
+        return await _repository.UpdateProfileAsync(appUserId, dto);
     }
+
     private static void ValidateAddress(UpsertCustomerAddressDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.AddressLine))

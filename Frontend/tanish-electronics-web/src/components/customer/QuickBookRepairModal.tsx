@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useEffect,
   useMemo,
@@ -66,7 +66,7 @@ function QuickBookRepairModal({
   onClose,
   onCreated
 }: QuickBookRepairModalProps) {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useApiAuth();
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 

@@ -8,18 +8,22 @@ namespace TanishElectronics.Api.Services;
 public class CustomerDashboardService : ICustomerDashboardService
 {
     private readonly ICustomerDashboardRepository _repository;
-    public CustomerDashboardService(ICustomerDashboardRepository repository)
+    private readonly ICurrentUserService _currentUserService;
+    public CustomerDashboardService(ICustomerDashboardRepository repository, ICurrentUserService currentUserService)
     {
         _repository = repository;
+        _currentUserService = currentUserService;
     }
 
-    public async Task<CustomerDashBoardDto> GetDashBoardAsync(string clerkUserId)
+    public async Task<CustomerDashBoardDto> GetDashBoardAsync()
     {
-        var Dashboard = await _repository.GetDashBoardAsync(clerkUserId);
-        if (Dashboard == null)
+        var appUserId = await _currentUserService.GetRequiredCurrentAppUserIdAsync();
+
+        var dashboard = await _repository.GetDashBoardAsync(appUserId);
+        if (dashboard == null)
         {
             throw new KeyNotFoundException("Customer account not found");
         }
-        return Dashboard;
+        return dashboard;
     }
 }

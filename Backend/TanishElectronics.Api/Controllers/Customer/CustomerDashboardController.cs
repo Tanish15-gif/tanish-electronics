@@ -19,13 +19,7 @@ public class CustomerDashboardController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetDashBoard()
     {
-        var clerkUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-
-        if (string.IsNullOrWhiteSpace(clerkUserId))
-        {
-            throw new UnauthorizedAccessException("Invalid authentication token");
-        }
-        var result = await _service.GetDashBoardAsync(clerkUserId);
+        var result = await _service.GetDashBoardAsync();
         return Ok(result);
     }
 }

@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   getAdminShopSettings,
@@ -47,7 +47,7 @@ const initialSettingsForm: SettingsForm = {
 };
 
 function AdminSettingsPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [form, setForm] = useState<SettingsForm>(initialSettingsForm);
   const [settings, setSettings] = useState<AdminShopSettings | null>(null);

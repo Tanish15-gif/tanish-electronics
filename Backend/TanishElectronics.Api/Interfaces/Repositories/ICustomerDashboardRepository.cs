@@ -4,5 +4,5 @@ namespace TanishElectronics.Api.Interfaces.Repositories;
 
 public interface ICustomerDashboardRepository
 {
-    Task<CustomerDashBoardDto?> GetDashBoardAsync(string clerkUserId);
+    Task<CustomerDashBoardDto?> GetDashBoardAsync(int appUserId);
 }

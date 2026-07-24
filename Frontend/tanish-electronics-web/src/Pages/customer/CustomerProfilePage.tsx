@@ -1,4 +1,4 @@
-import { useAuth, useUser } from "@clerk/clerk-react";
+import { useCustomAuth } from "../../contexts/CustomAuthContext";
 import {
   useCallback,
   useEffect,
@@ -19,6 +19,7 @@ import {
   type CustomerAddress,
   type CustomerProfile
 } from "../../Services/customerProfileService";
+import { useApiAuth } from "../../hooks/useApiAuth";
 
 type AddressFormState = {
   label: string;
@@ -39,8 +40,8 @@ const emptyAddressForm: AddressFormState = {
 };
 
 function CustomerProfilePage() {
-  const { getToken } = useAuth();
-  const { user } = useUser();
+  const { getToken } = useApiAuth();
+  const { user } = useCustomAuth();
 
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
 
@@ -201,12 +202,9 @@ function CustomerProfilePage() {
   }, [modalOpen, savingAddress, addressActionId]);
 
   const displayName =
-    profile?.fullName?.trim() || user?.fullName?.trim() || "Customer";
+    profile?.fullName?.trim() || user?.fullName?.trim() || "Customer Account";
 
-  const displayEmail =
-    profile?.email ||
-    user?.primaryEmailAddress?.emailAddress ||
-    "Email not available";
+  const displayEmail = profile?.email || user?.email || "Signed-in customer";
 
   const initials = useMemo(() => {
     const values = displayName
@@ -534,13 +532,13 @@ function CustomerProfilePage() {
     <main className="mx-auto min-h-full w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       {/* Profile identity header */}
       <section className="overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
-        <div className="h20 bg-gradient-to-r from-[#1f1a12] via-[#4b3b21] to-[#8a6624] dark:from-[#090907] dark:via-[#1a1712] dark:to-[#5f471c] sm:h-32" />
+        <div className="h-20 bg-gradient-to-r from-[#1f1a12] via-[#4b3b21] to-[#8a6624] dark:from-[#090907] dark:via-[#1a1712] dark:to-[#5f471c] sm:h-32" />
 
         <div className="px-5 pb-5 sm:px-6 sm:pb-6">
           <div className="-mt-10 flex flex-col gap-5 sm:-mt-12 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex min-w-0 items-end gap-4">
               <ProfileAvatar
-                imageUrl={user?.imageUrl}
+                imageUrl={null}
                 name={displayName}
                 initials={initials}
               />

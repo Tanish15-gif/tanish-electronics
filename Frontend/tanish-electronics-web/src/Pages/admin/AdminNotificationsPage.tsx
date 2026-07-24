@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ActionButton from "../../components/UI/ActionButton";
@@ -11,7 +11,7 @@ import {
 import { NotificationIcon } from "../../components/layout/CustomerLayout";
 
 function AdminNotificationsPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);

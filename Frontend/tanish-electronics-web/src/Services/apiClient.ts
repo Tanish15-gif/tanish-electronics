@@ -20,8 +20,11 @@ export async function apiClient<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  if (authToken) {
-    headers.set("Authorization", `Bearer ${authToken}`);
+  const customAccessToken = localStorage.getItem("te_access_token");
+  const finalAuthToken = authToken || customAccessToken;
+
+  if (finalAuthToken) {
+    headers.set("Authorization", `Bearer ${finalAuthToken}`);
   }
 
   const response = await fetch(`${BASE_URL}${fixedEndpoint}`, {
@@ -46,6 +49,7 @@ export async function apiClient<T>(
     if (response.status === 429) {
       throw new Error("Too many requests. Please wait a minute and try again.");
     }
+
     const validationErrors =
       data?.errors && typeof data.errors === "object"
         ? Object.values(data.errors).flat().join(" ")

@@ -15,7 +15,6 @@ import AdminDashboardPage from "./Pages/admin/AdminDashboardPage";
 import AdminLayout from "./components/layout/AdminLayout";
 import SignInPage from "./Pages/auth/SignInPage";
 import SignUpPage from "./Pages/auth/SignUpPage";
-import AuthRedirectPage from "./Pages/auth/AuthRedirectPage";
 import RequireAdmin from "./components/auth/RequireAdmin";
 import RequireCustomer from "./components/auth/RequireCustomer";
 import CustomerDashboardPage from "./Pages/customer/CustomerDashboardPage";
@@ -44,7 +43,6 @@ function App() {
       <Routes>
         <Route path="/sign-in/*" element={<SignInPage />} />
         <Route path="/sign-up/*" element={<SignUpPage />} />
-        <Route path="/auth/redirect" element={<AuthRedirectPage />} />
 
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />

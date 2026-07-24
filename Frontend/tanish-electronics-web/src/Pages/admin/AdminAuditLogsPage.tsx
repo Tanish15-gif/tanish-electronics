@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -39,7 +39,7 @@ const EMPTY_FILTERS: AuditFilters = {
 const PAGE_SIZE = 10;
 
 function AdminAuditLogsPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
 

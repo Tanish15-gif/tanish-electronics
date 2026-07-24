@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useCallback, useEffect, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import {
@@ -21,7 +21,7 @@ import {
 import { exportWebsiteVisits } from "../../Services/adminExportService";
 
 function AdminAnalyticsPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [summary, setSummary] = useState<AdminAnalyticsSummary | null>(null);
   const [recentVisits, setRecentVisits] = useState<AdminRecentVisit[]>([]);

@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -28,7 +28,7 @@ const ratingLabels: Record<number, string> = {
 };
 
 function CustomerFeedbacksPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const initialTabSelectedRef = useRef(false);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);

@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import {
@@ -31,7 +31,7 @@ type HealthSnapshot = {
 };
 
 function AdminSystemHealthPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [health, setHealth] = useState<HealthReport | null>(null);
   const [history, setHistory] = useState<HealthSnapshot[]>(() => {

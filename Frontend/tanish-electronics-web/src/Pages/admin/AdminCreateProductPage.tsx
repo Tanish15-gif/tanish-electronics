@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useEffect,
   useMemo,
@@ -118,7 +118,7 @@ function validateProductImage(file: File | null) {
 
 function AdminCreateProductPage() {
   const navigate = useNavigate();
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [categories, setCategories] = useState<LookUpItem[]>([]);
   const [conditions, setConditions] = useState<LookUpItem[]>([]);

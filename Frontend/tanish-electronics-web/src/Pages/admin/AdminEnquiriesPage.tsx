@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -21,7 +21,7 @@ import type { LookUpItem } from "../../Services/serviceRequestService";
 import { exportEnquiries } from "../../Services/adminExportService";
 
 function AdminEnquiriesPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
   const [searchParams] = useSearchParams();
 
   const selectedEnquiryId = Number(searchParams.get("enquiryId") || 0);

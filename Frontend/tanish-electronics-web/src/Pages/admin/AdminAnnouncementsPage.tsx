@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   useCallback,
   useEffect,
@@ -121,7 +121,7 @@ const emptyForm: AnnouncementForm = {
 };
 
 function AdminAnnouncementsPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
 

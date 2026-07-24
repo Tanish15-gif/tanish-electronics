@@ -1,105 +1,79 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 using TanishElectronics.Api.Constants;
-using TanishElectronics.Api.Data;
 using TanishElectronics.Api.Interfaces.Services;
 
-namespace TanishElectronics.Api.Controllers;
+namespace TanishElectronics.Api.Controllers.Customer;
 
 [ApiController]
 [Authorize(Policy = AppPolicies.CustomerOnly)]
+[EnableRateLimiting(RateLimitPolicies.PublicRead)]
 [Route("customer/announcements")]
 public class CustomerAnnouncementsController : ControllerBase
 {
     private readonly IAnnouncementService _announcementService;
-    private readonly TanishElectronicsDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
     public CustomerAnnouncementsController(
         IAnnouncementService announcementService,
-        TanishElectronicsDbContext context
+        ICurrentUserService currentUserService
     )
     {
         _announcementService = announcementService;
-        _context = context;
+        _currentUserService = currentUserService;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetCustomerAnnouncements
-    (
-        [FromQuery] string location = "CustomerDashboard",
+    public async Task<IActionResult> GetAnnouncements(
+        [FromQuery] string? location,
         [FromQuery] int limit = 6
     )
     {
-        var appUserId = await GetCurrentAppUserIdAsync();
+        var result = await _announcementService.GetCustomerAnnouncementsAsync(
+            string.IsNullOrWhiteSpace(location)
+                ? "CustomerDashboard"
+                : location,
+            limit
+        );
 
-        if (appUserId == null)
-        {
-            throw new UnauthorizedAccessException("User Not Found");
-        }
+        return Ok(result);
+    }
 
-        var result = await _announcementService.GetCustomerAnnouncementsAsync(location, limit);
+    [HttpGet("popup")]
+    public async Task<IActionResult> GetPopupAnnouncement(
+        [FromQuery] string? location
+    )
+    {
+        var appUserId = await _currentUserService
+            .GetRequiredCurrentAppUserIdAsync();
+
+        var result = await _announcementService.GetCustomerPopupAnnouncementAsync(
+            string.IsNullOrWhiteSpace(location)
+                ? "CustomerDashboard"
+                : location,
+            appUserId
+        );
 
         return Ok(result);
     }
 
     [HttpPost("{announcementId:int}/view")]
-    public async Task<IActionResult> MarkAsViewed([FromRoute] int announcementId)
+    public async Task<IActionResult> MarkAsViewed(int announcementId)
     {
-        var appUserId = await GetCurrentAppUserIdAsync();
+        var appUserId = await _currentUserService
+            .GetRequiredCurrentAppUserIdAsync();
 
-        if (appUserId == null)
-        {
-            throw new UnauthorizedAccessException("User Not Found");
-        }
-
-        var saved = await _announcementService.MarkAnnouncementAsViewedAsync(
+        var updated = await _announcementService.MarkAnnouncementAsViewedAsync(
             announcementId,
-            appUserId.Value
+            appUserId
         );
 
-        if (!saved)
+        if (!updated)
         {
-            throw new KeyNotFoundException("Announcement not found.");
+            return NotFound(new { message = "Announcement not found." });
         }
 
         return Ok(new { message = "Announcement marked as viewed." });
-    }
-
-    private async Task<int?> GetCurrentAppUserIdAsync()
-    {
-        var clerkUserId =
-            User.FindFirstValue(ClaimTypes.NameIdentifier) ??
-            User.FindFirstValue("sub");
-
-        if (string.IsNullOrWhiteSpace(clerkUserId))
-        {
-            return null;
-        }
-
-        var appUser = await _context.AppUsers
-            .FirstOrDefaultAsync(user => user.ClerkUserId == clerkUserId);
-
-        return appUser?.AppUserId;
-    }
-    [HttpGet("popup")]
-    public async Task<IActionResult> GetCustomerPopupAnnouncement(
-        [FromQuery] string location = "CustomerDashboard"
-    )
-    {
-        var appUserId = await GetCurrentAppUserIdAsync();
-
-        if (appUserId == null)
-        {
-            throw new UnauthorizedAccessException("User Not Found");
-        }
-
-        var announcement =
-            await _announcementService.GetCustomerPopupAnnouncementAsync(
-                location,
-                appUserId.Value
-            );
-        return Ok(announcement);
     }
 }

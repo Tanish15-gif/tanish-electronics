@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import {
   getAdminProductById,
   getProductCategories,
@@ -28,7 +28,7 @@ type ProductForm = {
 };
 
 function AdminEditProductPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
   const { id } = useParams();
   const navigate = useNavigate();
 

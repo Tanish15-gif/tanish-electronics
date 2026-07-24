@@ -5,21 +5,36 @@ namespace TanishElectronics.Api.Interfaces.Services;
 
 public interface ICustomerProfileRepository
 {
-    Task<AppUser?> GetAppUserByClerkIdAsync(string clerkUserId);
+    Task<CustomerAddressDto> AddAddressAsync(
+        int appUserId,
+        UpsertCustomerAddressDto dto
+    );
+
+    Task DeleteAddressAsync(int appUserId, int addressId);
+
+    Task<List<CustomerAddressDto>> GetAddressessAsync(int appUserId);
+
+    Task<AppUser?> GetAppUserByIdAsync(int appUserId);
+
     Task<Customer?> GetCustomerByAppUserIdAsync(int appUserId);
 
-    Task<CustomerProfileDto?> GetProfileAsync(string clerkUserId);
+    Task<CustomerProfileDto?> GetProfileAsync(int appUserId);
 
-    Task<CustomerProfileDto> UpdateProfileAsync(string clerkUserId, UpdateCustomerProfileDto dto);
+    Task<CustomerAddressDto> SetDefaultAddressAsync(
+        int appUserId,
+        int addressId
+    );
 
-    Task<List<CustomerAddressDto>> GetAddressessAsync(string clerkUserId);
+    Task<CustomerProfileDto> UpdateProfileAsync(
+        int appUserId,
+        UpdateCustomerProfileDto dto
+    );
 
-    Task<CustomerAddressDto> AddAddressAsync(string clerkUserId, UpsertCustomerAddressDto dto);
+    Task<CustomerAddressDto> UpdateAddressAsync(
+        int appUserId,
+        int addressId,
+        UpsertCustomerAddressDto dto
+    );
 
-    Task<CustomerAddressDto> UpdateAddressAsync(string clerkUserId, int addressId, UpsertCustomerAddressDto dto);
-
-    Task<CustomerAddressDto> SetDefaultAddressAsync(string clerkUserId, int addressId);
-
-    Task DeleteAddressAsync(string clerkUserId, int addressId);
     Task SaveChangesAsync();
 }

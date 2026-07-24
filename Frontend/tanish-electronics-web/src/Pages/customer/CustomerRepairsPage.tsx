@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -41,7 +41,7 @@ const repairStatusOptions: DropdownOption<string>[] = [
   }
 ];
 function CustomerRepairsPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
 
   const [dashboard, setDashboard] = useState<CustomerDashboard | null>(null);
   const [loading, setLoading] = useState(true);

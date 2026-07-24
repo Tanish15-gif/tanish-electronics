@@ -13,18 +13,18 @@ public class CustomerDashboardRepository : ICustomerDashboardRepository
         _dbContext = dbContext;
     }
 
-    public async Task<CustomerDashBoardDto?> GetDashBoardAsync(string clerkUserId)
+    public async Task<CustomerDashBoardDto?> GetDashBoardAsync(int appUserId)
     {
         var appUser = await _dbContext.AppUsers
+            .AsNoTracking()
             .FirstOrDefaultAsync(user =>
-                user.ClerkUserId == clerkUserId &&
+                user.AppUserId == appUserId &&
                 user.IsActive &&
                 user.DeletedAt == null);
         if (appUser == null)
         {
             return null;
         }
-        var appUserId = appUser.AppUserId;
         var email = appUser.Email;
         var phoneNumber = appUser.PhoneNumber;
 

@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -8,7 +8,7 @@ const MODAL_DELAY = 8000;
 const excludedPaths = ["/sign-in", "/sign-up", "/customer", "/admin"];
 
 function SignInExperienceModal() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useApiAuth();
   const location = useLocation();
 
   const dialogRef = useRef<HTMLDivElement | null>(null);

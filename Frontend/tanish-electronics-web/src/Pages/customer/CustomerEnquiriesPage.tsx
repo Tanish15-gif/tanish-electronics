@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -31,7 +31,7 @@ const statusOptions: DropdownOption<StatusFilter>[] = statusFilters.map(
 );
 
 function CustomerEnquiriesPage() {
-  const { getToken } = useAuth();
+  const { getToken } = useApiAuth();
   const navigate = useNavigate();
 
   const [dashboard, setDashboard] = useState<CustomerDashboard | null>(null);
