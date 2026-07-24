@@ -15,12 +15,22 @@ public class CurrentUserService : ICurrentUserService
     }
     public async Task<int?> GetCurrentAppUserIdAsync()
     {
+        var user = _httpContextAccessor.HttpContext?.User;
+
+        var nameIdentifier = user?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (int.TryParse(nameIdentifier, out var appUserId))
+        {
+            return appUserId;
+        }
+
         var clerkUserId = GetCurrentClerkUserId();
 
         if (string.IsNullOrWhiteSpace(clerkUserId))
         {
             return null;
         }
+
         return await _repository.GetAppUserIdByClerkIdAsync(clerkUserId);
     }
 
@@ -28,15 +38,24 @@ public class CurrentUserService : ICurrentUserService
     {
         var user = _httpContextAccessor.HttpContext?.User;
 
-        return user?.FindFirstValue(ClaimTypes.NameIdentifier) ??
-               user?.FindFirstValue("sub");
+        var nameIdentifier = user?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (int.TryParse(nameIdentifier, out _))
+        {
+            return null;
+        }
+
+        return nameIdentifier ?? user?.FindFirstValue("sub");
     }
 
     public async Task<int> GetRequiredCurrentAppUserIdAsync()
     {
         var appUserId = await GetCurrentAppUserIdAsync();
 
-        if (appUserId == null) throw new UnauthorizedAccessException("User not found.");
+        if (appUserId == null)
+        {
+            throw new UnauthorizedAccessException("User not found.");
+        }
 
         return appUserId.Value;
     }

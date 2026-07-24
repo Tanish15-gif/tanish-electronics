@@ -55,7 +55,7 @@ public class AuthRepository : IAuthRepository
             .Select(user => new AuthUserDto
             {
                 AppUserId = user.AppUserId,
-                ClerkUserId = user.ClerkUserId,
+                ClerkUserId = user.ClerkUserId!,
                 FullName = user.FullName,
                 Email = user.Email,
                 PhoneNumber = user.PhoneNumber

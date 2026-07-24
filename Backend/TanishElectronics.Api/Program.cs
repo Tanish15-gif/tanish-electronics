@@ -12,7 +12,6 @@ using TanishElectronics.Api.Repositories;
 using TanishElectronics.Api.Services;
 using TanishElectronics.Api.Settings;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
 using TanishElectronics.Api.Constants;
 using TanishElectronics.Api.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -21,6 +20,8 @@ using TanishElectronics.Api.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using TanishElectronics.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +41,37 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
+
+builder.Services.Configure<JwtSettings>(
+    builder.Configuration.GetSection("JwtSettings")
+);
+
+var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
+
+if (jwtSettings == null || string.IsNullOrWhiteSpace(jwtSettings.SecretKey))
+{
+    throw new InvalidOperationException("Jwt settings are missing");
+}
+
+builder.Services.AddAuthentication().AddJwtBearer(AuthSchemes.CustomJwt, options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = jwtSettings.Issuer,
+
+        ValidateAudience = true,
+        ValidAudience = jwtSettings.Audience,
+
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtSettings.SecretKey)
+            ),
+
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.FromMinutes(1)
+    };
+});
 
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -205,16 +237,26 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AppPolicies.AdminOnly, policy =>
     {
+        policy.AuthenticationSchemes.Add(AuthSchemes.ClerkJwt);
+        policy.AuthenticationSchemes.Add(AuthSchemes.CustomJwt);
+
         policy.RequireAuthenticatedUser();
         policy.AddRequirements(new AppRoleRequirement(RoleNames.Admin, RoleNames.Owner));
     });
     options.AddPolicy(AppPolicies.CustomerOnly, policy =>
     {
+
+        policy.AuthenticationSchemes.Add(AuthSchemes.ClerkJwt);
+        policy.AuthenticationSchemes.Add(AuthSchemes.CustomJwt);
+
         policy.RequireAuthenticatedUser();
         policy.AddRequirements(new AppRoleRequirement(RoleNames.Customer));
     });
     options.AddPolicy(AppPolicies.AdminOrCustomer, policy =>
     {
+        policy.AuthenticationSchemes.Add(AuthSchemes.ClerkJwt);
+        policy.AuthenticationSchemes.Add(AuthSchemes.CustomJwt);
+
         policy.RequireAuthenticatedUser();
         policy.AddRequirements(new AppRoleRequirement(RoleNames.Admin, RoleNames.Owner, RoleNames.Customer));
     });
@@ -278,6 +320,12 @@ builder.Services.AddScoped<IShopSettingsService, ShopSettingsService>();
 
 builder.Services.AddScoped<IAdminExportRepository, AdminExportRepository>();
 builder.Services.AddScoped<IAdminExportService, AdminExportService>();
+
+builder.Services.AddScoped<IPasswordHasherService, PasswordHasherService>();
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+
+builder.Services.AddScoped<ICustomAuthRepository, CustomAuthRepository>();
+builder.Services.AddScoped<ICustomAuthService, CustomAuthService>();
 
 builder.Services.AddHostedService<AnnouncementExpiryBackgroundService>();
 
