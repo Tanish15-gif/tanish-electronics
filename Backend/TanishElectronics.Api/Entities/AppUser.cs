@@ -41,6 +41,12 @@ public partial class AppUser
 
     public DateTime? PasswordUpdatedAt { get; set; }
 
+    public string? ProfileImageUrl { get; set; }
+
+    public string? ProfileImageSource { get; set; }
+
+    public DateTime? ProfileImageUpdatedAt { get; set; }
+
     public virtual ICollection<AnnouncementView> AnnouncementViews { get; set; } = new List<AnnouncementView>();
 
     public virtual ICollection<Announcement> Announcements { get; set; } = new List<Announcement>();

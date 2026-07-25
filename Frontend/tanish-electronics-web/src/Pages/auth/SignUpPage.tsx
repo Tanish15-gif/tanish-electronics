@@ -14,6 +14,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
+import GoogleSignInButton from "../GoogleSignInButton";
 
 function SignUpPage() {
   const navigate = useNavigate();
@@ -31,6 +32,9 @@ function SignUpPage() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const authenticationBusy = loading || googleLoading;
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -42,10 +46,21 @@ function SignUpPage() {
     };
   }, []);
 
+  function handleGoogleAuthenticated(roles: string[]) {
+    const normalizedRoles = roles.map((role) => role.toLowerCase());
+
+    const isAdmin =
+      normalizedRoles.includes("admin") || normalizedRoles.includes("owner");
+
+    navigate(isAdmin ? "/admin/dashboard" : "/customer/dashboard", {
+      replace: true
+    });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (loading) {
+    if (authenticationBusy) {
       return;
     }
 
@@ -107,7 +122,10 @@ function SignUpPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main
+      className="te-sheet-bg relative min-h-screen overflow-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]"
+      style={{ fontFamily: "var(--font-ui)" }}
+    >
       {/* Background glow */}
       <div
         className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-30"
@@ -232,7 +250,26 @@ function SignUpPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+                <div className="mt-7">
+                  <GoogleSignInButton
+                    mode="signup"
+                    disabled={authenticationBusy}
+                    onBusyChange={setGoogleLoading}
+                    onAuthenticated={handleGoogleAuthenticated}
+                  />
+                </div>
+
+                <div className="my-6 flex items-center gap-4">
+                  <span className="h-px flex-1 bg-[#d8cdb6] dark:bg-[#302c24]" />
+
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
+                    Or create with email
+                  </span>
+
+                  <span className="h-px flex-1 bg-[#d8cdb6] dark:bg-[#302c24]" />
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
                   {/* Full name */}
                   <label className="block">
                     <span className="mb-2 block text-xs font-bold text-[#4f4638] dark:text-[#d8cdb6]">
@@ -251,7 +288,7 @@ function SignUpPage() {
                         type="text"
                         placeholder="Your full name"
                         autoComplete="name"
-                        disabled={loading}
+                        disabled={authenticationBusy}
                         className="admin-input h-12 pl-11"
                       />
                     </div>
@@ -276,7 +313,7 @@ function SignUpPage() {
                         placeholder="you@example.com"
                         autoComplete="email"
                         inputMode="email"
-                        disabled={loading}
+                        disabled={authenticationBusy}
                         className="admin-input h-12 pl-11"
                       />
                     </div>
@@ -310,7 +347,7 @@ function SignUpPage() {
                         autoComplete="tel"
                         inputMode="numeric"
                         maxLength={15}
-                        disabled={loading}
+                        disabled={authenticationBusy}
                         className="admin-input h-12 pl-11"
                       />
                     </div>
@@ -334,13 +371,13 @@ function SignUpPage() {
                         type={showPassword ? "text" : "password"}
                         placeholder="Minimum 8 characters"
                         autoComplete="new-password"
-                        disabled={loading}
+                        disabled={authenticationBusy}
                         className="admin-input h-12 px-11"
                       />
 
                       <PasswordVisibilityButton
                         visible={showPassword}
-                        disabled={loading}
+                        disabled={authenticationBusy}
                         onClick={() => setShowPassword((current) => !current)}
                       />
                     </div>
@@ -364,13 +401,13 @@ function SignUpPage() {
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Re-enter your password"
                         autoComplete="new-password"
-                        disabled={loading}
+                        disabled={authenticationBusy}
                         className="admin-input h-12 px-11"
                       />
 
                       <PasswordVisibilityButton
                         visible={showConfirmPassword}
-                        disabled={loading}
+                        disabled={authenticationBusy}
                         onClick={() =>
                           setShowConfirmPassword((current) => !current)
                         }
@@ -380,7 +417,7 @@ function SignUpPage() {
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={authenticationBusy}
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-5 text-sm font-bold text-[#f7f5ef] transition hover:bg-[#33291b] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#c9a85f]"
                   >
                     {loading ? (

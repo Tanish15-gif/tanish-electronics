@@ -259,7 +259,7 @@ function HomeAnnouncementStrip() {
   }
 
   return (
-    <section className="bg-[#f7f5ef] px-4 py-9 dark:bg-[#11110f] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+    <section className="bg-transparent px-4 py-9 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
       <style>
         {`
           @keyframes homeAnnouncementProgress {
@@ -641,7 +641,7 @@ function AnnouncementImage({
 
 function AnnouncementStripLoading() {
   return (
-    <section className="bg-[#f7f5ef] px-4 py-9 dark:bg-[#11110f] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+    <section className="bg-transparent px-4 py-9 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
       <div className="mx-auto max-w-7xl">
         <div className="h-3 w-28 animate-pulse rounded bg-[#e8dfcf] dark:bg-[#302c24]" />
 

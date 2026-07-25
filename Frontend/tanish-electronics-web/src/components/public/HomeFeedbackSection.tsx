@@ -26,7 +26,7 @@ function HomeFeedbackSection() {
   }
 
   return (
-    <section className="overflow-hidden bg-[#fffaf0] px-4 py-20 text-[#1f1a12] dark:bg-[#1a1712] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
+    <section className="overflow-hidden bg-transparent px-4 py-20 text-[#1f1a12] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
       <ReviewLoopStyles />
 
       <div className="mx-auto max-w-7xl">
@@ -78,9 +78,6 @@ function DoubleDeckerReviewLoop({
 
   return (
     <div className="relative mt-10">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-20 w-10 bg-gradient-to-r from-[#fffaf0] via-[#fffaf0]/90 to-transparent dark:from-[#1a1712] dark:via-[#1a1712]/90 sm:w-20" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-20 w-10 bg-gradient-to-l from-[#fffaf0] via-[#fffaf0]/90 to-transparent dark:from-[#1a1712] dark:via-[#1a1712]/90 sm:w-20" />
-
       <div className="review-loop-stack space-y-4 sm:space-y-5">
         <ReviewLoopRow
           feedbacks={firstRow}
@@ -266,9 +263,25 @@ function ReviewLoopStyles() {
   return (
     <style>{`
       .review-loop-viewport {
-        width: 100%;
-        overflow: hidden;
-      }
+      width: 100%;
+      overflow: hidden;
+
+      -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 5%,
+      black 95%,
+      transparent
+    );
+
+      mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 5%,
+      black 95%,
+      transparent
+    );
+  }
 
       .review-loop-track {
         display: flex;

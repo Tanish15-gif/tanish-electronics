@@ -254,6 +254,7 @@ public class CustomerProfileRepository : ICustomerProfileRepository
             FullName = customer.FullName,
             Email = customer.Email ?? appUser.Email,
             PhoneNumber = customer.PhoneNumber,
+            ProfileImageUrl = customer.AppUser!.ProfileImageUrl,
             IsProfileCompleted = true,
             Addresses = await GetAddressessAsync(appUser.AppUserId)
         };

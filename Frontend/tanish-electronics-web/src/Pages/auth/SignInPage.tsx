@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   Eye,
@@ -11,6 +11,7 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
+import GoogleSignInButton from "../GoogleSignInButton";
 
 type LocationState = {
   from?: string;
@@ -27,9 +28,14 @@ function SignInPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordLoginBusy, setPasswordLoginBusy] = useState(false);
+  const [googleLoginBusy, setGoogleLoginBusy] = useState(false);
+
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  const authenticationBusy = passwordLoginBusy || googleLoginBusy;
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -40,10 +46,40 @@ function SignInPage() {
     };
   }, []);
 
+  const routeAuthenticatedUser = useCallback(
+    (roles: string[]) => {
+      const normalizedRoles = roles.map((role) => role.toLowerCase());
+
+      const isAdmin =
+        normalizedRoles.includes("admin") || normalizedRoles.includes("owner");
+
+      const requestedRoute = getSafeRequestedRoute(location.state);
+
+      if (requestedRoute) {
+        const requestedAdminRoute = requestedRoute.startsWith("/admin");
+
+        if (requestedAdminRoute && !isAdmin) {
+          navigate("/customer/dashboard", { replace: true });
+          return;
+        }
+
+        navigate(requestedRoute, { replace: true });
+        return;
+      }
+
+      navigate(isAdmin ? "/admin/dashboard" : "/customer/dashboard", {
+        replace: true
+      });
+    },
+    [location.state, navigate]
+  );
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (loading) return;
+    if (authenticationBusy) {
+      return;
+    }
 
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -58,7 +94,7 @@ function SignInPage() {
     }
 
     try {
-      setLoading(true);
+      setPasswordLoginBusy(true);
       setError("");
 
       await login({
@@ -66,52 +102,29 @@ function SignInPage() {
         password
       });
 
-      const requestedRoute = getSafeRequestedRoute(location.state);
-
-      if (requestedRoute) {
-        navigate(requestedRoute, { replace: true });
-        return;
-      }
-
       const storedUser = readStoredAuthUser();
-      const roles = storedUser?.roles ?? [];
-
-      const isAdmin = roles.some((role) =>
-        ["admin", "owner"].includes(role.toLowerCase())
-      );
-
-      navigate(isAdmin ? "/admin/dashboard" : "/customer/dashboard", {
-        replace: true
-      });
+      routeAuthenticatedUser(storedUser?.roles ?? []);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Invalid email or password."
+          : "Email or password is incorrect."
       );
     } finally {
-      setLoading(false);
+      setPasswordLoginBusy(false);
     }
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main
+      className="te-sheet-bg relative min-h-screen overflow-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]"
+      style={{ fontFamily: "var(--font-ui)" }}
+    >
       <div
-        className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-30"
+        className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(circle at 18% 20%, rgb(214 180 106 / 0.22), transparent 28%), radial-gradient(circle at 82% 78%, rgb(111 90 51 / 0.14), transparent 30%)"
-        }}
-      />
-
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08] dark:opacity-[0.05]"
-        style={{
-          backgroundImage:
-            "linear-gradient(#8a6624 1px, transparent 1px), linear-gradient(90deg, #8a6624 1px, transparent 1px)",
-          backgroundSize: "42px 42px",
-          maskImage:
-            "linear-gradient(to bottom, transparent, black 20%, black 80%, transparent)"
+            "radial-gradient(circle at 16% 18%, rgb(214 180 106 / 0.16), transparent 27%), radial-gradient(circle at 84% 80%, rgb(111 90 51 / 0.10), transparent 30%)"
         }}
       />
 
@@ -119,8 +132,8 @@ function SignInPage() {
         <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
           <Link
             to="/"
-            className="flex min-w-0 items-center gap-3"
             aria-label="Go to Tanish Electronics home"
+            className="flex min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/25"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] text-xs font-black text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f]">
               TE
@@ -139,7 +152,7 @@ function SignInPage() {
 
           <Link
             to="/"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0]/80 px-4 text-xs font-bold transition hover:border-[#d6b46a] hover:bg-[#fff4cc] dark:border-[#302c24] dark:bg-[#1a1712]/80 dark:hover:border-[#d6b46a]/50 dark:hover:bg-[#242016] sm:text-sm"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0]/85 px-4 text-xs font-bold shadow-sm backdrop-blur transition hover:border-[#d6b46a] hover:bg-[#fff4cc] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712]/85 dark:hover:border-[#d6b46a]/50 dark:hover:bg-[#242016] sm:text-sm"
           >
             <Home className="h-4 w-4" />
             <span className="hidden sm:inline">Home</span>
@@ -147,16 +160,18 @@ function SignInPage() {
         </header>
 
         <section className="flex flex-1 items-center px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-          <div className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-[0_30px_90px_-40px_rgba(31,26,18,0.45)] dark:border-[#302c24] dark:bg-[#1a1712] lg:grid-cols-[0.9fr_1.1fr]">
-            <aside className="relative hidden overflow-hidden border-r border-[#302c24] bg-[#1f1a12] p-10 text-[#f7f5ef] lg:flex lg:flex-col lg:justify-between xl:p-12">
+          <div className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7]/95 shadow-[0_32px_100px_-46px_rgba(31,26,18,0.5)] backdrop-blur dark:border-[#302c24] dark:bg-[#1a1712]/95 lg:grid-cols-[0.92fr_1.08fr]">
+            <aside className="relative hidden min-h-[670px] overflow-hidden border-r border-[#302c24] bg-[#1f1a12] p-10 text-[#f7f5ef] lg:flex lg:flex-col lg:justify-between xl:p-12">
               <div
                 className="pointer-events-none absolute inset-0 opacity-[0.07]"
                 style={{
                   backgroundImage:
                     "linear-gradient(#d6b46a 1px, transparent 1px), linear-gradient(90deg, #d6b46a 1px, transparent 1px)",
-                  backgroundSize: "36px 36px"
+                  backgroundSize: "38px 38px"
                 }}
               />
+
+              <div className="pointer-events-none absolute -right-24 top-8 h-72 w-72 rounded-full bg-[#d6b46a]/10 blur-3xl" />
 
               <div className="relative">
                 <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#d6b46a]/30 bg-[#d6b46a]/10 text-[#d6b46a]">
@@ -167,26 +182,28 @@ function SignInPage() {
                   Secure account access
                 </p>
 
-                <h1 className="font-display mt-4 max-w-sm text-4xl font-semibold leading-tight xl:text-5xl">
-                  Your repairs, updates and service history in one place.
+                <h1 className="font-display mt-4 max-w-md text-4xl font-semibold leading-[1.08] xl:text-5xl">
+                  Your repairs and service history, securely connected.
                 </h1>
 
                 <p className="mt-5 max-w-md text-sm font-medium leading-7 text-[#c8bead]">
-                  Sign in to track active repairs, manage your profile and
-                  access the correct dashboard for your account.
+                  Sign in once to manage bookings, monitor repair progress and
+                  open the correct workspace for your account.
                 </p>
               </div>
 
-              <div className="relative mt-12 rounded-2xl border border-[#d6b46a]/20 bg-[#1a1712]/80 p-5">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#d6b46a]/10 text-[#d6b46a]">
+              <div className="relative mt-12 rounded-2xl border border-[#d6b46a]/20 bg-[#1a1712]/85 p-5 backdrop-blur">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#d6b46a]/10 text-[#d6b46a]">
                     <LockKeyhole className="h-4 w-4" />
                   </span>
 
                   <div>
-                    <p className="text-sm font-bold">Protected sign-in</p>
-                    <p className="mt-1 text-xs font-medium text-[#a8a093]">
-                      Customer and admin access are routed automatically.
+                    <p className="text-sm font-bold">Protected access</p>
+
+                    <p className="mt-1 text-xs font-medium leading-5 text-[#a8a093]">
+                      Google credentials are exchanged with the Tanish
+                      Electronics API before access is granted.
                     </p>
                   </div>
                 </div>
@@ -210,7 +227,7 @@ function SignInPage() {
                 </h2>
 
                 <p className="mt-4 text-sm font-medium leading-6 text-[#6f6758] dark:text-[#a8a093]">
-                  Enter your account details to continue.
+                  Continue securely with Google or your email and password.
                 </p>
 
                 {error && (
@@ -222,7 +239,23 @@ function SignInPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+                <div className="mt-7">
+                  <GoogleSignInButton
+                    disabled={passwordLoginBusy}
+                    onBusyChange={setGoogleLoginBusy}
+                    onAuthenticated={routeAuthenticatedUser}
+                  />
+                </div>
+
+                <div className="my-6 flex items-center gap-4">
+                  <span className="h-px flex-1 bg-[#d8cdb6] dark:bg-[#302c24]" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
+                    Or use email
+                  </span>
+                  <span className="h-px flex-1 bg-[#d8cdb6] dark:bg-[#302c24]" />
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
                   <label className="block">
                     <span className="mb-2 block text-xs font-bold text-[#4f4638] dark:text-[#d8cdb6]">
                       Email address
@@ -233,12 +266,16 @@ function SignInPage() {
 
                       <input
                         value={email}
-                        onChange={(event) => setEmail(event.target.value)}
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                          setError("");
+                        }}
                         type="email"
                         placeholder="you@example.com"
                         autoComplete="email"
                         inputMode="email"
-                        disabled={loading}
+                        disabled={authenticationBusy}
+                        required
                         className="admin-input h-12 pl-11"
                       />
                     </div>
@@ -254,18 +291,22 @@ function SignInPage() {
 
                       <input
                         value={password}
-                        onChange={(event) => setPassword(event.target.value)}
+                        onChange={(event) => {
+                          setPassword(event.target.value);
+                          setError("");
+                        }}
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         autoComplete="current-password"
-                        disabled={loading}
+                        disabled={authenticationBusy}
+                        required
                         className="admin-input h-12 px-11"
                       />
 
                       <button
                         type="button"
                         onClick={() => setShowPassword((current) => !current)}
-                        disabled={loading}
+                        disabled={authenticationBusy}
                         aria-label={
                           showPassword ? "Hide password" : "Show password"
                         }
@@ -282,16 +323,17 @@ function SignInPage() {
 
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-5 text-sm font-bold text-[#f7f5ef] transition hover:bg-[#33291b] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#c9a85f]"
+                    disabled={authenticationBusy}
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-5 text-sm font-bold text-[#f7f5ef] shadow-sm transition hover:bg-[#33291b] hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/25 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#c9a85f]"
                   >
-                    {loading ? (
+                    {passwordLoginBusy ? (
                       <>
                         <span className="h-4 w-4 animate-spin-fast rounded-full border-2 border-current border-t-transparent" />
+                        Signing in...
                       </>
                     ) : (
                       <>
-                        Sign in
+                        Sign in securely
                         <ArrowRight className="h-4 w-4" />
                       </>
                     )}
@@ -311,8 +353,8 @@ function SignInPage() {
                 </div>
 
                 <p className="mt-6 text-center text-[11px] font-medium leading-5 text-[#817867] dark:text-[#928a7d]">
-                  Admin and customer access is selected automatically after
-                  authentication.
+                  Your role is checked after authentication, then you are sent
+                  to the appropriate dashboard.
                 </p>
               </div>
             </div>
@@ -329,14 +371,12 @@ function SignInPage() {
             >
               Products
             </Link>
-
             <Link
               to="/book-repair"
               className="transition hover:text-[#8a6624] dark:hover:text-[#d6b46a]"
             >
               Book repair
             </Link>
-
             <Link
               to="/track-request"
               className="transition hover:text-[#8a6624] dark:hover:text-[#d6b46a]"
@@ -375,7 +415,6 @@ function readStoredAuthUser(): StoredAuthUser | null {
     }
 
     const parsedUser = JSON.parse(storedUserRaw) as StoredAuthUser;
-
     return Array.isArray(parsedUser.roles) ? parsedUser : null;
   } catch {
     return null;

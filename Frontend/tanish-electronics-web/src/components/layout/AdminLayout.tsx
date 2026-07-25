@@ -17,13 +17,14 @@ import {
   useNavigate
 } from "react-router-dom";
 
-import ThemeToggle from "../UI/ThemeToggle";
 import AdminNotificationBell from "../../Pages/admin/AdminNotificationBell";
 
 import {
   getAdminNotifications,
   type AdminNotification
 } from "../../Services/adminNotificationService";
+
+import UserAccountMenu from "../customer/UserAccountMenu";
 
 function AdminLayout() {
   const { isLoaded, isSignedIn, getToken } = useApiAuth();
@@ -151,7 +152,7 @@ function AdminLayout() {
 
   const displayEmail = user?.email || "Owner account";
 
-  const profileImageUrl = null;
+  const profileImageUrl = user?.profileImageUrl ?? null;
 
   const pageTitle = getAdminPageTitle(location.pathname);
 
@@ -280,62 +281,26 @@ function AdminLayout() {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <Link
-                to="/"
-                className="hidden h-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-4 text-xs font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016] sm:inline-flex"
-              >
-                Public Site
-              </Link>
-
               <AdminNotificationBell />
 
               <Link
                 to="/admin/settings"
-                aria-label="Open settings"
-                title="Settings"
+                aria-label="Open shop settings"
+                title="Shop settings"
                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
               >
                 <SettingsIcon />
               </Link>
 
-              <ThemeToggle />
-
-              <div className="flex h-10 w-10 items-center justify-center"></div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                aria-label="Sign out"
-                title="Sign out"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  className="h-5 w-5"
-                >
-                  <path
-                    d="M10 6H6v12h4"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M14 8l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M18 12H9"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
+              <UserAccountMenu
+                displayName={displayName}
+                email={displayEmail}
+                imageUrl={profileImageUrl}
+                manageAccountTo="/admin/account"
+                securityTo="/admin/account?section=security"
+                accountLabel="Administrator account"
+                onLogout={handleLogout}
+              />
 
               <button
                 type="button"

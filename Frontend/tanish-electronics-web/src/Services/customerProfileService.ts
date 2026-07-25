@@ -14,6 +14,7 @@ export type CustomerProfile = {
   appUserId: number;
   customerId?: number | null;
   fullName: string;
+  profileImageUrl?: string | null;
   email: string;
   phoneNumber?: string | null;
   isProfileCompleted: boolean;

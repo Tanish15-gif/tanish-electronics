@@ -173,6 +173,8 @@ public partial class TanishElectronicsDbContext : DbContext
             entity.Property(e => e.NormalizedEmail).HasMaxLength(150);
             entity.Property(e => e.PasswordHash).HasMaxLength(500);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+            entity.Property(e => e.ProfileImageSource).HasMaxLength(30);
+            entity.Property(e => e.ProfileImageUrl).HasMaxLength(2048);
         });
 
         modelBuilder.Entity<AppUserRole>(entity =>

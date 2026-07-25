@@ -58,6 +58,7 @@ public class JwtTokenService : IJwtTokenService
                 AppUserId = user.AppUserId,
                 FullName = user.FullName,
                 Email = user.Email,
+                ProfileImageUrl = user.ProfileImageUrl,
                 PhoneNumber = user.PhoneNumber,
                 EmailConfirmed = user.EmailConfirmed,
                 Roles = roles

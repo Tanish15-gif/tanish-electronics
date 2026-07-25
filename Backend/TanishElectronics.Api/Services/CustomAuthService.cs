@@ -1,3 +1,4 @@
+using Google.Apis.Auth;
 using Microsoft.Extensions.Options;
 using TanishElectronics.Api.Constants;
 using TanishElectronics.Api.DTOs.Auth.Custom;
@@ -16,13 +17,15 @@ public class CustomAuthService : ICustomAuthService
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly JwtSettings _jwtSettings;
+    private readonly GoogleAuthSettings _googleAuthSettings;
     public CustomAuthService
     (
         ICustomAuthRepository authRepository,
         IPasswordHasherService hasherService,
         IJwtTokenService jwtTokenService,
         IHttpContextAccessor httpContextAccessor,
-        IOptions<JwtSettings> jwtOptions
+        IOptions<JwtSettings> jwtOptions,
+        IOptions<GoogleAuthSettings> googleAuthSettings
     )
     {
         _authRepository = authRepository;
@@ -30,6 +33,7 @@ public class CustomAuthService : ICustomAuthService
         _jwtTokenService = jwtTokenService;
         _httpContextAccessor = httpContextAccessor;
         _jwtSettings = jwtOptions.Value;
+        _googleAuthSettings = googleAuthSettings.Value;
     }
 
     #region  Register & Login Service
@@ -322,6 +326,173 @@ public class CustomAuthService : ICustomAuthService
     }
     #endregion 
 
+
+    #region Google Auth
+
+    public async Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.IdToken))
+        {
+            throw new UnauthorizedAccessException("Google token is required");
+        }
+        if (string.IsNullOrWhiteSpace(_googleAuthSettings.ClientId))
+        {
+            throw new UnauthorizedAccessException("google client id is missing");
+        }
+
+        GoogleJsonWebSignature.Payload payload;
+
+        try
+        {
+            payload = await GoogleJsonWebSignature.ValidateAsync(
+                dto.IdToken,
+                new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { _googleAuthSettings.ClientId }
+                }
+            );
+        }
+        catch
+        {
+            await LogAuthEventAsync(
+                null,
+                null,
+                AuthEventType.LoginFailed,
+                false,
+                "Invalid Google Token."
+            );
+            throw new UnauthorizedAccessException("Invalid Google Token");
+        }
+        if (string.IsNullOrWhiteSpace(payload.Email))
+        {
+            throw new UnauthorizedAccessException("Google account email was not found.");
+        }
+
+        if (!payload.EmailVerified)
+        {
+            throw new UnauthorizedAccessException("Google email is not verified.");
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.Subject))
+        {
+            throw new UnauthorizedAccessException("Google account identifier was not found.");
+        }
+
+        var provider = ExternalLoginProvider.Google.ToString();
+        var providerUserId = payload.Subject.Trim();
+        var normalizedEmail = NormalizeEmail(payload.Email);
+
+        var externalLogin = await _authRepository.GetExternalLoginAsync(provider, providerUserId);
+
+        AppUser? user = externalLogin?.AppUser;
+
+        var userWasCreated = false;
+
+        if (user == null)
+        {
+            user = await _authRepository.GetUserByNormalizedEmailAsync(normalizedEmail);
+
+            if (user == null)
+            {
+                var hasGooglePicture = !string.IsNullOrWhiteSpace(payload.Picture);
+
+                user = new AppUser
+                {
+                    ClerkUserId = null,
+
+                    FullName = string.IsNullOrWhiteSpace(payload.Name)
+                        ? payload.Email.Trim()
+                        : payload.Name.Trim(),
+
+                    Email = payload.Email.Trim(),
+                    NormalizedEmail = normalizedEmail,
+                    PhoneNumber = null,
+                    PasswordHash = null,
+
+                    EmailConfirmed = true,
+                    IsActive = true,
+                    AccessFailedCount = 0,
+
+                    ProfileImageUrl = hasGooglePicture
+                        ? payload.Picture : null,
+
+                    ProfileImageSource = hasGooglePicture
+                        ? provider : null,
+
+                    ProfileImageUpdatedAt = hasGooglePicture
+                        ? DateTime.UtcNow
+                        : null,
+
+                    CreatedAt = DateTime.UtcNow,
+                    LastLoginAt = DateTime.UtcNow,
+                    LastSeenAt = DateTime.UtcNow
+                };
+
+                await _authRepository.CreateUserAsync(user);
+
+                await _authRepository.AssignRoleAsync(user.AppUserId, RoleNames.Customer);
+
+                await _authRepository.CreateCustomerProfileIfMissingAsync(user);
+
+                userWasCreated = true;
+
+                await LogAuthEventAsync(
+                    user.AppUserId,
+                    user.Email,
+                    AuthEventType.RegisterSucceeded,
+                    true,
+                    "User registered with Google."
+                );
+            }
+            else
+            {
+                EnsureUserIsActive(user);
+            }
+
+            // Existing User update profile and all.
+
+            if (!userWasCreated)
+            {
+                user.EmailConfirmed = true;
+                user.LastLoginAt = DateTime.UtcNow;
+                user.LastSeenAt = DateTime.UtcNow;
+
+                var canUseGoogleAvatar = string.IsNullOrWhiteSpace(user.ProfileImageUrl) ||
+                    string.Equals(
+                        user.ProfileImageSource,
+                        provider,
+                        StringComparison.OrdinalIgnoreCase
+                    );
+
+                if (canUseGoogleAvatar && !string.IsNullOrWhiteSpace(payload.Picture))
+                {
+                    user.ProfileImageUrl = payload.Picture;
+                    user.ProfileImageSource = provider;
+                    user.ProfileImageUpdatedAt = DateTime.UtcNow;
+                }
+                await _authRepository.UpdateUserAsync(user);
+            }
+
+        }
+        var roles = await _authRepository.GetUserRolesAsync(user.AppUserId);
+
+        var refreshToken = _jwtTokenService.GenerateRefreshToken();
+
+        await SaveRefreshTokenAsync(user.AppUserId, refreshToken);
+
+        await LogAuthEventAsync(
+            user.AppUserId,
+            user.Email,
+            AuthEventType.LoginSucceeded,
+            true,
+            "User logged in with Google."
+        );
+
+        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken);
+    }
+
+    #endregion
+
     private async Task SaveRefreshTokenAsync(int appUserId, string refreshToken)
     {
         var tokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
@@ -337,6 +508,14 @@ public class CustomAuthService : ICustomAuthService
         };
 
         await _authRepository.AddRefreshTokenAsync(refreshTokenEntity);
+    }
+
+    private static void EnsureUserIsActive(AppUser appUser)
+    {
+        if (!appUser.IsActive || appUser.DeletedAt != null)
+        {
+            throw new UnauthorizedAccessException("Account is Inactive");
+        }
     }
 
     private async Task LogAuthEventAsync(

@@ -15,8 +15,6 @@ import {
   useLocation,
   useNavigate
 } from "react-router-dom";
-
-import ThemeToggle from "../UI/ThemeToggle";
 import CustomerNotificationBell from "../../Pages/customer/CustomerNotificationBell";
 
 import {
@@ -30,6 +28,7 @@ import {
   type CustomerNotification
 } from "../../Services/customerNotificationService";
 import { useApiAuth } from "../../hooks/useApiAuth";
+import UserAccountMenu from "../customer/UserAccountMenu";
 
 function CustomerLayout() {
   const { isLoaded, isSignedIn, getToken } = useApiAuth();
@@ -196,7 +195,8 @@ function CustomerLayout() {
 
   const displayEmail = profile?.email || user?.email || "Signed-in customer";
 
-  const profileImageUrl = null;
+  const profileImageUrl =
+    profile?.profileImageUrl ?? user?.profileImageUrl ?? null;
 
   function closeMenu() {
     setMenuOpen(false);
@@ -256,10 +256,6 @@ function CustomerLayout() {
 
             <CustomerNavLink to="/customer/enquiries" icon={<EnquiriesIcon />}>
               My Enquiries
-            </CustomerNavLink>
-
-            <CustomerNavLink to="/customer/profile" icon={<ProfileIcon />}>
-              My Profile
             </CustomerNavLink>
 
             <CustomerNavLink to="/products" icon={<ProductsIcon />}>
@@ -344,52 +340,14 @@ function CustomerLayout() {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <Link
-                to="/"
-                className="hidden h-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-4 text-xs font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016] sm:inline-flex"
-              >
-                Public Site
-              </Link>
-
               <CustomerNotificationBell />
 
-              <ThemeToggle />
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                aria-label="Sign out"
-                title="Sign out"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  className="h-5 w-5"
-                >
-                  <path
-                    d="M10 6H6v12h4"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M14 8l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M18 12H9"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
+              <UserAccountMenu
+                displayName={displayName}
+                email={displayEmail}
+                imageUrl={profileImageUrl}
+                onLogout={handleLogout}
+              />
 
               <button
                 type="button"
@@ -558,14 +516,6 @@ function CustomerMobileDrawer({
               </CustomerMobileNavLink>
 
               <CustomerMobileNavLink
-                to="/customer/profile"
-                icon={<ProfileIcon />}
-                onClick={onClose}
-              >
-                My Profile
-              </CustomerMobileNavLink>
-
-              <CustomerMobileNavLink
                 to="/products"
                 icon={<ProductsIcon />}
                 onClick={onClose}
@@ -690,18 +640,28 @@ function ProfileAvatar({
   name: string;
   size: "small";
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
+
   const className =
     size === "small" ? "h-11 w-11 rounded-xl" : "h-11 w-11 rounded-xl";
+
+  const showImage = Boolean(imageUrl?.trim()) && !imageFailed;
 
   return (
     <span
       className={`flex shrink-0 items-center justify-center overflow-hidden bg-[#1f1a12] text-xs font-black text-[#f7f5ef] dark:bg-[#e8e3d8] dark:text-[#11110f] ${className}`}
     >
-      {imageUrl ? (
+      {showImage ? (
         <img
-          src={imageUrl}
+          src={imageUrl!}
           alt={`${name} profile`}
           className="h-full w-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={() => setImageFailed(true)}
         />
       ) : (
         getInitials(name)
@@ -930,21 +890,6 @@ function DashboardIcon() {
         rx="1"
         stroke="currentColor"
         strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function ProfileIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
-      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
-
-      <path
-        d="M5 21a7 7 0 0 1 14 0"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
       />
     </svg>
   );

@@ -16,6 +16,24 @@
   --scrollbar-track: #ebe5d8;
   --scrollbar-thumb: #b99a58;
   --scrollbar-thumb-hover: #9f7f3f;
+
+  --sheet-line-light: rgb(138 102 36 / 0.11);
+  --sheet-line-dark: rgb(214 180 106 / 0.09);
+}
+
+.te-sheet-bg {
+  background-color: var(--warm-bg-light);
+  background-image:
+    linear-gradient(var(--sheet-line-light) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sheet-line-light) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.dark .te-sheet-bg {
+  background-color: var(--warm-bg-dark);
+  background-image:
+    linear-gradient(var(--sheet-line-dark) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sheet-line-dark) 1px, transparent 1px);
 }
 
 html,

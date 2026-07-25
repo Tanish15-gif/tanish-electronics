@@ -11,6 +11,8 @@ public class CustomerProfileDto
 
     public string? PhoneNumber { get; set; }
 
+    public string? ProfileImageUrl { get; set; }
+
     public bool IsProfileCompleted { get; set; }
     public List<CustomerAddressDto> Addresses { get; set; } = new();
 }

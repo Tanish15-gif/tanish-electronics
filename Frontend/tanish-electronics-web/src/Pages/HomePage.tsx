@@ -152,11 +152,11 @@ function HomePage() {
   }, []);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main className="te-sheet-bg min-h-screen text-[#1f1a12] dark:text-[#e8e3d8]">
       <HomeAnnouncementPopup />
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-[#d8cdb6] bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#11110f]">
+      <section className="relative overflow-hidden border-b border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
         <div
           aria-hidden="true"
           className="home-orb pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-[#d6b46a]/15 blur-3xl dark:bg-[#d6b46a]/8"
@@ -235,7 +235,7 @@ function HomePage() {
       <HomeAnnouncementStrip />
 
       {/* Trust strip */}
-      <section className="border-b border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]">
+      <section className="border-b border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
         <div className="mx-auto grid max-w-7xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-4 lg:px-8">
           {trustItems.map((item, index) => (
             <Reveal key={item.label} delay={index * 70} className="h-full">
@@ -279,7 +279,7 @@ function HomePage() {
       </section>
 
       {/* About and benefits */}
-      <section className="border-y border-[#d8cdb6] bg-[#fffaf0] dark:border-[#302c24] dark:bg-[#1a1712]">
+      <section className="border-y border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:px-8 lg:py-20">
           <Reveal>
             <article className="h-full rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-sm dark:border-[#302c24] dark:bg-[#11110f] sm:p-8">
@@ -402,7 +402,7 @@ function HomePage() {
       <HomeFeedbackSection />
 
       {/* Products */}
-      <section className="border-y border-[#d8cdb6] bg-[#fffaf0] dark:border-[#302c24] dark:bg-[#1a1712]">
+      <section className="border-y border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:px-8 lg:py-20">
           <Reveal>
             <div>

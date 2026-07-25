@@ -78,6 +78,9 @@ function CustomerProfilePage() {
 
   const [success, setSuccess] = useState("");
 
+  const profileImageUrl =
+    profile?.profileImageUrl ?? user?.profileImageUrl ?? null;
+
   const applyProfile = useCallback((data: CustomerProfile) => {
     setProfile(data);
     setFullName(data.fullName ?? "");
@@ -538,7 +541,7 @@ function CustomerProfilePage() {
           <div className="-mt-10 flex flex-col gap-5 sm:-mt-12 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex min-w-0 items-end gap-4">
               <ProfileAvatar
-                imageUrl={null}
+                imageUrl={profileImageUrl}
                 name={displayName}
                 initials={initials}
               />
@@ -881,13 +884,23 @@ function ProfileAvatar({
   name: string;
   initials: string;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
+
+  const showImage = Boolean(imageUrl?.trim()) && !imageFailed;
+
   return (
     <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] border-4 border-[#fffdf7] bg-[#1f1a12] text-xl font-black text-[#f7f5ef] shadow-lg dark:border-[#1a1712] dark:bg-[#e8e3d8] dark:text-[#11110f] sm:h-24 sm:w-24">
-      {imageUrl ? (
+      {showImage ? (
         <img
-          src={imageUrl}
+          src={imageUrl!}
           alt={`${name} profile`}
           className="h-full w-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={() => setImageFailed(true)}
         />
       ) : (
         <span>{initials}</span>
@@ -895,7 +908,6 @@ function ProfileAvatar({
     </div>
   );
 }
-
 function ProfileStatusBadge({ completed }: { completed: boolean }) {
   return (
     <span

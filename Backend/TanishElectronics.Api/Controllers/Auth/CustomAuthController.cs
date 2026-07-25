@@ -46,4 +46,11 @@ public class CustomAuthController : ControllerBase
 
         return Ok(new { message = "Logged out successfully." });
     }
+    [HttpPost("google")]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto dto)
+    {
+        var result = await _authService.GoogleLoginAsync(dto);
+
+        return Ok(result);
+    }
 }

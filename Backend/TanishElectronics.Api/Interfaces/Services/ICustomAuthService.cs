@@ -10,5 +10,7 @@ public interface ICustomAuthService
 
     Task<AuthResponseDto> RefreshAsync(RefreshTokenRequestDto dto);
 
+    Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginRequestDto dto);
+
     Task LogoutAsync(LogoutRequestDto dto);
 }

@@ -10,6 +10,7 @@ export type AuthUser = {
   email: string;
   phoneNumber?: string | null;
   emailConfirmed: boolean;
+  profileImageUrl: string | null;
   roles: string[];
 };
 
@@ -137,4 +138,17 @@ export function userHasRole(user: AuthUser | null, role: string) {
 
 export function userHasAnyRole(user: AuthUser | null, roles: string[]) {
   return roles.some((role) => userHasRole(user, role));
+}
+export async function googleLogin(idToken: string) {
+  const response = await apiClient<AuthResponse>("/auth/custom/google", {
+    method: "POST",
+    body: JSON.stringify({
+      idToken
+    }),
+    skipAuthRefresh: true
+  });
+
+  saveAuthSession(response);
+
+  return response;
 }

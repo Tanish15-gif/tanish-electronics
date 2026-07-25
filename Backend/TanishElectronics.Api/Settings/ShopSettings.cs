@@ -22,12 +22,8 @@ public class ShopSettings
 
     public int LocalServiceRadiusKm { get; set; }
     public string HomeVisitMessage { get; set; } = string.Empty;
-
     public int MaxPublicAnnouncementLimit { get; set; }
-
     public int DefaultPublicAnnouncementLimit { get; set; }
-
     public int LowStockThreshold { get; set; }
-
     public int MaxUploadImageSizeMb { get; set; }
 }

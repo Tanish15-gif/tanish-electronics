@@ -24,4 +24,8 @@ public interface ICustomAuthRepository
     Task RevokeRefreshTokenAsync(RefreshToken refreshToken, string? revokedByIp, string replacedByTokenHash = null!);
 
     Task CreateCustomerProfileIfMissingAsync(AppUser appUser);
+
+    Task<ExternalLogin?> GetExternalLoginAsync(string provider, string providerUserId);
+
+    Task AddExternalLoginAsync(ExternalLogin externalLogin);
 }

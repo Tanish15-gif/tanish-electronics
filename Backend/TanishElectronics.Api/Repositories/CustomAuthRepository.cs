@@ -89,7 +89,7 @@ public class CustomAuthRepository : ICustomAuthRepository
 
     public async Task UpdateUserAsync(AppUser user)
     {
-        user.CreatedAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
 
         _dbContext.AppUsers.Update(user);
 
@@ -142,6 +142,24 @@ public class CustomAuthRepository : ICustomAuthRepository
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         });
+
+        await _dbContext.SaveChangesAsync();
+    }
+
+    public async Task<ExternalLogin?> GetExternalLoginAsync(string provider, string providerUserId)
+    {
+        return await _dbContext.ExternalLogins
+            .Include(externalLogin => externalLogin.AppUser)
+                .ThenInclude(user => user.AppUserRoles)
+                    .ThenInclude(userRole => userRole.Role)
+            .FirstOrDefaultAsync(externalLogin =>
+                externalLogin.Provider == provider &&
+                externalLogin.ProviderUserId == providerUserId);
+    }
+
+    public async Task AddExternalLoginAsync(ExternalLogin externalLogin)
+    {
+        _dbContext.ExternalLogins.Add(externalLogin);
 
         await _dbContext.SaveChangesAsync();
     }

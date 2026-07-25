@@ -4,6 +4,8 @@ const ACCESS_TOKEN_KEY = "te_access_token";
 const REFRESH_TOKEN_KEY = "te_refresh_token";
 const AUTH_USER_KEY = "te_auth_user";
 
+let refreshRequest: Promise<string | null> | null = null;
+
 type ApiClientOptions = RequestInit & {
   authToken?: string | null;
   skipAuthRefresh?: boolean;
@@ -44,6 +46,20 @@ function clearAuthStorage() {
 }
 
 async function refreshAccessToken() {
+  if (refreshRequest) {
+    return refreshRequest;
+  }
+
+  refreshRequest = refreshAccessTokenInternal();
+
+  try {
+    return await refreshRequest;
+  } finally {
+    refreshRequest = null;
+  }
+}
+
+async function refreshAccessTokenInternal() {
   const refreshToken = getStoredRefreshToken();
 
   if (!refreshToken) {
