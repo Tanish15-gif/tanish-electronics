@@ -126,6 +126,40 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddOptions<EmailSettings>()
+    .Bind(
+        builder.Configuration.GetSection(
+            EmailSettings.SectionName
+        )
+    )
+    .Validate(
+        settings =>
+            !string.IsNullOrWhiteSpace(settings.Host) &&
+            settings.Port > 0 &&
+            !string.IsNullOrWhiteSpace(settings.Username) &&
+            !string.IsNullOrWhiteSpace(settings.Password) &&
+            !string.IsNullOrWhiteSpace(settings.FromEmail),
+        "Email configuration is incomplete."
+    )
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<OtpSettings>()
+    .Bind(
+        builder.Configuration.GetSection(
+            OtpSettings.SectionName
+        )
+    )
+    .Validate(
+        settings =>
+            settings.ExpiryMinutes > 0 &&
+            settings.ResendCooldownSeconds > 0 &&
+            settings.MaxAttempts > 0 &&
+            !string.IsNullOrWhiteSpace(settings.HashKey),
+        "OTP configuration is incomplete."
+    )
+    .ValidateOnStart();
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -314,6 +348,8 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<ICustomAuthRepository, CustomAuthRepository>();
 builder.Services.AddScoped<ICustomAuthService, CustomAuthService>();
 
+builder.Services.AddScoped<IEmailService, MailKitEmailService>();
+
 builder.Services.AddHostedService<AnnouncementExpiryBackgroundService>();
 
 builder.Services.AddScoped<IProductCreatedAnnouncementHandler, ProductCreatedAnnouncementHandler>();
@@ -323,6 +359,9 @@ builder.Services.AddScoped<IAnnouncementRealtimeNotifier, AnnouncementRealtimeNo
 builder.Services.AddSingleton<IAppMemoryCacheService, AppMemoryCacheService>();
 
 builder.Services.AddScoped<IPublicOutputCacheInvalidator, PublicOutputCacheInvalidator>();
+
+builder.Services.AddSingleton<IOtpSecurityService, OtpSecurityService>();
+builder.Services.AddSingleton<IPasswordResetTokenService, PasswordResetTokenService>();
 
 
 builder.Services.AddSingleton<PublicCustomerNameFormatter>(

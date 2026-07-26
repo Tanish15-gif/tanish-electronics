@@ -505,8 +505,8 @@ function BookRepairPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-clip bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-      <section className="border-b border-[#d8cdb6] bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#11110f]">
+    <main className="te-sheet-bg min-h-screen overflow-x-clip bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+      <section className="te-sheet-bg border-b border-[#d8cdb6] bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#11110f]">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>

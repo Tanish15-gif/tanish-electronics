@@ -139,7 +139,7 @@ function TrackRequestPage() {
   return (
     <main className="te-sheet-bg min-h-screen text-[#1f1a12] dark:text-[#e8e3d8]">
       {/* Compact page heading */}
-      <section className="border-b border-[#d8cdb6] bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#11110f]">
+      <section className="te-sheet-bg border-b border-[#d8cdb6] bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#11110f]">
         <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-11 lg:px-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>

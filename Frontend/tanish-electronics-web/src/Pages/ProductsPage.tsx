@@ -179,7 +179,7 @@ function ProductsPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
         {/* Compact page header */}
         <header className="rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] px-5 py-6 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:px-7 sm:py-7">

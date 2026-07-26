@@ -42,6 +42,8 @@ public partial class TanishElectronicsDbContext : DbContext
 
     public virtual DbSet<OtpCode> OtpCodes { get; set; }
 
+    public virtual DbSet<PasswordResetSession> PasswordResetSessions { get; set; }
+
     public virtual DbSet<Product> Products { get; set; }
 
     public virtual DbSet<ProductCategory> ProductCategories { get; set; }
@@ -393,6 +395,24 @@ public partial class TanishElectronicsDbContext : DbContext
             entity.HasOne(d => d.AppUser).WithMany(p => p.OtpCodes)
                 .HasForeignKey(d => d.AppUserId)
                 .HasConstraintName("FK_OtpCodes_AppUsers");
+        });
+
+        modelBuilder.Entity<PasswordResetSession>(entity =>
+        {
+            entity.HasKey(e => e.PasswordResetSessionId).HasName("PK__Password__6F719DD56034C09F");
+
+            entity.HasIndex(e => e.AppUserId, "IX_PasswordResetSessions_AppUserId");
+
+            entity.HasIndex(e => e.TokenHash, "UX_PasswordResetSessions_TokenHash").IsUnique();
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())", "DF_PasswordResetSessions_CreatedAt");
+            entity.Property(e => e.CreatedByIp).HasMaxLength(64);
+            entity.Property(e => e.TokenHash).HasMaxLength(200);
+
+            entity.HasOne(d => d.AppUser).WithMany(p => p.PasswordResetSessions)
+                .HasForeignKey(d => d.AppUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PasswordResetSessions_AppUsers");
         });
 
         modelBuilder.Entity<Product>(entity =>

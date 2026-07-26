@@ -13,4 +13,10 @@ public interface ICustomAuthService
     Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginRequestDto dto);
 
     Task LogoutAsync(LogoutRequestDto dto);
+
+    Task RequestForgotPasswordOtpAsync(ForgotPasswordRequestDto dto);
+
+    Task<VerifyForgotPasswordOtpResponseDto> VerifyForgotPasswordOtpAsync(VerifyForgotPasswordOtpRequestDto dto);
+
+    Task ResetPasswordAsync(ResetPasswordRequestDto dto);
 }

@@ -290,9 +290,7 @@ function GoogleSignInButton({
             <span className="h-4 w-4 animate-spin-fast rounded-full border-2 border-[#8a6624] border-t-transparent dark:border-[#d6b46a] dark:border-t-transparent" />
 
             <span className="ml-2 text-xs font-bold text-[#6f6758] dark:text-[#a8a093]">
-              {mode === "signup"
-                ? "Creating your account…"
-                : "Verifying securely…"}
+              {mode === "signup" ? "Creating your account…" : ""}
             </span>
           </div>
         )}

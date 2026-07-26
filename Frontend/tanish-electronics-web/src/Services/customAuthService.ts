@@ -152,3 +152,62 @@ export async function googleLogin(idToken: string) {
 
   return response;
 }
+
+export type ForgotPasswordRequest = {
+  email: string;
+};
+
+export type VerifyForgotPasswordOtpRequest = {
+  email: string;
+  code: string;
+};
+
+export type VerifyForgotPasswordOtpResponse = {
+  resetToken: string;
+  expiresInSeconds: number;
+};
+
+export type ResetPasswordRequest = {
+  resetToken: string;
+  newPassword: string;
+};
+
+export type AuthMessageResponse = {
+  message: string;
+};
+
+export async function requestForgotPasswordOtp(
+  request: ForgotPasswordRequest
+): Promise<AuthMessageResponse> {
+  return apiClient<AuthMessageResponse>(
+    "/auth/custom/forgot-password/request",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+      skipAuthRefresh: true
+    }
+  );
+}
+
+export async function verifyForgotPasswordOtp(
+  request: VerifyForgotPasswordOtpRequest
+): Promise<VerifyForgotPasswordOtpResponse> {
+  return apiClient<VerifyForgotPasswordOtpResponse>(
+    "/auth/custom/forgot-password/verify",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+      skipAuthRefresh: true
+    }
+  );
+}
+
+export async function resetPassword(
+  request: ResetPasswordRequest
+): Promise<AuthMessageResponse> {
+  return apiClient<AuthMessageResponse>("/auth/custom/forgot-password/reset", {
+    method: "POST",
+    body: JSON.stringify(request),
+    skipAuthRefresh: true
+  });
+}

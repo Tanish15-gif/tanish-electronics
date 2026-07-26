@@ -17,7 +17,7 @@ function NotFoundPage() {
   }, []);
 
   return (
-    <main className="relative flex min-h-screen flex-col overflow-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main className="te-sheet-bg relative flex min-h-screen flex-col overflow-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
       <style>{`
         @keyframes nf-gear-clockwise {
           to {

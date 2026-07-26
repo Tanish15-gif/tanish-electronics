@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TanishElectronics.Api.Constants;
@@ -52,5 +53,35 @@ public class CustomAuthController : ControllerBase
         var result = await _authService.GoogleLoginAsync(dto);
 
         return Ok(result);
+    }
+    [HttpPost("forgot-password/request")]
+    [AllowAnonymous]
+    public async Task<IActionResult> RequestForgotPasswordOtp([FromBody] ForgotPasswordRequestDto dto)
+    {
+        await _authService.RequestForgotPasswordOtpAsync(dto);
+
+        return Ok(new
+        {
+            message = "If an account exists for that email, a password reset code has been sent."
+        });
+    }
+    [HttpPost("forgot-password/reset")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPasswordWithOtp([FromBody] ResetPasswordRequestDto dto)
+    {
+        await _authService.ResetPasswordAsync(dto);
+
+        return Ok(new
+        {
+            message = "Your password has been reset successfully. You can now sign in."
+        });
+    }
+    [HttpPost("forgot-password/verify")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyForgotPasswordOtp([FromBody] VerifyForgotPasswordOtpRequestDto dto)
+    {
+        var response = await _authService.VerifyForgotPasswordOtpAsync(dto);
+
+        return Ok(response);
     }
 }

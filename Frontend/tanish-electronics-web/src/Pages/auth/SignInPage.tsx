@@ -281,15 +281,28 @@ function SignInPage() {
                     </div>
                   </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-bold text-[#4f4638] dark:text-[#d8cdb6]">
-                      Password
-                    </span>
+                  <div className="block">
+                    <div className="mb-2 flex items-center justify-between gap-4">
+                      <label
+                        htmlFor="sign-in-password"
+                        className="text-xs font-bold text-[#4f4638] dark:text-[#d8cdb6]"
+                      >
+                        Password
+                      </label>
+
+                      <Link
+                        to="/forgot-password"
+                        className="shrink-0 text-xs font-bold text-[#8a6624] transition hover:text-[#6f4e12] hover:underline dark:text-[#d6b46a]"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
 
                     <div className="relative">
                       <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#817867] dark:text-[#928a7d]" />
 
                       <input
+                        id="sign-in-password"
                         value={password}
                         onChange={(event) => {
                           setPassword(event.target.value);
@@ -310,7 +323,7 @@ function SignInPage() {
                         aria-label={
                           showPassword ? "Hide password" : "Show password"
                         }
-                        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#817867] transition hover:bg-[#f2eadb] hover:text-[#1f1a12] disabled:cursor-not-allowed dark:text-[#928a7d] dark:hover:bg-[#242016] dark:hover:text-[#e8e3d8]"
+                        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#817867] transition hover:bg-[#f2eadb] hover:text-[#1f1a12] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#928a7d] dark:hover:bg-[#242016] dark:hover:text-[#e8e3d8]"
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -319,7 +332,7 @@ function SignInPage() {
                         )}
                       </button>
                     </div>
-                  </label>
+                  </div>
 
                   <button
                     type="submit"
@@ -329,7 +342,6 @@ function SignInPage() {
                     {passwordLoginBusy ? (
                       <>
                         <span className="h-4 w-4 animate-spin-fast rounded-full border-2 border-current border-t-transparent" />
-                        Signing in...
                       </>
                     ) : (
                       <>

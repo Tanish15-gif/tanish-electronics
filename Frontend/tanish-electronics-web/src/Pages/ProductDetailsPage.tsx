@@ -219,7 +219,7 @@ function ProductDetailsPage() {
     "Product details available";
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f5ef] pb-24 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] lg:pb-0">
+    <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] pb-24 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] lg:pb-0">
       <title>{product.productName} | Tanish Electronics</title>
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">

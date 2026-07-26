@@ -28,4 +28,18 @@ public interface ICustomAuthRepository
     Task<ExternalLogin?> GetExternalLoginAsync(string provider, string providerUserId);
 
     Task AddExternalLoginAsync(ExternalLogin externalLogin);
+
+    Task<OtpCode?> GetLatestOtpAsync(string normalizedEmail, string purpose);
+
+    Task AddOtpAsync(OtpCode otpCode);
+    Task InvalidateActiveOtpsAsync(string normalizedEmail, string purpose);
+
+    Task<OtpCode?> GetLatestActiveOtpAsync(string normalizedEmail, string purpose);
+
+    Task UpdateOtpAsync(OtpCode otpCode);
+
+    Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession);
+    Task<PasswordResetSession?> GetPasswordResetSessionByHashAsync(string tokenRefresh);
+
+    Task CompletePasswordResetAsync(AppUser user, PasswordResetSession resetSession, string? revokedByIp);
 }

@@ -35,6 +35,7 @@ import NotFoundPage from "./Pages/NotFoundPage";
 import AdminAuditLogsPage from "./Pages/admin/AdminAuditLogsPage";
 import AdminAnalyticsPage from "./Pages/admin/AdminAnalyticsPage";
 import AdminSettingsPage from "./Pages/admin/AdminSettingsPage";
+import ForgotPasswordPage from "./Pages/auth/ForgotPasswordPage";
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
       <Routes>
         <Route path="/sign-in/*" element={<SignInPage />} />
         <Route path="/sign-up/*" element={<SignUpPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />

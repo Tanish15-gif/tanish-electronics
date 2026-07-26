@@ -61,6 +61,8 @@ public partial class AppUser
 
     public virtual ICollection<OtpCode> OtpCodes { get; set; } = new List<OtpCode>();
 
+    public virtual ICollection<PasswordResetSession> PasswordResetSessions { get; set; } = new List<PasswordResetSession>();
+
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
     public virtual ICollection<ServiceAssignment> ServiceAssignmentAssignedByAppUsers { get; set; } = new List<ServiceAssignment>();
