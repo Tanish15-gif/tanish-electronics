@@ -1,4 +1,4 @@
-namespace TanishElectronics.Api.DTOs.Auth.Custom;
+namespace TanishElectronics.Api.DTOs.Auth;
 
 public class VerifyForgotPasswordOtpRequestDto
 {

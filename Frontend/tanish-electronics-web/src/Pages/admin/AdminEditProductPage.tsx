@@ -245,7 +245,7 @@ function AdminEditProductPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
+      <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
         <div className="mx-auto max-w-5xl py-16 text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
           <p className="mt-4 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
@@ -257,7 +257,7 @@ function AdminEditProductPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
       <title>Edit Product</title>
       <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
         <Link

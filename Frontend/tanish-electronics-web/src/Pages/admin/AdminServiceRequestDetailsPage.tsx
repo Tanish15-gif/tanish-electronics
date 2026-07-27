@@ -383,7 +383,7 @@ function AdminServiceRequestDetailsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
+      <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl py-16 text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
           <p className="mt-4 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
@@ -396,7 +396,7 @@ function AdminServiceRequestDetailsPage() {
 
   if (!request) {
     return (
-      <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
+      <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-[2rem] border border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
             {error || "Request not found."}
@@ -407,7 +407,7 @@ function AdminServiceRequestDetailsPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
       <title>{request.requestNumber} | Admin Service Request</title>
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">

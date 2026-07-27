@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using Google.Apis.Auth;
 using Microsoft.Extensions.Options;
 using TanishElectronics.Api.Constants;
-using TanishElectronics.Api.DTOs.Auth.Custom;
+using TanishElectronics.Api.DTOs.Auth;
 using TanishElectronics.Api.Entities;
 using TanishElectronics.Api.Enums.Auth;
+using TanishElectronics.Api.Exceptions;
 using TanishElectronics.Api.Interfaces.Repositories;
 using TanishElectronics.Api.Interfaces.Services;
 using TanishElectronics.Api.Settings;
@@ -22,6 +24,7 @@ public class CustomAuthService : ICustomAuthService
     private readonly IOtpSecurityService _otpSecurityService;
     private readonly OtpSettings _otpSettings;
     private readonly IPasswordResetTokenService _passwordResetTokenService;
+    private readonly IUserAgentParser _userAgentParser;
     public CustomAuthService
     (
         ICustomAuthRepository authRepository,
@@ -33,7 +36,8 @@ public class CustomAuthService : ICustomAuthService
         IEmailService emailService,
         IOtpSecurityService otpSecurityService,
         IOptions<OtpSettings> options,
-        IPasswordResetTokenService passwordResetTokenService
+        IPasswordResetTokenService passwordResetTokenService,
+        IUserAgentParser userAgentParser
     )
     {
         _authRepository = authRepository;
@@ -46,6 +50,7 @@ public class CustomAuthService : ICustomAuthService
         _otpSecurityService = otpSecurityService;
         _otpSettings = options.Value;
         _passwordResetTokenService = passwordResetTokenService;
+        _userAgentParser = userAgentParser;
     }
 
     #region  Register & Login Service
@@ -94,9 +99,11 @@ public class CustomAuthService : ICustomAuthService
 
         var roles = await _authRepository.GetUserRolesAsync(user.AppUserId);
 
+        var userSession = await CreateUserSessionAsync(user.AppUserId);
+
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
 
-        await SaveRefreshTokenAsync(user.AppUserId, refreshToken);
+        await SaveRefreshTokenAsync(user.AppUserId, userSession.UserSessionId, refreshToken);
 
         await LogAuthEventAsync(
             user.AppUserId,
@@ -106,7 +113,7 @@ public class CustomAuthService : ICustomAuthService
             "User registered successfully."
         );
 
-        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken);
+        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
     }
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto dto)
     {
@@ -189,9 +196,11 @@ public class CustomAuthService : ICustomAuthService
 
         var roles = await _authRepository.GetUserRolesAsync(user.AppUserId);
 
+        var userSession = await CreateUserSessionAsync(user.AppUserId);
+
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
 
-        await SaveRefreshTokenAsync(user.AppUserId, refreshToken);
+        await SaveRefreshTokenAsync(user.AppUserId, userSession.UserSessionId, refreshToken);
 
         await LogAuthEventAsync(
             user.AppUserId,
@@ -201,7 +210,7 @@ public class CustomAuthService : ICustomAuthService
             "User logged in successfully"
         );
 
-        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken);
+        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
     }
 
     #endregion 
@@ -258,6 +267,11 @@ public class CustomAuthService : ICustomAuthService
 
             throw new UnauthorizedAccessException("Refresh token expired.");
         }
+        if (
+            storedToken.UserSessionId == null ||
+            storedToken.UserSession == null ||
+            storedToken.UserSession.RevokedAt != null
+        ) throw new UnauthorizedAccessException("Session is not longer active");
 
         var user = storedToken.AppUser;
 
@@ -275,7 +289,7 @@ public class CustomAuthService : ICustomAuthService
             newRefreshTokenHash
         );
 
-        await SaveRefreshTokenAsync(user.AppUserId, newRefreshToken);
+        await SaveRefreshTokenAsync(user.AppUserId, storedToken.UserSessionId.Value, newRefreshToken);
 
         user.LastSeenAt = DateTime.UtcNow;
 
@@ -293,10 +307,13 @@ public class CustomAuthService : ICustomAuthService
             "Refresh token rotated successfully."
         );
 
+        await _authRepository.TouchUserSessionAsync(storedToken.UserSessionId.Value, GetClientIpAddress());
+
         return _jwtTokenService.GenerateAuthResponse(
             user,
             roles,
-            newRefreshToken
+            newRefreshToken,
+            storedToken.UserSessionId.Value
         );
     }
 
@@ -306,6 +323,9 @@ public class CustomAuthService : ICustomAuthService
         {
             return;
         }
+
+        var now = DateTime.UtcNow;
+        var revokedByIp = GetClientIpAddress();
 
         var tokenHash = _jwtTokenService.HashRefreshToken(dto.RefreshToken);
 
@@ -318,9 +338,15 @@ public class CustomAuthService : ICustomAuthService
             return;
         }
 
+        if (storedToken!.UserSession != null && storedToken.UserSession.RevokedAt == null)
+        {
+            storedToken.UserSession.RevokedAt = now;
+            storedToken.UserSession.RevokedByIp = revokedByIp;
+        }
+
         await _authRepository.RevokeRefreshTokenAsync(
             storedToken,
-            GetClientIpAddress()
+            revokedByIp
         );
 
         var user = storedToken.AppUser;
@@ -486,11 +512,28 @@ public class CustomAuthService : ICustomAuthService
             }
 
         }
+        if (externalLogin == null)
+        {
+            var newExternalLogin = new ExternalLogin
+            {
+                AppUserId = user.AppUserId,
+                Provider = provider,
+                ProviderUserId = providerUserId,
+                Email = payload.Email.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _authRepository.AddExternalLoginAsync(
+                newExternalLogin
+            );
+        }
         var roles = await _authRepository.GetUserRolesAsync(user.AppUserId);
+
+        var userSession = await CreateUserSessionAsync(user.AppUserId);
 
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
 
-        await SaveRefreshTokenAsync(user.AppUserId, refreshToken);
+        await SaveRefreshTokenAsync(user.AppUserId, userSession.UserSessionId, refreshToken);
 
         await LogAuthEventAsync(
             user.AppUserId,
@@ -500,7 +543,7 @@ public class CustomAuthService : ICustomAuthService
             "User logged in with Google."
         );
 
-        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken);
+        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
     }
 
     #endregion
@@ -515,7 +558,9 @@ public class CustomAuthService : ICustomAuthService
 
         var user = await _authRepository.GetUserByNormalizedEmailAsync(normalizedEmail);
 
-        if (user == null || !user.IsActive || user.DeletedAt != null) return;
+        if (user == null || user.DeletedAt != null) throw new KeyNotFoundException("No account is registered with this email.");
+        if (!user.IsActive) throw new InvalidOperationException("This account is currently inactive");
+        if (string.IsNullOrWhiteSpace(user.PasswordHash)) throw new InvalidOperationException("This account uses Google sign-in. Please sign in with Google.");
 
         var purpose = OtpPurpose.ForgotPassword.ToString();
 
@@ -617,30 +662,13 @@ public class CustomAuthService : ICustomAuthService
 
     #region Reset Password
 
-    public async Task ResetPasswordAsync(
-    ResetPasswordRequestDto dto
-)
+    public async Task ResetPasswordAsync(ResetPasswordRequestDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.ResetToken))
-        {
-            throw new InvalidOperationException(
-                "Invalid or expired reset session."
-            );
-        }
+        if (string.IsNullOrWhiteSpace(dto.ResetToken)) throw new InvalidOperationException("Invalid or expired reset session.");
 
-        if (string.IsNullOrWhiteSpace(dto.NewPassword))
-        {
-            throw new InvalidOperationException(
-                "New password is required."
-            );
-        }
+        if (string.IsNullOrWhiteSpace(dto.NewPassword)) throw new InvalidOperationException("New password is required.");
 
-        if (dto.NewPassword.Length < 8)
-        {
-            throw new InvalidOperationException(
-                "Password must be at least 8 characters."
-            );
-        }
+        if (dto.NewPassword.Length < 8) throw new InvalidOperationException("Password must be at least 8 characters.");
 
         var tokenHash =
             _passwordResetTokenService.HashToken(
@@ -829,13 +857,14 @@ public class CustomAuthService : ICustomAuthService
 
     #endregion
 
-    private async Task SaveRefreshTokenAsync(int appUserId, string refreshToken)
+    private async Task SaveRefreshTokenAsync(int appUserId, Guid userSessionId, string refreshToken)
     {
         var tokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
 
         var refreshTokenEntity = new RefreshToken
         {
             AppUserId = appUserId,
+            UserSessionId = userSessionId,
             TokenHash = tokenHash,
             ExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenDays),
             CreatedAt = DateTime.UtcNow,
@@ -947,5 +976,349 @@ public class CustomAuthService : ICustomAuthService
             .Headers
             .UserAgent
             .ToString();
+    }
+    private int GetAuthenticatedUserId()
+    {
+        var userIdValue = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdValue, out var appUserId)) throw new UnauthorizedAccessException("Authenticated user was not found.");
+
+        return appUserId;
+    }
+
+    #region Account Security
+    public async Task<SecuritySummaryResponseDto> GetSecuritySummaryAsync()
+    {
+        var appUserId = GetAuthenticatedUserId();
+
+        var user = await _authRepository.GetUserByIdWithExternalLoginsAsync(appUserId);
+
+        var activeSessionCount = await _authRepository.GetActiveUserSessionCountAsync(appUserId);
+
+        if (user == null || !user.IsActive || user.DeletedAt != null)
+            throw new UnauthorizedAccessException("Account was not found");
+
+        var connectedProviders = user.ExternalLogins
+            .Select(login => login.Provider)
+            .Where(provider => !string.IsNullOrWhiteSpace(provider))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(provider => provider)
+            .ToList();
+
+        return new SecuritySummaryResponseDto
+        {
+            HasPassword = !string.IsNullOrWhiteSpace(user.PasswordHash),
+
+            EmailConfirmed = user.EmailConfirmed,
+            PasswordUpdatedAt = user.PasswordUpdatedAt,
+            ConnectedProviders = connectedProviders,
+            ActiveSessionCount = activeSessionCount
+        };
+    }
+
+    public async Task ChangePasswordAsync(ChangePasswordRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CurrentPassword)) throw new BadRequestException("Current password is required.");
+
+        if (string.IsNullOrWhiteSpace(dto.NewPassword)) throw new InvalidOperationException("New password is required.");
+
+        if (dto.NewPassword.Length < 8) throw new InvalidOperationException("New password must be at least 8 characters.");
+
+        var appUserId = GetAuthenticatedUserId();
+
+        var user = await _authRepository.GetUserByIdWithExternalLoginsAsync(appUserId);
+
+        if (user == null || !user.IsActive || user.DeletedAt != null) throw new UnauthorizedAccessException("Account not found");
+
+        if (string.IsNullOrWhiteSpace(user.PasswordHash)) throw new InvalidOperationException("This account does not have a password yet.");
+
+        var now = DateTime.UtcNow;
+
+        var CurrentPasswordValid = _hasherService.VerifyPassword(dto.CurrentPassword, user.PasswordHash);
+
+        if (!CurrentPasswordValid) throw new BadRequestException("Current password is incorrect.");
+
+        var samePassword = _hasherService.VerifyPassword(dto.NewPassword, user.PasswordHash);
+
+        if (samePassword) throw new BadRequestException("New password must be different from the current password.");
+
+        user.PasswordHash = _hasherService.HashPassword(dto.NewPassword);
+
+        user.PasswordUpdatedAt = now;
+        user.UpdatedAt = now;
+        user.AccessFailedCount = 0;
+        user.LockoutEndAt = null;
+
+        await _authRepository.CompletePasswordChangeAsync(user, GetClientIpAddress());
+    }
+    #endregion
+
+    #region Google set Password
+
+    public async Task<GooglePasswordReauthResponseDto> ReauthenticateGoogleForPasswordAsync(GooglePasswordReauthRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.IdToken)) throw new InvalidOperationException("Google token is required");
+
+        var appUserId = GetAuthenticatedUserId();
+
+        var user = await _authRepository.GetUserByIdWithExternalLoginsAsync(appUserId);
+
+        if (user == null || !user.IsActive || user.DeletedAt != null) throw new UnauthorizedAccessException("Account not found");
+
+        if (!string.IsNullOrWhiteSpace(user.PasswordHash)) throw new InvalidOperationException("This account already has a password.");
+
+        var googleProvider = ExternalLoginProvider.Google.ToString();
+
+        var linkedGoogleAccount = user.ExternalLogins.FirstOrDefault(login =>
+            string.Equals(
+                login.Provider,
+                googleProvider,
+                StringComparison.OrdinalIgnoreCase
+            )
+        );
+
+        if (linkedGoogleAccount == null) throw new InvalidOperationException("No Google account is connected");
+
+        GoogleJsonWebSignature.Payload payload;
+
+        try
+        {
+            payload = await GoogleJsonWebSignature.ValidateAsync(
+                dto.IdToken,
+                new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience =
+                        new[]
+                        {
+                            _googleAuthSettings.ClientId
+                        }
+                }
+            );
+        }
+        catch
+        {
+            throw new UnauthorizedAccessException("Google verification failed.");
+        }
+
+        if (!payload.EmailVerified || string.IsNullOrWhiteSpace(payload.Subject)) throw new UnauthorizedAccessException("Google verification failed.");
+
+        if (!string.Equals(
+            linkedGoogleAccount.ProviderUserId,
+            payload.Subject.Trim(),
+            StringComparison.Ordinal
+            )
+        )
+        {
+            throw new UnauthorizedAccessException("Please verify using the Google account connected to this profile.");
+        }
+
+        if (payload.IssuedAtTimeSeconds is not long issuedAtSeconds) throw new UnauthorizedAccessException("Google verification session is invalid.");
+
+        var issuedAt = DateTimeOffset.FromUnixTimeSeconds(issuedAtSeconds);
+
+        var tokenAge = DateTimeOffset.UtcNow - issuedAt;
+
+        if (tokenAge < TimeSpan.Zero || tokenAge > TimeSpan.FromMinutes(5)) throw new UnauthorizedAccessException("Google verification expired. Please try again.");
+
+        var plainSetUpToken = _passwordResetTokenService.GenerateToken();
+
+        var setUpTokenHash = _passwordResetTokenService.HashToken(plainSetUpToken);
+
+        var now = DateTime.UtcNow;
+
+        var setupSession = new PasswordResetSession
+        {
+            AppUserId = user.AppUserId,
+            TokenHash = setUpTokenHash,
+
+            ExpiresAt = now.AddMinutes(
+                _otpSettings.ResetTokenExpiryMinutes
+            ),
+
+            ConsumedAt = null,
+            CreatedAt = now,
+            CreatedByIp = GetClientIpAddress()
+        };
+        await _authRepository.CreatePasswordSetupSessionAsync(setupSession);
+
+        return new GooglePasswordReauthResponseDto
+        {
+            SetupToken = plainSetUpToken,
+            ExpiresInSeconds = _otpSettings.ResetTokenExpiryMinutes * 60
+        };
+    }
+
+    public async Task CompleteSetPasswordAsync(CompleteSetPasswordRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.SetupToken)) throw new InvalidOperationException("Invalid or expired setup session.");
+
+        if (string.IsNullOrWhiteSpace(dto.NewPassword)) throw new InvalidOperationException("New password is required.");
+
+        if (dto.NewPassword.Length < 8) throw new InvalidOperationException("Password must be at least 8 characters.");
+
+        var appUserId = GetAuthenticatedUserId();
+
+        var tokenHash = _passwordResetTokenService.HashToken(dto.SetupToken);
+
+        var setUpSession = await _authRepository.GetPasswordResetSessionByHashAsync(tokenHash);
+
+        if (
+            setUpSession == null ||
+            setUpSession.AppUserId != appUserId ||
+            setUpSession.ConsumedAt != null ||
+            setUpSession.ExpiresAt <= DateTime.UtcNow
+        )
+        {
+            throw new InvalidOperationException("Invalid or expired setup session.");
+        }
+        var user = setUpSession.AppUser;
+
+        if (user == null || !user.IsActive || user.DeletedAt != null) throw new UnauthorizedAccessException("Account was not found.");
+
+        if (!string.IsNullOrWhiteSpace(user.PasswordHash)) throw new InvalidOperationException("This account already has a password.");
+
+        var now = DateTime.UtcNow;
+
+        user.PasswordHash = _hasherService.HashPassword(dto.NewPassword);
+
+        user.PasswordUpdatedAt = now;
+        user.UpdatedAt = now;
+        user.EmailConfirmed = true;
+        user.AccessFailedCount = 0;
+        user.LockoutEndAt = null;
+
+        await _authRepository.CompletePasswordSetupAsync(user, setUpSession);
+    }
+
+    #endregion
+
+
+    #region  Sessions
+
+    public async Task SignOutOtherSessionsAsync(SignOutOtherSessionsRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CurrentRefreshToken)) throw new UnauthorizedAccessException("Current session was not found.");
+
+        var appUserId = GetAuthenticatedUserId();
+
+        var currentTokenHash = _jwtTokenService.HashRefreshToken(dto.CurrentRefreshToken);
+
+        var currentToken = await _authRepository.GetRefreshTokenByHashAsync(currentTokenHash);
+
+        if (
+            currentToken == null ||
+            currentToken.AppUserId != appUserId ||
+            currentToken.RevokedAt != null ||
+            currentToken.ExpiresAt <= DateTime.UtcNow
+        )
+        {
+            throw new UnauthorizedAccessException("Current session is invalid.");
+        }
+
+        await _authRepository.RevokeOtherSessionsAsync(appUserId, currentToken.UserSessionId!.Value, GetClientIpAddress());
+    }
+
+    public async Task SignOutAllSessionsAsync()
+    {
+        var appUserId = GetAuthenticatedUserId();
+
+        await _authRepository.RevokeAllRefreshTokensAsync(appUserId, GetClientIpAddress());
+    }
+
+    public async Task<List<ActiveSessionDto>> GetActiveSessionsAsync()
+    {
+        var appUserId = GetAuthenticatedUserId();
+        var currentSessionId = GetAuthenticatedSessionId();
+
+        var sessions =
+            await _authRepository
+                .GetActiveUserSessionsAsync(appUserId);
+
+        return sessions.Select(session =>
+            new ActiveSessionDto
+            {
+                UserSessionId = session.UserSessionId,
+                DeviceType = session.DeviceType,
+                DeviceName = session.DeviceName,
+                BrowserName = session.BrowserName,
+                BrowserVersion = session.BrowserVersion,
+                OperatingSystem = session.OperatingSystem,
+                IpAddress = session.IpAddress,
+                CreatedAt = session.CreatedAt,
+                LastSeenAt = session.LastSeenAt,
+
+                IsCurrent =
+                    session.UserSessionId == currentSessionId
+            }
+        ).ToList();
+    }
+
+    #endregion
+
+
+    private async Task<UserSession> CreateUserSessionAsync(int appUserId)
+    {
+        var userAgent = GetUserAgent();
+
+        var details =
+            _userAgentParser.Parse(userAgent);
+
+        var now = DateTime.UtcNow;
+
+        var session = new UserSession
+        {
+            AppUserId = appUserId,
+
+            DeviceType = details.DeviceType,
+            DeviceName = details.DeviceName,
+
+            BrowserName = details.BrowserName,
+            BrowserVersion = details.BrowserVersion,
+
+            OperatingSystem =
+                details.OperatingSystem,
+
+            UserAgent = userAgent,
+            IpAddress = GetClientIpAddress(),
+
+            CreatedAt = now,
+            LastSeenAt = now,
+
+            RevokedAt = null,
+            RevokedByIp = null
+        };
+
+        return await _authRepository
+            .AddUserSessionAsync(session);
+    }
+
+    private Guid GetAuthenticatedSessionId()
+    {
+        var sessionIdValue =
+            _httpContextAccessor.HttpContext?
+                .User
+                .FindFirstValue("sid");
+
+        if (!Guid.TryParse(sessionIdValue, out var sessionId))
+        {
+            throw new UnauthorizedAccessException(
+                "Current session was not found."
+            );
+        }
+
+        return sessionId;
+    }
+
+    public async Task RevokeSessionAsync(Guid userSessionId)
+    {
+        var appUserId = GetAuthenticatedUserId();
+        var currentSessionId = GetAuthenticatedSessionId();
+
+        if (userSessionId == Guid.Empty) throw new BadRequestException("Session identifier is required");
+        if (userSessionId == currentSessionId) throw new BadRequestException("Use normal sign out to end the current session.");
+
+        var revoked = await _authRepository.RevokeUserSessionAsync(appUserId, userSessionId, GetClientIpAddress());
+
+        if (!revoked) throw new KeyNotFoundException("Active session not found");
     }
 }

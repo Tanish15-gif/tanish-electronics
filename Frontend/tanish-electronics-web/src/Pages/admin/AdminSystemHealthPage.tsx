@@ -139,7 +139,7 @@ function AdminSystemHealthPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#f7f5ef] px-4 py-6 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
+    <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-6 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

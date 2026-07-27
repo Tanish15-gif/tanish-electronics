@@ -225,6 +225,42 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             }
         ));
+    options.AddPolicy(RateLimitPolicies.AuthAttempt, httpcontext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: RateLimitKeyHelper.GetUserOrIpKey(httpcontext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(5),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }
+        ));
+    options.AddPolicy(RateLimitPolicies.OtpRequest, httpcontext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: RateLimitKeyHelper.GetUserOrIpKey(httpcontext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
+                Window = TimeSpan.FromMinutes(10),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }
+        ));
+    options.AddPolicy(RateLimitPolicies.OtpVerify, httpcontext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: RateLimitKeyHelper.GetUserOrIpKey(httpcontext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(5),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }
+        ));
 });
 
 builder.Services.AddHealthChecks()
@@ -356,6 +392,7 @@ builder.Services.AddScoped<IProductCreatedAnnouncementHandler, ProductCreatedAnn
 
 builder.Services.AddScoped<IAnnouncementRealtimeNotifier, AnnouncementRealtimeNotifier>();
 
+builder.Services.AddSingleton<IUserAgentParser, UserAgentParser>();
 builder.Services.AddSingleton<IAppMemoryCacheService, AppMemoryCacheService>();
 
 builder.Services.AddScoped<IPublicOutputCacheInvalidator, PublicOutputCacheInvalidator>();

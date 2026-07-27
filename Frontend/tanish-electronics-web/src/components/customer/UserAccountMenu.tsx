@@ -16,7 +16,8 @@ type UserMenuProps = {
 
 type MenuPosition = {
   top: number;
-  right: number;
+  left: number;
+  width: number;
 };
 
 const THEME_STORAGE_KEY = "theme";
@@ -44,7 +45,8 @@ function UserAccountMenu({
 
   const [position, setPosition] = useState<MenuPosition>({
     top: 64,
-    right: 12
+    left: 12,
+    width: 360
   });
 
   const initials = getInitials(displayName);
@@ -65,13 +67,45 @@ function UserAccountMenu({
     function updatePosition() {
       const trigger = triggerRef.current;
 
-      if (!trigger) return;
+      if (!trigger) {
+        return;
+      }
 
       const rectangle = trigger.getBoundingClientRect();
 
+      const viewportPadding = 12;
+      const mobileBreakpoint = 640;
+
+      const isMobile = window.innerWidth < mobileBreakpoint;
+
+      /*
+       * Mobile:
+       * Use the complete viewport width with 12px space
+       * on both sides.
+       *
+       * Desktop:
+       * Keep the Clerk-style 360px dropdown aligned
+       * with the profile trigger.
+       */
+      const menuWidth = isMobile
+        ? window.innerWidth - viewportPadding * 2
+        : 360;
+
+      const preferredLeft = isMobile
+        ? viewportPadding
+        : rectangle.right - menuWidth;
+
+      const maximumLeft = window.innerWidth - menuWidth - viewportPadding;
+
+      const clampedLeft = Math.min(
+        Math.max(preferredLeft, viewportPadding),
+        Math.max(viewportPadding, maximumLeft)
+      );
+
       setPosition({
         top: rectangle.bottom + 8,
-        right: Math.max(12, window.innerWidth - rectangle.right)
+        left: clampedLeft,
+        width: menuWidth
       });
     }
 
@@ -164,10 +198,11 @@ function UserAccountMenu({
       aria-label="Customer account menu"
       style={{
         top: position.top,
-        right: position.right,
+        left: position.left,
+        width: position.width,
         maxHeight: `calc(100dvh - ${position.top + 12}px)`
       }}
-      className="te-modal-scroll fixed z-[902] w-[calc(100vw-24px)] max-w-[360px] overflow-y-auto rounded-[1.4rem] border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] shadow-2xl dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
+      className="te-modal-scroll fixed z-[902] overflow-y-auto rounded-[1.4rem] border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] shadow-2xl outline-none dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
     >
       {/* User details */}
       <section className="p-4">

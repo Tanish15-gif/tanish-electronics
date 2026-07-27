@@ -4,9 +4,28 @@ import {
   useEffect,
   useMemo,
   useState,
-  type FormEvent
+  type FormEvent,
+  type ReactNode
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  BadgeCheck,
+  Building2,
+  Check,
+  CheckCircle2,
+  Edit3,
+  Home,
+  Mail,
+  MapPin,
+  Navigation,
+  Phone,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+  X
+} from "lucide-react";
 
 import ActionButton from "../../components/UI/ActionButton";
 import {
@@ -532,309 +551,187 @@ function CustomerProfilePage() {
   }
 
   return (
-    <main className="mx-auto min-h-full w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      {/* Profile identity header */}
-      <section className="overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
-        <div className="h-20 bg-gradient-to-r from-[#1f1a12] via-[#4b3b21] to-[#8a6624] dark:from-[#090907] dark:via-[#1a1712] dark:to-[#5f471c] sm:h-32" />
+    <main
+      className="te-sheet-bg mx-auto min-h-full w-full max-w-7xl px-4 py-6 text-[#1f1a12] dark:text-[#e8e3d8] sm:px-6 sm:py-8 lg:px-8"
+      style={{ fontFamily: "var(--font-ui)" }}
+    >
+      <CustomerProfileHero
+        profile={profile}
+        displayName={displayName}
+        displayEmail={displayEmail}
+        profileImageUrl={profileImageUrl}
+        initials={initials}
+        completionPercentage={completionPercentage}
+        defaultAddress={defaultAddress}
+        refreshing={refreshing}
+        onRefresh={() => void loadProfile(true)}
+      />
 
-        <div className="px-5 pb-5 sm:px-6 sm:pb-6">
-          <div className="-mt-10 flex flex-col gap-5 sm:-mt-12 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex min-w-0 items-end gap-4">
-              <ProfileAvatar
-                imageUrl={profileImageUrl}
-                name={displayName}
-                initials={initials}
-              />
-
-              <div className="min-w-0 pb-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="truncate text-2xl font-black tracking-tight sm:text-3xl">
-                    {displayName}
-                  </h1>
-
-                  <ProfileStatusBadge completed={profile.isProfileCompleted} />
-                </div>
-
-                <p className="mt-1 truncate text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                  {displayEmail}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              disabled={refreshing}
-              onClick={() => void loadProfile(true)}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-4 text-sm font-black transition hover:bg-[#f2eadb] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#302c24] dark:bg-[#11110f] dark:hover:bg-[#242016] sm:w-fit"
-            >
-              <RefreshIcon spinning={refreshing} />
-
-              {refreshing ? "Refreshing..." : "Refresh Profile"}
-            </button>
-          </div>
-
-          <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
-            <ProfileSummaryCard
-              label="Profile completion"
-              value={`${completionPercentage}%`}
-            />
-            <ProfileSummaryCard
-              label="Saved addresses"
-              value={profile.addresses.length}
-            />
-            <ProfileSummaryCard
-              label="Default address"
-              value={defaultAddress ? "Available" : "Missing"}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Messages */}
       <div aria-live="polite" className="mt-5 space-y-3">
         {pageError && <MessageBox type="error" message={pageError} />}
-
         {success && <MessageBox type="success" message={success} />}
       </div>
 
-      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-        {/* Profile sidebar */}
-        <aside className="space-y-5 lg:sticky lg:top-24">
-          <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-base font-black">Profile completion</h2>
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="space-y-6 xl:sticky xl:top-24">
+          <ProfileCompletionCard
+            percentage={completionPercentage}
+            hasName={Boolean(profile.fullName?.trim())}
+            hasPhone={Boolean(profile.phoneNumber?.trim())}
+            hasEmail={Boolean(profile.email?.trim())}
+            hasAddress={profile.addresses.length > 0}
+          />
 
-              <span className="text-sm font-black text-[#8a6624] dark:text-[#d6b46a]">
-                {completionPercentage}%
-              </span>
-            </div>
+          <ContactInformationCard
+            email={displayEmail}
+            phone={profile.phoneNumber || "Not added"}
+          />
 
-            <div
-              className="mt-4 h-2 overflow-hidden rounded-full bg-[#e8dcc4] dark:bg-[#302c24]"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={completionPercentage}
-            >
-              <div
-                className="h-full rounded-full bg-[#8a6624] transition-all duration-500 dark:bg-[#d6b46a]"
-                style={{
-                  width: `${completionPercentage}%`
-                }}
-              />
-            </div>
-
-            <div className="mt-5 space-y-3">
-              <CompletionItem
-                completed={Boolean(profile.fullName?.trim())}
-                text="Full name"
-              />
-
-              <CompletionItem
-                completed={Boolean(profile.phoneNumber?.trim())}
-                text="Phone number"
-              />
-
-              <CompletionItem
-                completed={Boolean(profile.email?.trim())}
-                text="Account email"
-              />
-
-              <CompletionItem
-                completed={profile.addresses.length > 0}
-                text="Saved address"
-              />
-            </div>
-          </section>
-
-          <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
-            <h2 className="text-base font-black">Contact information</h2>
-
-            <div className="mt-4 space-y-3">
-              <ContactRow
-                icon={<MailIcon />}
-                label="Email"
-                value={displayEmail}
-              />
-
-              <ContactRow
-                icon={<PhoneIcon />}
-                label="Phone"
-                value={profile.phoneNumber || "Not added"}
-              />
-            </div>
-          </section>
-
-          <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fff8e7] p-5 dark:border-[#302c24] dark:bg-[#11110f]">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff4cc] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-                <LocationIcon />
-              </span>
-
-              <div className="min-w-0">
-                <h2 className="text-sm font-black">Default address</h2>
-
-                <p className="mt-2 break-words text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
-                  {defaultAddress
-                    ? formatAddress(defaultAddress)
-                    : "No default address selected."}
-                </p>
-              </div>
-            </div>
-          </section>
+          <DefaultAddressCard address={defaultAddress} />
         </aside>
 
-        {/* Main profile content */}
         <div className="space-y-6">
-          {/* Personal details */}
-          <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
-            <div className="border-b border-[#d8cdb6] pb-5 dark:border-[#302c24]">
-              <h2 className="text-xl font-bold">Personal details</h2>
-
-              <p className="mt-1 text-sm font-medium text-[#6f6758] dark:text-[#a8a093]">
-                Information used for repair bookings and contact.
-              </p>
+          <section className="overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
+            <div className="border-b border-[#e4dbc9] bg-[#fffaf0] p-5 dark:border-[#302c24] dark:bg-[#11110f] sm:p-7">
+              <SectionHeading
+                eyebrow="Customer identity"
+                title="Personal details"
+                description="Information used for repair bookings, service updates and shop contact."
+                icon={<UserRound className="h-5 w-5" />}
+              />
             </div>
 
-            <form className="mt-6" onSubmit={handleSaveProfile} noValidate>
+            <form
+              className="p-5 sm:p-7"
+              onSubmit={handleSaveProfile}
+              noValidate
+            >
               <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <FieldLabel
-                    htmlFor="profile-full-name"
-                    label="Full name"
-                    required
-                  />
+                <TextField
+                  id="profile-full-name"
+                  label="Full name"
+                  value={fullName}
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Enter your full name"
+                  disabled={savingProfile}
+                  required
+                  icon={<UserRound className="h-4 w-4" />}
+                  onChange={(value) => {
+                    setFullName(value);
+                    setProfileError("");
+                  }}
+                />
 
-                  <input
-                    id="profile-full-name"
-                    type="text"
-                    value={fullName}
-                    disabled={savingProfile}
-                    autoComplete="name"
-                    placeholder="Enter your full name"
-                    onChange={(event) => {
-                      setFullName(event.target.value);
-
-                      setProfileError("");
-                    }}
-                    className={inputClassName}
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel
-                    htmlFor="profile-phone"
-                    label="Phone number"
-                    required
-                  />
-
-                  <input
-                    id="profile-phone"
-                    type="tel"
-                    value={phoneNumber}
-                    disabled={savingProfile}
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    maxLength={15}
-                    placeholder="9999999999"
-                    onChange={(event) => {
-                      const value = event.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 15);
-
-                      setPhoneNumber(value);
-                      setProfileError("");
-                    }}
-                    className={inputClassName}
-                  />
-                </div>
+                <TextField
+                  id="profile-phone"
+                  label="Phone number"
+                  value={phoneNumber}
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="numeric"
+                  maxLength={15}
+                  placeholder="9999999999"
+                  disabled={savingProfile}
+                  required
+                  icon={<Phone className="h-4 w-4" />}
+                  onChange={(value) => {
+                    setPhoneNumber(value.replace(/\D/g, "").slice(0, 15));
+                    setProfileError("");
+                  }}
+                />
 
                 <div className="sm:col-span-2">
-                  <FieldLabel htmlFor="profile-email" label="Account email" />
-
-                  <div className="relative">
-                    <input
-                      id="profile-email"
-                      type="email"
-                      value={displayEmail}
-                      disabled
-                      className={`${inputClassName} pr-28 opacity-70`}
-                    />
-
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-                      Signed in
-                    </span>
-                  </div>
-
-                  <p className="mt-2 text-xs font-semibold text-[#817867] dark:text-[#928a7d]">
-                    Email is managed by your signed-in account.
-                  </p>
+                  <ReadOnlyIdentityField
+                    label="Account email"
+                    value={displayEmail}
+                    icon={<Mail className="h-4 w-4" />}
+                    status="Signed-in identity"
+                  />
                 </div>
               </div>
 
               {profileError && (
-                <div
-                  role="alert"
-                  className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
-                >
-                  {profileError}
+                <div className="mt-5">
+                  <MessageBox type="error" message={profileError} />
                 </div>
               )}
+
+              <div className="mt-6 rounded-2xl border border-[#e4dbc9] bg-[#fffaf0] p-4 dark:border-[#302c24] dark:bg-[#11110f]">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#242016] dark:text-[#d6b46a]">
+                    <ShieldCheck className="h-4 w-4" />
+                  </span>
+
+                  <div>
+                    <p className="text-xs font-bold">Account-managed email</p>
+
+                    <p className="mt-1 text-xs font-medium leading-5 text-[#817867] dark:text-[#928a7d]">
+                      Your email is tied to the authenticated account and cannot
+                      be changed from this customer profile form.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               <div className="mt-6 flex justify-end">
                 <ActionButton
                   type="submit"
                   loading={savingProfile}
-                  loadingText="Saving..."
+                  spinnerOnly
                   variant="dark"
                   fullWidth={false}
-                  className="h-12 min-w-[180px] rounded-xl"
+                  className="min-h-12 w-full sm:min-w-[190px] sm:w-auto"
                 >
-                  Save Profile
+                  Save profile
                 </ActionButton>
               </div>
             </form>
           </section>
 
-          {/* Address book */}
-          <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
-            <div className="flex flex-col gap-4 border-b border-[#d8cdb6] pb-5 dark:border-[#302c24] sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-xl font-black">Address book</h2>
+          <section className="overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
+            <div className="flex flex-col gap-5 border-b border-[#e4dbc9] bg-[#fffaf0] p-5 dark:border-[#302c24] dark:bg-[#11110f] sm:flex-row sm:items-center sm:justify-between sm:p-7">
+              <SectionHeading
+                eyebrow="Home-visit details"
+                title="Address book"
+                description="Save trusted addresses for faster repair and home-visit bookings."
+                icon={<MapPin className="h-5 w-5" />}
+              />
 
-                <p className="mt-1 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                  Saved addresses can be used during home-visit booking.
-                </p>
-              </div>
-
-              <button
+              <ActionButton
                 type="button"
                 onClick={openAddAddress}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-5 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a] sm:w-fit"
+                fullWidth={false}
+                variant="dark"
+                className="min-h-11 w-full shrink-0 !rounded-xl !px-5 !py-3 sm:w-auto"
               >
-                <PlusIcon />
-                Add Address
-              </button>
+                <span className="inline-flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add address
+                </span>
+              </ActionButton>
             </div>
 
-            {profile.addresses.length === 0 ? (
-              <AddressEmptyState onAdd={openAddAddress} />
-            ) : (
-              <div className="mt-5 grid gap-4 xl:grid-cols-2">
-                {profile.addresses.map((address) => (
-                  <AddressCard
-                    key={address.customerAddressId}
-                    address={address}
-                    busy={addressActionId === address.customerAddressId}
-                    onEdit={() => openEditAddress(address)}
-                    onSetDefault={() =>
-                      void handleSetDefault(address.customerAddressId)
-                    }
-                    onDelete={() => setDeleteTarget(address)}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="p-5 sm:p-7">
+              {profile.addresses.length === 0 ? (
+                <AddressEmptyState onAdd={openAddAddress} />
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {profile.addresses.map((address) => (
+                    <AddressCard
+                      key={address.customerAddressId}
+                      address={address}
+                      busy={addressActionId === address.customerAddressId}
+                      onEdit={() => openEditAddress(address)}
+                      onSetDefault={() =>
+                        void handleSetDefault(address.customerAddressId)
+                      }
+                      onDelete={() => setDeleteTarget(address)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
         </div>
       </div>
@@ -875,6 +772,115 @@ function CustomerProfilePage() {
   );
 }
 
+function CustomerProfileHero({
+  profile,
+  displayName,
+  displayEmail,
+  profileImageUrl,
+  initials,
+  completionPercentage,
+  defaultAddress,
+  refreshing,
+  onRefresh
+}: {
+  profile: CustomerProfile;
+  displayName: string;
+  displayEmail: string;
+  profileImageUrl?: string | null;
+  initials: string;
+  completionPercentage: number;
+  defaultAddress: CustomerAddress | null;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <header className="relative overflow-hidden rounded-[2rem] border border-[#302c24] bg-[#1f1a12] p-6 text-[#f7f5ef] shadow-[0_24px_70px_-36px_rgba(17,16,15,0.75)] sm:p-8 lg:p-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "linear-gradient(#d6b46a 1px, transparent 1px), linear-gradient(90deg, #d6b46a 1px, transparent 1px)",
+          backgroundSize: "38px 38px",
+          maskImage: "linear-gradient(to right, black, transparent 74%)"
+        }}
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-16 -top-24 h-80 w-80 rounded-full bg-[#d6b46a]/12 blur-3xl"
+      />
+
+      <div className="relative flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
+        <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center">
+          <ProfileAvatar
+            imageUrl={profileImageUrl}
+            name={displayName}
+            initials={initials}
+          />
+
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#d6b46a]">
+                Customer profile
+              </p>
+
+              <ProfileStatusBadge completed={profile.isProfileCompleted} />
+            </div>
+
+            <h1 className="font-display mt-3 truncate text-4xl font-semibold leading-none sm:text-5xl">
+              {displayName}
+            </h1>
+
+            <p className="mt-4 break-all text-sm font-medium text-[#c8bead]">
+              {displayEmail}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col gap-4 xl:w-auto xl:min-w-[610px]">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <HeroMetric
+              label="Profile readiness"
+              value={`${completionPercentage}% complete`}
+              icon={<UserRound className="h-4 w-4" />}
+            />
+
+            <HeroMetric
+              label="Saved addresses"
+              value={`${profile.addresses.length} saved`}
+              icon={<MapPin className="h-4 w-4" />}
+            />
+
+            <HeroMetric
+              label="Default address"
+              value={defaultAddress ? "Available" : "Missing"}
+              icon={<Home className="h-4 w-4" />}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <ActionButton
+              type="button"
+              onClick={onRefresh}
+              loading={refreshing}
+              spinnerOnly
+              fullWidth={false}
+              variant="light"
+              className="min-h-11 !rounded-xl !px-4 !py-2.5"
+            >
+              <span className="inline-flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Refresh profile
+              </span>
+            </ActionButton>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
 function ProfileAvatar({
   imageUrl,
   name,
@@ -893,85 +899,280 @@ function ProfileAvatar({
   const showImage = Boolean(imageUrl?.trim()) && !imageFailed;
 
   return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] border-4 border-[#fffdf7] bg-[#1f1a12] text-xl font-black text-[#f7f5ef] shadow-lg dark:border-[#1a1712] dark:bg-[#e8e3d8] dark:text-[#11110f] sm:h-24 sm:w-24">
-      {showImage ? (
-        <img
-          src={imageUrl!}
-          alt={`${name} profile`}
-          className="h-full w-full object-cover"
-          referrerPolicy="no-referrer"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <span>{initials}</span>
-      )}
+    <div className="relative shrink-0">
+      <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#17130e] text-2xl font-bold text-[#f7f5ef] shadow-lg sm:h-28 sm:w-28">
+        {showImage ? (
+          <img
+            src={imageUrl!}
+            alt={`${name} profile`}
+            className="h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          initials
+        )}
+      </span>
+
+      <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-4 border-[#1f1a12] bg-emerald-500 text-white">
+        <Check className="h-4 w-4" />
+      </span>
     </div>
   );
 }
+
 function ProfileStatusBadge({ completed }: { completed: boolean }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${
         completed
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
-          : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300"
+          ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-300"
+          : "border-amber-300/20 bg-amber-400/10 text-amber-300"
       }`}
     >
+      {completed ? (
+        <BadgeCheck className="h-3.5 w-3.5" />
+      ) : (
+        <UserRound className="h-3.5 w-3.5" />
+      )}
+
       {completed ? "Profile complete" : "Profile incomplete"}
     </span>
   );
 }
 
-function ProfileSummaryCard({
+function HeroMetric({
   label,
-  value
+  value,
+  icon
 }: {
   label: string;
-  value: string | number;
+  value: string;
+  icon: ReactNode;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-[#d8cdb6] bg-[#fff8e7] p-3 dark:border-[#302c24] dark:bg-[#11110f] sm:p-4">
-      <p className="text-lg font-black sm:text-xl">{value}</p>
+    <div className="rounded-2xl border border-white/10 bg-[#17130e]/85 p-4 backdrop-blur">
+      <div className="flex items-center gap-2 text-[#d6b46a]">
+        {icon}
 
-      <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.08em] text-[#817867] dark:text-[#928a7d] sm:text-xs">
-        {label}
-      </p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.11em]">
+          {label}
+        </p>
+      </div>
+
+      <p className="mt-3 truncate text-sm font-bold text-[#f7f5ef]">{value}</p>
     </div>
   );
 }
 
-function CompletionItem({
-  completed,
-  text
+function ProfileCompletionCard({
+  percentage,
+  hasName,
+  hasPhone,
+  hasEmail,
+  hasAddress
 }: {
-  completed: boolean;
-  text: string;
+  percentage: number;
+  hasName: boolean;
+  hasPhone: boolean;
+  hasEmail: boolean;
+  hasAddress: boolean;
+}) {
+  const items = [
+    { label: "Full name", completed: hasName },
+    { label: "Phone number", completed: hasPhone },
+    { label: "Account email", completed: hasEmail },
+    { label: "Saved address", completed: hasAddress }
+  ];
+
+  return (
+    <section className="rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
+            Profile readiness
+          </p>
+
+          <h2 className="font-display mt-1.5 text-2xl font-semibold leading-none">
+            {percentage}% complete
+          </h2>
+        </div>
+
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+          <UserRound className="h-5 w-5" />
+        </span>
+      </div>
+
+      <div
+        className="mt-5 h-2 overflow-hidden rounded-full bg-[#eee6d7] dark:bg-[#242016]"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percentage}
+      >
+        <div
+          className="h-full rounded-full bg-[#8a6624] transition-[width] duration-500 dark:bg-[#d6b46a]"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="flex items-center justify-between gap-3"
+          >
+            <span className="text-xs font-medium text-[#6f6758] dark:text-[#a8a093]">
+              {item.label}
+            </span>
+
+            <span
+              className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] ${
+                item.completed
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-[#928a7d]"
+              }`}
+            >
+              {item.completed ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Added
+                </>
+              ) : (
+                "Missing"
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ContactInformationCard({
+  email,
+  phone
+}: {
+  email: string;
+  phone: string;
 }) {
   return (
-    <div className="flex items-center gap-3">
+    <section className="rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
+      <SectionHeading
+        eyebrow="Contact methods"
+        title="Contact information"
+        description="Details the shop can use for service updates."
+        icon={<Mail className="h-5 w-5" />}
+        compact
+      />
+
+      <div className="mt-6 divide-y divide-[#e4dbc9] overflow-hidden rounded-2xl border border-[#e4dbc9] bg-[#fffaf0] dark:divide-[#302c24] dark:border-[#302c24] dark:bg-[#11110f]">
+        <ContactRow
+          icon={<Mail className="h-4 w-4" />}
+          label="Email"
+          value={email}
+        />
+
+        <ContactRow
+          icon={<Phone className="h-4 w-4" />}
+          label="Phone"
+          value={phone}
+        />
+      </div>
+    </section>
+  );
+}
+
+function DefaultAddressCard({ address }: { address: CustomerAddress | null }) {
+  return (
+    <section className="rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
+      <div className="flex items-start gap-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+          <Navigation className="h-5 w-5" />
+        </span>
+
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
+            Booking preference
+          </p>
+
+          <h2 className="font-display mt-1.5 text-xl font-semibold leading-none">
+            Default address
+          </h2>
+        </div>
+      </div>
+
+      {address ? (
+        <div className="mt-5 rounded-2xl border border-[#d6b46a]/35 bg-[#fff8e7] p-4 dark:border-[#d6b46a]/20 dark:bg-[#d6b46a]/10">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-bold">
+              {address.label || "Default address"}
+            </p>
+
+            <span className="rounded-full bg-[#fff4cc] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#765313] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+              Default
+            </span>
+          </div>
+
+          <p className="mt-2 break-words text-xs font-medium leading-5 text-[#6f6758] dark:text-[#a8a093]">
+            {formatAddress(address)}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-5 rounded-2xl border border-dashed border-[#d8cdb6] bg-[#fffaf0] p-4 text-center dark:border-[#302c24] dark:bg-[#11110f]">
+          <MapPin className="mx-auto h-5 w-5 text-[#8a6624] dark:text-[#d6b46a]" />
+
+          <p className="mt-3 text-xs font-bold">No default address selected</p>
+
+          <p className="mt-1 text-xs font-medium leading-5 text-[#817867] dark:text-[#928a7d]">
+            Add or mark an address as default for quicker booking.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+  icon,
+  compact = false
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-4">
       <span
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-          completed
-            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
-            : "bg-[#eee5d4] text-[#817867] dark:bg-[#302c24] dark:text-[#928a7d]"
+        className={`flex shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a] ${
+          compact ? "h-10 w-10" : "h-11 w-11"
         }`}
       >
-        {completed ? (
-          <CheckIcon />
-        ) : (
-          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-        )}
+        {icon}
       </span>
 
-      <span
-        className={`text-sm font-semibold ${
-          completed
-            ? "text-[#1f1a12] dark:text-[#e8e3d8]"
-            : "text-[#6f6758] dark:text-[#a8a093]"
-        }`}
-      >
-        {text}
-      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
+          {eyebrow}
+        </p>
+
+        <h2
+          className={`font-display mt-1.5 font-semibold leading-none ${
+            compact ? "text-xl" : "text-2xl"
+          }`}
+        >
+          {title}
+        </h2>
+
+        <p className="mt-2 text-sm font-medium leading-6 text-[#6f6758] dark:text-[#a8a093]">
+          {description}
+        </p>
+      </div>
     </div>
   );
 }
@@ -981,22 +1182,117 @@ function ContactRow({
   label,
   value
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-[#d8cdb6] bg-[#fff8e7] p-3 dark:border-[#302c24] dark:bg-[#11110f]">
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fff4cc] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+    <div className="flex items-center gap-3 px-4 py-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#242016] dark:text-[#d6b46a]">
         {icon}
       </span>
 
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#817867] dark:text-[#928a7d]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.09em] text-[#817867] dark:text-[#928a7d]">
           {label}
         </p>
 
-        <p className="mt-1 break-words text-xs font-black">{value}</p>
+        <p className="mt-1 break-words text-xs font-bold">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function TextField({
+  id,
+  label,
+  value,
+  type,
+  autoComplete,
+  inputMode,
+  maxLength,
+  placeholder,
+  disabled,
+  required,
+  icon,
+  onChange
+}: {
+  id: string;
+  label: string;
+  value: string;
+  type: "text" | "tel";
+  autoComplete: string;
+  inputMode?: "text" | "numeric" | "tel";
+  maxLength?: number;
+  placeholder: string;
+  disabled: boolean;
+  required?: boolean;
+  icon: ReactNode;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block" htmlFor={id}>
+      <span className="mb-2 block text-xs font-bold text-[#4f4638] dark:text-[#d8cdb6]">
+        {label}
+
+        {required && (
+          <span className="ml-1 text-red-600 dark:text-red-400">*</span>
+        )}
+      </span>
+
+      <div className="relative">
+        <span className="pointer-events-none absolute left-4 top-1/2 flex -translate-y-1/2 text-[#817867] dark:text-[#928a7d]">
+          {icon}
+        </span>
+
+        <input
+          id={id}
+          type={type}
+          value={value}
+          disabled={disabled}
+          autoComplete={autoComplete}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          className="admin-input h-12 pl-11"
+        />
+      </div>
+    </label>
+  );
+}
+
+function ReadOnlyIdentityField({
+  label,
+  value,
+  icon,
+  status
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  status: string;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-bold text-[#4f4638] dark:text-[#d8cdb6]">
+        {label}
+      </p>
+
+      <div className="flex min-h-14 items-center gap-3 rounded-2xl border border-[#e4dbc9] bg-[#fffaf0] px-4 py-3 dark:border-[#302c24] dark:bg-[#11110f]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#242016] dark:text-[#d6b46a]">
+          {icon}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <p className="break-all text-sm font-bold">{value}</p>
+
+          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-700 dark:text-emerald-300">
+            {status}
+          </p>
+        </div>
+
+        <BadgeCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-300" />
       </div>
     </div>
   );
@@ -1017,59 +1313,70 @@ function AddressCard({
 }) {
   return (
     <article
-      className={`flex h-full flex-col rounded-[1.25rem] border bg-[#fffaf0] p-4 transition dark:bg-[#11110f] sm:p-5 ${
+      className={`relative flex h-full flex-col overflow-hidden rounded-[1.5rem] border bg-[#fffaf0] p-5 transition dark:bg-[#11110f] ${
         address.isDefault
           ? "border-[#d6b46a]/70 shadow-sm dark:border-[#d6b46a]/40"
-          : "border-[#d8cdb6] hover:border-[#c7b98e] dark:border-[#302c24] dark:hover:border-[#50483b]"
+          : "border-[#e4dbc9] hover:border-[#c7b98e] dark:border-[#302c24] dark:hover:border-[#50483b]"
       }`}
     >
+      {address.isDefault && (
+        <div className="absolute inset-x-0 top-0 h-1 bg-[#d6b46a]" />
+      )}
+
       <div className="flex items-start justify-between gap-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff4cc] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-          <LocationIcon />
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#242016] dark:text-[#d6b46a]">
+          {getAddressIcon(address.label)}
         </span>
 
         {address.isDefault && (
-          <span className="rounded-full border border-[#d6b46a]/40 bg-[#fff4cc] px-3 py-1 text-[10px] font-black text-[#7a570f] dark:border-[#d6b46a]/25 dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b46a]/35 bg-[#fff4cc] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#765313] dark:border-[#d6b46a]/20 dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+            <CheckCircle2 className="h-3.5 w-3.5" />
             Default
           </span>
         )}
       </div>
 
-      <h3 className="mt-4 text-lg font-black">{address.label || "Address"}</h3>
+      <h3 className="mt-5 text-lg font-bold">
+        {address.label || "Saved address"}
+      </h3>
 
-      <p className="mt-2 break-words text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
+      <p className="mt-2 break-words text-sm font-medium leading-6 text-[#6f6758] dark:text-[#a8a093]">
         {formatAddress(address)}
       </p>
 
-      <div className="mt-auto flex flex-wrap gap-2 pt-5">
+      <div className="mt-auto flex flex-wrap gap-2 pt-6">
         <button
           type="button"
           disabled={busy}
           onClick={onEdit}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-3 text-xs font-black transition hover:bg-[#f2eadb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-3.5 text-xs font-bold transition hover:bg-[#f2eadb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
         >
-          <EditIcon />
+          <Edit3 className="h-3.5 w-3.5" />
           Edit
         </button>
 
         {!address.isDefault && (
-          <button
+          <ActionButton
             type="button"
-            disabled={busy}
             onClick={onSetDefault}
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-3 text-xs font-black transition hover:bg-[#f2eadb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+            loading={busy}
+            spinnerOnly
+            disabled={busy}
+            fullWidth={false}
+            variant="outline"
+            className="!min-h-10 !rounded-xl !px-3.5 !py-2 !text-xs"
           >
-            {busy ? "Updating..." : "Make Default"}
-          </button>
+            Make default
+          </ActionButton>
         )}
 
         <button
           type="button"
           disabled={busy}
           onClick={onDelete}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
         >
-          <TrashIcon />
+          <Trash2 className="h-3.5 w-3.5" />
           Delete
         </button>
       </div>
@@ -1100,7 +1407,7 @@ function AddressModal({
   return (
     <div className="fixed inset-0 z-[800]">
       <div
-        className="absolute inset-0 bg-black/65 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onMouseDown={onClose}
       />
 
@@ -1108,125 +1415,128 @@ function AddressModal({
         <form
           onSubmit={onSubmit}
           onMouseDown={(event) => event.stopPropagation()}
-          className="flex max-h-[100dvh] w-full flex-col overflow-hidden bg-[#f7f5ef] text-[#1f1a12] shadow-2xl dark:bg-[#11110f] dark:text-[#e8e3d8] sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[1.5rem] sm:border sm:border-[#d8cdb6] dark:sm:border-[#302c24]"
+          className="flex max-h-[100dvh] w-full flex-col overflow-hidden bg-[#f7f5ef] text-[#1f1a12] shadow-2xl dark:bg-[#11110f] dark:text-[#e8e3d8] sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[1.75rem] sm:border sm:border-[#302c24]"
         >
-          <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8cdb6] px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-[#302c24] sm:px-6 sm:pt-5">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
-                Address book
-              </p>
+          <header className="relative shrink-0 overflow-hidden border-b border-[#302c24] bg-[#1f1a12] px-5 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))] text-[#f7f5ef] sm:px-7 sm:pt-6">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 opacity-[0.06]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(#d6b46a 1px, transparent 1px), linear-gradient(90deg, #d6b46a 1px, transparent 1px)",
+                backgroundSize: "34px 34px"
+              }}
+            />
 
-              <h2 className="mt-2 text-xl font-black sm:text-2xl">
-                {editing ? "Edit address" : "Add new address"}
-              </h2>
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#d6b46a]/25 bg-[#d6b46a]/10 text-[#d6b46a]">
+                  <MapPin className="h-5 w-5" />
+                </span>
+
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#d6b46a]">
+                    Address book
+                  </p>
+
+                  <h2 className="font-display mt-2 text-2xl font-semibold">
+                    {editing ? "Edit address" : "Add new address"}
+                  </h2>
+
+                  <p className="mt-2 text-xs font-medium leading-5 text-[#c8bead]">
+                    Save accurate location details for home-visit repair
+                    bookings.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={onClose}
+                aria-label="Close address form"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[#e8e3d8] transition hover:bg-white/10 disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-
-            <button
-              type="button"
-              disabled={saving}
-              onClick={onClose}
-              aria-label="Close address form"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] transition hover:bg-[#f2eadb] disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
-            >
-              <CloseIcon />
-            </button>
           </header>
 
-          <div className="te-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
+          <div className="te-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-7">
             <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <FieldLabel
-                  htmlFor="address-label"
-                  label="Address label"
-                  required
-                />
+              <ModalTextField
+                id="address-label"
+                label="Address label"
+                value={form.label}
+                placeholder="Home, Work or Shop"
+                disabled={saving}
+                required
+                icon={<Building2 className="h-4 w-4" />}
+                onChange={(value) => onChange("label", value)}
+              />
 
-                <input
-                  id="address-label"
-                  type="text"
-                  value={form.label}
-                  disabled={saving}
-                  placeholder="Home, Work or Shop"
-                  onChange={(event) => onChange("label", event.target.value)}
-                  className={inputClassName}
-                />
-              </div>
-
-              <div>
-                <FieldLabel
-                  htmlFor="address-pincode"
-                  label="Pincode"
-                  required
-                />
-
-                <input
-                  id="address-pincode"
-                  type="text"
-                  value={form.pincode}
-                  disabled={saving}
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="400054"
-                  onChange={(event) =>
-                    onChange(
-                      "pincode",
-                      event.target.value.replace(/\D/g, "").slice(0, 6)
-                    )
-                  }
-                  className={inputClassName}
-                />
-              </div>
+              <ModalTextField
+                id="address-pincode"
+                label="Pincode"
+                value={form.pincode}
+                placeholder="400054"
+                disabled={saving}
+                required
+                inputMode="numeric"
+                maxLength={6}
+                icon={<Navigation className="h-4 w-4" />}
+                onChange={(value) =>
+                  onChange("pincode", value.replace(/\D/g, "").slice(0, 6))
+                }
+              />
 
               <div className="sm:col-span-2">
-                <FieldLabel
-                  htmlFor="address-line"
-                  label="Full address"
-                  required
-                />
+                <label className="block" htmlFor="address-line">
+                  <span className="mb-2 block text-xs font-bold text-[#4f4638] dark:text-[#d8cdb6]">
+                    Full address
+                    <span className="ml-1 text-red-600 dark:text-red-400">
+                      *
+                    </span>
+                  </span>
 
-                <textarea
-                  id="address-line"
-                  value={form.addressLine}
-                  disabled={saving}
-                  rows={4}
-                  placeholder="Building, room number, road and landmark"
-                  onChange={(event) =>
-                    onChange("addressLine", event.target.value)
-                  }
-                  className={`${inputClassName} resize-none`}
-                />
+                  <textarea
+                    id="address-line"
+                    value={form.addressLine}
+                    disabled={saving}
+                    rows={4}
+                    placeholder="Building, room number, road and landmark"
+                    onChange={(event) =>
+                      onChange("addressLine", event.target.value)
+                    }
+                    className="admin-input min-h-28 resize-none py-3"
+                  />
+                </label>
               </div>
 
-              <div>
-                <FieldLabel htmlFor="address-city" label="City" required />
+              <ModalTextField
+                id="address-city"
+                label="City"
+                value={form.city}
+                placeholder="Mumbai"
+                disabled={saving}
+                required
+                icon={<Building2 className="h-4 w-4" />}
+                onChange={(value) => onChange("city", value)}
+              />
 
-                <input
-                  id="address-city"
-                  type="text"
-                  value={form.city}
-                  disabled={saving}
-                  placeholder="Mumbai"
-                  onChange={(event) => onChange("city", event.target.value)}
-                  className={inputClassName}
-                />
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="address-state" label="State" required />
-
-                <input
-                  id="address-state"
-                  type="text"
-                  value={form.state}
-                  disabled={saving}
-                  placeholder="Maharashtra"
-                  onChange={(event) => onChange("state", event.target.value)}
-                  className={inputClassName}
-                />
-              </div>
+              <ModalTextField
+                id="address-state"
+                label="State"
+                value={form.state}
+                placeholder="Maharashtra"
+                disabled={saving}
+                required
+                icon={<MapPin className="h-4 w-4" />}
+                onChange={(value) => onChange("state", value)}
+              />
             </div>
 
-            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
+            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#e4dbc9] bg-[#fffaf0] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
               <input
                 type="checkbox"
                 checked={form.isDefault}
@@ -1238,11 +1548,11 @@ function AddressModal({
               />
 
               <span>
-                <span className="block text-sm font-black">
+                <span className="block text-sm font-bold">
                   Use as default address
                 </span>
 
-                <span className="mt-1 block text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
+                <span className="mt-1 block text-xs font-medium leading-5 text-[#6f6758] dark:text-[#a8a093]">
                   This address will be selected first during home-visit
                   bookings.
                 </span>
@@ -1250,21 +1560,18 @@ function AddressModal({
             </label>
 
             {error && (
-              <div
-                role="alert"
-                className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
-              >
-                {error}
+              <div className="mt-5">
+                <MessageBox type="error" message={error} />
               </div>
             )}
           </div>
 
-          <footer className="grid shrink-0 gap-3 border-t border-[#d8cdb6] bg-[#fffaf0] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 dark:border-[#302c24] dark:bg-[#11110f] sm:grid-cols-2 sm:px-6 sm:pb-5">
+          <footer className="grid shrink-0 gap-3 border-t border-[#d8cdb6] bg-[#fffaf0] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 dark:border-[#302c24] dark:bg-[#11110f] sm:grid-cols-2 sm:px-7 sm:pb-5">
             <button
               type="button"
               disabled={saving}
               onClick={onClose}
-              className="h-12 rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-5 text-sm font-black transition hover:bg-[#f2eadb] disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+              className="h-12 rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-5 text-sm font-bold transition hover:bg-[#f2eadb] disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
             >
               Cancel
             </button>
@@ -1272,17 +1579,71 @@ function AddressModal({
             <ActionButton
               type="submit"
               loading={saving}
-              loadingText="Saving..."
+              spinnerOnly
               variant="dark"
               fullWidth
-              className="h-12 rounded-xl"
+              className="min-h-12 !rounded-xl"
             >
-              {editing ? "Update Address" : "Add Address"}
+              {editing ? "Update address" : "Add address"}
             </ActionButton>
           </footer>
         </form>
       </div>
     </div>
+  );
+}
+
+function ModalTextField({
+  id,
+  label,
+  value,
+  placeholder,
+  disabled,
+  required,
+  inputMode,
+  maxLength,
+  icon,
+  onChange
+}: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  disabled: boolean;
+  required?: boolean;
+  inputMode?: "text" | "numeric";
+  maxLength?: number;
+  icon: ReactNode;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block" htmlFor={id}>
+      <span className="mb-2 block text-xs font-bold text-[#4f4638] dark:text-[#d8cdb6]">
+        {label}
+
+        {required && (
+          <span className="ml-1 text-red-600 dark:text-red-400">*</span>
+        )}
+      </span>
+
+      <div className="relative">
+        <span className="pointer-events-none absolute left-4 top-1/2 flex -translate-y-1/2 text-[#817867] dark:text-[#928a7d]">
+          {icon}
+        </span>
+
+        <input
+          id={id}
+          type="text"
+          value={value}
+          disabled={disabled}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          className="admin-input h-12 pl-11"
+        />
+      </div>
+    </label>
   );
 }
 
@@ -1298,105 +1659,94 @@ function DeleteAddressModal({
   onConfirm: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[820] flex items-end justify-center bg-black/65 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="w-full bg-[#f7f5ef] p-5 text-[#1f1a12] shadow-2xl dark:bg-[#11110f] dark:text-[#e8e3d8] sm:max-w-md sm:rounded-[1.5rem] sm:border sm:border-[#d8cdb6] sm:p-6 dark:sm:border-[#302c24]">
-        <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300">
-          <TrashIcon />
-        </span>
+    <div className="fixed inset-0 z-[820] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <section className="w-full overflow-hidden bg-[#f7f5ef] text-[#1f1a12] shadow-2xl dark:bg-[#11110f] dark:text-[#e8e3d8] sm:max-w-md sm:rounded-[1.75rem] sm:border sm:border-[#302c24]">
+        <header className="border-b border-red-900/20 bg-red-950 px-5 py-6 text-white sm:px-6">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-300/20 bg-red-400/10 text-red-200">
+            <Trash2 className="h-5 w-5" />
+          </span>
 
-        <h2 className="mt-5 text-xl font-black">Delete this address?</h2>
+          <h2 className="font-display mt-5 text-2xl font-semibold">
+            Delete this address?
+          </h2>
 
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-          <strong className="text-[#1f1a12] dark:text-[#e8e3d8]">
-            {address.label || "Address"}
-          </strong>{" "}
-          will be removed from your address book.
-        </p>
+          <p className="mt-2 text-sm font-medium leading-6 text-red-100/75">
+            This removes the address from your saved booking locations.
+          </p>
+        </header>
 
-        {address.isDefault && (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
-            This is currently your default address.
+        <div className="p-5 sm:p-6">
+          <div className="rounded-2xl border border-[#e4dbc9] bg-[#fffaf0] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
+            <p className="text-sm font-bold">
+              {address.label || "Saved address"}
+            </p>
+
+            <p className="mt-2 text-xs font-medium leading-5 text-[#6f6758] dark:text-[#a8a093]">
+              {formatAddress(address)}
+            </p>
           </div>
-        )}
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={onCancel}
-            className="h-11 rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-4 text-sm font-black transition hover:bg-[#f2eadb] disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
-          >
-            Cancel
-          </button>
+          {address.isDefault && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium leading-5 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
+              This is currently your default booking address.
+            </div>
+          )}
 
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={onConfirm}
-            className="h-11 rounded-xl bg-red-700 px-4 text-sm font-black text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-300 dark:text-red-950"
-          >
-            {deleting ? "Deleting..." : "Delete Address"}
-          </button>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={onCancel}
+              className="h-12 rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-4 text-sm font-bold transition hover:bg-[#f2eadb] disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+            >
+              Cancel
+            </button>
+
+            <ActionButton
+              type="button"
+              onClick={onConfirm}
+              loading={deleting}
+              spinnerOnly
+              variant="dark"
+              className="min-h-12 !rounded-xl !bg-red-700 !text-white hover:!bg-red-800 dark:!bg-red-300 dark:!text-red-950 dark:hover:!bg-red-200"
+            >
+              Delete address
+            </ActionButton>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
 
 function AddressEmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="mt-5 flex min-h-[240px] flex-col items-center justify-center rounded-xl border border-dashed border-[#d8cdb6] bg-[#fffaf0] px-5 py-10 text-center dark:border-[#302c24] dark:bg-[#11110f]">
-      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fff4cc] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-        <LocationIcon />
+    <div className="flex min-h-[270px] flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-[#d8cdb6] bg-[#fffaf0] px-5 py-10 text-center dark:border-[#302c24] dark:bg-[#11110f]">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#242016] dark:text-[#d6b46a]">
+        <MapPin className="h-6 w-6" />
       </span>
 
-      <h3 className="mt-4 text-lg font-black">No saved addresses</h3>
+      <h3 className="font-display mt-5 text-2xl font-semibold">
+        No saved addresses
+      </h3>
 
-      <p className="mt-2 max-w-sm text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-        Add an address to make home-visit repair booking faster.
+      <p className="mt-3 max-w-sm text-sm font-medium leading-6 text-[#6f6758] dark:text-[#a8a093]">
+        Add a trusted address to make home-visit repair booking faster.
       </p>
 
-      <button
+      <ActionButton
         type="button"
         onClick={onAdd}
-        className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1f1a12] px-5 text-xs font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f]"
+        fullWidth={false}
+        variant="dark"
+        className="mt-6 min-h-11 !rounded-xl !px-5 !py-3"
       >
-        <PlusIcon />
-        Add Address
-      </button>
+        <span className="inline-flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add address
+        </span>
+      </ActionButton>
     </div>
-  );
-}
-
-function FieldLabel({
-  htmlFor,
-  label,
-  required = false
-}: {
-  htmlFor: string;
-  label: string;
-  required?: boolean;
-}) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]"
-    >
-      {label}
-
-      {required && (
-        <>
-          <span
-            aria-hidden="true"
-            className="ml-1 font-black text-red-600 dark:text-red-400"
-          >
-            *
-          </span>
-
-          <span className="sr-only"> required</span>
-        </>
-      )}
-    </label>
   );
 }
 
@@ -1412,7 +1762,7 @@ function MessageBox({
   return (
     <div
       role={successful ? "status" : "alert"}
-      className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
+      className={`rounded-2xl border px-4 py-3 text-sm font-semibold leading-6 ${
         successful
           ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
           : "border-red-200 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
@@ -1425,14 +1775,28 @@ function MessageBox({
 
 function ProfileLoadingState() {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="flex min-h-[55vh] items-center justify-center rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]">
-        <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
+    <main
+      className="te-sheet-bg mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
+      style={{ fontFamily: "var(--font-ui)" }}
+    >
+      <div className="animate-pulse">
+        <div className="h-[310px] rounded-[2rem] border border-[#302c24] bg-[#1f1a12] sm:h-[260px]" />
 
-          <p className="mt-4 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-            Loading profile...
-          </p>
+        <div className="mt-6 grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="space-y-6">
+            {[0, 1, 2].map((item) => (
+              <div
+                key={item}
+                className="h-52 rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
+              />
+            ))}
+          </div>
+
+          <div className="space-y-6">
+            <div className="h-[430px] rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]" />
+
+            <div className="h-[390px] rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]" />
+          </div>
         </div>
       </div>
     </main>
@@ -1447,177 +1811,59 @@ function ProfileErrorState({
   onRetry: () => void;
 }) {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="flex min-h-[50vh] flex-col items-center justify-center rounded-[1.5rem] border border-red-200 bg-red-50 px-5 py-10 text-center dark:border-red-400/20 dark:bg-red-400/10">
-        <h1 className="text-xl font-black text-red-700 dark:text-red-300">
+    <main
+      className="te-sheet-bg mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
+      style={{ fontFamily: "var(--font-ui)" }}
+    >
+      <div className="flex min-h-[55vh] flex-col items-center justify-center rounded-[2rem] border border-red-200 bg-red-50 px-5 py-12 text-center dark:border-red-400/20 dark:bg-red-400/10">
+        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-700 dark:bg-red-400/10 dark:text-red-300">
+          <RefreshCw className="h-6 w-6" />
+        </span>
+
+        <h1 className="font-display mt-5 text-3xl font-semibold text-red-700 dark:text-red-300">
           Could not load profile
         </h1>
 
-        <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-red-700/80 dark:text-red-200/80">
+        <p className="mt-3 max-w-md text-sm font-medium leading-6 text-red-700/80 dark:text-red-200/80">
           {message}
         </p>
 
-        <button
+        <ActionButton
           type="button"
           onClick={onRetry}
-          className="mt-5 h-11 rounded-xl bg-red-700 px-5 text-sm font-black text-white transition hover:bg-red-800 dark:bg-red-300 dark:text-red-950"
+          fullWidth={false}
+          variant="dark"
+          className="mt-6 min-h-11 !rounded-xl !px-5 !py-3"
         >
-          Try Again
-        </button>
+          Try again
+        </ActionButton>
       </div>
     </main>
   );
+}
+
+function getAddressIcon(label?: string | null) {
+  const normalized = label?.trim().toLowerCase() ?? "";
+
+  if (normalized.includes("home")) {
+    return <Home className="h-5 w-5" />;
+  }
+
+  if (
+    normalized.includes("work") ||
+    normalized.includes("office") ||
+    normalized.includes("shop")
+  ) {
+    return <Building2 className="h-5 w-5" />;
+  }
+
+  return <MapPin className="h-5 w-5" />;
 }
 
 function formatAddress(address: CustomerAddress) {
   return [address.addressLine, address.city, address.state, address.pincode]
     .filter(Boolean)
     .join(", ");
-}
-
-const inputClassName =
-  "w-full rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-4 py-3 text-sm font-semibold text-[#1f1a12] outline-none transition placeholder:text-[#9b907d] focus:border-[#d6b46a] focus:ring-4 focus:ring-[#d6b46a]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:placeholder:text-[#8f8778] dark:focus:border-[#d6b46a]";
-
-function RefreshIcon({ spinning }: { spinning: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className={`h-4 w-4 ${spinning ? "animate-spin" : ""}`}
-    >
-      <path
-        d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className="h-3.5 w-3.5"
-    >
-      <path
-        d="m7 12 3 3 7-7"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function MailIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
-      <rect
-        x="3"
-        y="5"
-        width="18"
-        height="14"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-
-      <path
-        d="m4 7 8 6 8-6"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
-      <path
-        d="M8.4 3.5 10 7.2 7.8 9c1.3 2.8 3.5 5 6.2 6.2l1.8-2.2 3.7 1.6v3c0 1-.8 1.9-1.9 1.9A14.1 14.1 0 0 1 4.5 6.4c0-1 .8-1.9 1.9-1.9h2Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function LocationIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
-      <path
-        d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-
-      <circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
-      <path
-        d="M12 5v14M5 12h14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function EditIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
-      <path
-        d="m14 5 5 5-9 9H5v-5l9-9Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
-      <path
-        d="M5 7h14M9 7V4h6v3M8 10v7M12 10v7M16 10v7M7 7l1 13h8l1-13"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
-      <path
-        d="M7 7l10 10M17 7 7 17"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
 }
 
 export default CustomerProfilePage;

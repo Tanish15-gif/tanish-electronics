@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using TanishElectronics.Api.DTOs.Auth.Custom;
+using TanishElectronics.Api.DTOs.Auth;
 using TanishElectronics.Api.Entities;
 using TanishElectronics.Api.Interfaces.Services;
 using TanishElectronics.Api.Settings;
@@ -18,7 +18,7 @@ public class JwtTokenService : IJwtTokenService
     {
         _jwtSettings = jwtOptions.Value;
     }
-    public AuthResponseDto GenerateAuthResponse(AppUser user, List<string> roles, string refreshToken)
+    public AuthResponseDto GenerateAuthResponse(AppUser user, List<string> roles, string refreshToken, Guid userSessionId)
     {
         var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenMinutes);
 
@@ -29,6 +29,7 @@ public class JwtTokenService : IJwtTokenService
             new Claim(JwtRegisteredClaimNames.Email,user.Email),
             new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.Name, user.FullName),
+            new Claim("sid",userSessionId.ToString())
         };
         foreach (var role in roles)
         {

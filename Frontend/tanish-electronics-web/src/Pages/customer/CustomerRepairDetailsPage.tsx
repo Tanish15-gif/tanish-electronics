@@ -132,7 +132,7 @@ function CustomerRepairDetailsPage() {
 
   if (loading) {
     return (
-      <main className="px-4 py-8 sm:px-6 lg:px-8">
+      <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex min-h-[60vh] items-center justify-center">
           <div>
             <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
@@ -147,7 +147,7 @@ function CustomerRepairDetailsPage() {
 
   if (error || !repair) {
     return (
-      <main className="px-4 py-8 sm:px-6 lg:px-8">
+      <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
           {error || "Repair request not found."}
         </div>
@@ -173,7 +173,7 @@ function CustomerRepairDetailsPage() {
     repair.requestNumber
   )}&phoneNumber=${encodeURIComponent(repair.phoneNumber)}`;
   return (
-    <main className="px-4 py-8 sm:px-6 lg:px-8">
+    <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
       <section className="overflow-hidden rounded-[2.5rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
         <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[1fr_380px] xl:items-center">
           <div>

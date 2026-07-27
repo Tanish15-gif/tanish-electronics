@@ -27,24 +27,29 @@ public class GlobalExceptionMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            _logger.LogInformation(
+                "Request was cancelled by the client. Path: {Path}",
+                context.Request.Path
+            );
+        }
         catch (Exception ex)
         {
+            if (context.Response.HasStarted)
+            {
+                _logger.LogError(
+                    ex,
+                    "Exception occurred after response started. Path: {Path}",
+                    context.Request.Path
+                );
+                throw;
+            }
             await HandleExceptionAsync(context, ex);
         }
     }
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        if (context.Response.HasStarted)
-        {
-            _logger.LogError(
-                exception,
-                "Exception occurred after the response already started. Path: {Path}",
-                context.Request.Path
-            );
-
-            throw exception;
-        }
-
         var statusCode = GetStatusCode(exception);
 
         if (statusCode >= 500)
@@ -105,6 +110,7 @@ public class GlobalExceptionMiddleware
             DbUpdateConcurrencyException => StatusCodes.Status409Conflict,
 
             ArgumentException => StatusCodes.Status400BadRequest,
+            BadRequestException => StatusCodes.Status400BadRequest,
             InvalidOperationException => StatusCodes.Status400BadRequest,
             ValidationException => StatusCodes.Status400BadRequest,
             BadHttpRequestException => StatusCodes.Status400BadRequest,

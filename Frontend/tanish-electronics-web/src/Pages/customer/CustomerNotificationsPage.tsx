@@ -154,7 +154,7 @@ function CustomerNotificationsPage() {
   }
 
   return (
-    <main className="px-4 py-8 sm:px-6 lg:px-8">
+    <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
       <title>Notifications</title>
       <section className="rounded-[2.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-8">
         <div className="flex flex-col gap-6 border-b border-[#d8cdb6] pb-7 dark:border-[#302c24] lg:flex-row lg:items-center lg:justify-between">

@@ -225,7 +225,7 @@ function AdminEnquiryDetailsPage() {
 
   if (!enquiry) {
     return (
-      <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
+      <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
           <Link
             to="/admin/enquiries"
@@ -257,7 +257,7 @@ function AdminEnquiryDetailsPage() {
   );
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
         <Link
           to="/admin/enquiries"
@@ -776,7 +776,7 @@ function EnquiryStatusBadge({ status }: { status: string }) {
 
 function EnquiryLoading() {
   return (
-    <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 dark:bg-[#11110f] sm:px-6 lg:px-8">
+    <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-10 dark:bg-[#11110f] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl animate-pulse">
         <div className="h-5 w-32 rounded bg-[#eee5d4] dark:bg-[#302c24]" />
 

@@ -74,6 +74,8 @@ public partial class TanishElectronicsDbContext : DbContext
 
     public virtual DbSet<UserAuthEvent> UserAuthEvents { get; set; }
 
+    public virtual DbSet<UserSession> UserSessions { get; set; }
+
     public virtual DbSet<WebsiteVisit> WebsiteVisits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -491,6 +493,8 @@ public partial class TanishElectronicsDbContext : DbContext
 
             entity.HasIndex(e => e.ExpiresAt, "IX_RefreshTokens_ExpiresAt");
 
+            entity.HasIndex(e => e.UserSessionId, "IX_RefreshTokens_UserSessionId");
+
             entity.HasIndex(e => e.TokenHash, "UX_RefreshTokens_TokenHash").IsUnique();
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())", "DF_RefreshTokens_CreatedAt");
@@ -504,6 +508,10 @@ public partial class TanishElectronicsDbContext : DbContext
                 .HasForeignKey(d => d.AppUserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_RefreshTokens_AppUsers");
+
+            entity.HasOne(d => d.UserSession).WithMany(p => p.RefreshTokens)
+                .HasForeignKey(d => d.UserSessionId)
+                .HasConstraintName("FK_RefreshTokens_UserSessions");
         });
 
         modelBuilder.Entity<Role>(entity =>
@@ -722,6 +730,30 @@ public partial class TanishElectronicsDbContext : DbContext
             entity.HasOne(d => d.AppUser).WithMany(p => p.UserAuthEvents)
                 .HasForeignKey(d => d.AppUserId)
                 .HasConstraintName("FK_UserAuthEvents_AppUsers");
+        });
+
+        modelBuilder.Entity<UserSession>(entity =>
+        {
+            entity.HasIndex(e => new { e.AppUserId, e.RevokedAt }, "IX_UserSessions_AppUserId_RevokedAt");
+
+            entity.HasIndex(e => e.LastSeenAt, "IX_UserSessions_LastSeenAt");
+
+            entity.Property(e => e.UserSessionId).HasDefaultValueSql("(newsequentialid())", "DF_UserSessions_UserSessionId");
+            entity.Property(e => e.BrowserName).HasMaxLength(60);
+            entity.Property(e => e.BrowserVersion).HasMaxLength(40);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())", "DF_UserSessions_CreatedAt");
+            entity.Property(e => e.DeviceName).HasMaxLength(100);
+            entity.Property(e => e.DeviceType).HasMaxLength(30);
+            entity.Property(e => e.IpAddress).HasMaxLength(64);
+            entity.Property(e => e.LastSeenAt).HasDefaultValueSql("(sysutcdatetime())", "DF_UserSessions_LastSeenAt");
+            entity.Property(e => e.OperatingSystem).HasMaxLength(80);
+            entity.Property(e => e.RevokedByIp).HasMaxLength(64);
+            entity.Property(e => e.UserAgent).HasMaxLength(1000);
+
+            entity.HasOne(d => d.AppUser).WithMany(p => p.UserSessions)
+                .HasForeignKey(d => d.AppUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_UserSessions_AppUsers");
         });
 
         modelBuilder.Entity<WebsiteVisit>(entity =>

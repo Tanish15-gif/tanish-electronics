@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TanishElectronics.Api.Constants;
-using TanishElectronics.Api.DTOs.Auth.Custom;
+using TanishElectronics.Api.DTOs.Auth;
 using TanishElectronics.Api.Interfaces.Services;
 
 namespace TanishElectronics.Api.Controllers;
@@ -17,6 +17,7 @@ public class CustomAuthController : ControllerBase
     {
         _authService = authService;
     }
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto)
     {
@@ -25,6 +26,7 @@ public class CustomAuthController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
     {
@@ -47,6 +49,8 @@ public class CustomAuthController : ControllerBase
 
         return Ok(new { message = "Logged out successfully." });
     }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
     [HttpPost("google")]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto dto)
     {
@@ -54,6 +58,8 @@ public class CustomAuthController : ControllerBase
 
         return Ok(result);
     }
+
+    [EnableRateLimiting(RateLimitPolicies.OtpRequest)]
     [HttpPost("forgot-password/request")]
     [AllowAnonymous]
     public async Task<IActionResult> RequestForgotPasswordOtp([FromBody] ForgotPasswordRequestDto dto)
@@ -65,6 +71,8 @@ public class CustomAuthController : ControllerBase
             message = "If an account exists for that email, a password reset code has been sent."
         });
     }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
     [HttpPost("forgot-password/reset")]
     [AllowAnonymous]
     public async Task<IActionResult> ResetPasswordWithOtp([FromBody] ResetPasswordRequestDto dto)
@@ -76,6 +84,8 @@ public class CustomAuthController : ControllerBase
             message = "Your password has been reset successfully. You can now sign in."
         });
     }
+
+    [EnableRateLimiting(RateLimitPolicies.OtpVerify)]
     [HttpPost("forgot-password/verify")]
     [AllowAnonymous]
     public async Task<IActionResult> VerifyForgotPasswordOtp([FromBody] VerifyForgotPasswordOtpRequestDto dto)
@@ -83,5 +93,101 @@ public class CustomAuthController : ControllerBase
         var response = await _authService.VerifyForgotPasswordOtpAsync(dto);
 
         return Ok(response);
+    }
+    [EnableRateLimiting(RateLimitPolicies.PublicRead)]
+    [HttpGet("security-summary")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    public async Task<IActionResult> GetSecuritySummary()
+    {
+        var response = await _authService.GetSecuritySummaryAsync();
+
+        return Ok(response);
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
+    [HttpPost("change-password")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto dto)
+    {
+        await _authService.ChangePasswordAsync(dto);
+
+        return Ok(new
+        {
+            message =
+                "Password changed successfully. Please sign in again."
+        });
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
+    [HttpPost("set-password/google-reauth")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    public async Task<IActionResult> ReauthenticateGoogleForPassword([FromBody] GooglePasswordReauthRequestDto dto)
+    {
+        var response = await _authService.ReauthenticateGoogleForPasswordAsync(dto);
+
+        return Ok(response);
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
+    [HttpPost("set-password/complete")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    public async Task<IActionResult> CompleteSetPassword([FromBody] CompleteSetPasswordRequestDto dto)
+    {
+        await _authService.CompleteSetPasswordAsync(dto);
+
+        return Ok(new
+        {
+            message = "Password created successfully. You can now sign in using Google or your password."
+        });
+    }
+
+
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
+    [HttpPost("sessions/logout-others")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    public async Task<IActionResult> SignOutOtherSessions([FromBody] SignOutOtherSessionsRequestDto dto)
+    {
+        await _authService.SignOutOtherSessionsAsync(dto);
+
+        return Ok(new
+        {
+            message = "Other devices have been signed out."
+        });
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
+    [HttpPost("sessions/logout-all")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    public async Task<IActionResult> SignOutAllSessions()
+    {
+        await _authService.SignOutAllSessionsAsync();
+
+        return Ok(new
+        {
+            message = "All devices have been signed out."
+        });
+    }
+
+    [HttpGet("sessions")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    [EnableRateLimiting(RateLimitPolicies.PublicRead)]
+    public async Task<IActionResult> GetActiveSessions()
+    {
+        var sessions = await _authService.GetActiveSessionsAsync();
+
+        return Ok(sessions);
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
+    [HttpPost("sessions/{userSessionId:guid}/revoke")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    public async Task<IActionResult> RevokeSession(Guid userSessionId)
+    {
+        await _authService.RevokeSessionAsync(userSessionId);
+
+        return Ok(new
+        {
+            message = "The selected device has been signed out."
+        });
     }
 }

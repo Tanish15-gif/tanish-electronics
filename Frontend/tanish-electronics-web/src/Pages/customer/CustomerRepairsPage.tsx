@@ -125,7 +125,7 @@ function CustomerRepairsPage() {
 
   if (loading) {
     return (
-      <main className="px-4 py-8 sm:px-6 lg:px-8">
+      <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex min-h-[60vh] items-center justify-center">
           <div>
             <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
@@ -140,7 +140,7 @@ function CustomerRepairsPage() {
 
   if (error) {
     return (
-      <main className="px-4 py-8 sm:px-6 lg:px-8">
+      <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
           {error}
         </div>
@@ -149,7 +149,7 @@ function CustomerRepairsPage() {
   }
 
   return (
-    <main className="px-4 py-8 sm:px-6 lg:px-8">
+    <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
       <title>My Repair</title>
       <section className="rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] px-6 py-6 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:px-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">

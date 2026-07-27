@@ -211,3 +211,102 @@ export async function resetPassword(
     skipAuthRefresh: true
   });
 }
+export type SecuritySummary = {
+  hasPassword: boolean;
+  emailConfirmed: boolean;
+  passwordUpdatedAt: string | null;
+  connectedProviders: string[];
+  activeSessionCount: number;
+};
+
+export type ChangePasswordRequest = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export async function getSecuritySummary() {
+  return apiClient<SecuritySummary>("/auth/custom/security-summary");
+}
+
+export async function changePassword(request: ChangePasswordRequest) {
+  return apiClient<AuthMessageResponse>("/auth/custom/change-password", {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export type GooglePasswordReauthResponse = {
+  setupToken: string;
+  expiresInSeconds: number;
+};
+
+export type CompleteSetPasswordRequest = {
+  setupToken: string;
+  newPassword: string;
+};
+
+export async function reauthenticateGoogleForPassword(idToken: string) {
+  return apiClient<GooglePasswordReauthResponse>(
+    "/auth/custom/set-password/google-reauth",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        idToken
+      })
+    }
+  );
+}
+
+export async function completeSetPassword(request: CompleteSetPasswordRequest) {
+  return apiClient<AuthMessageResponse>("/auth/custom/set-password/complete", {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export async function signOutOtherSessions() {
+  const currentRefreshToken = getRefreshToken();
+
+  if (!currentRefreshToken) {
+    throw new Error("Current session was not found.");
+  }
+
+  return apiClient<AuthMessageResponse>("/auth/custom/sessions/logout-others", {
+    method: "POST",
+    body: JSON.stringify({
+      currentRefreshToken
+    })
+  });
+}
+
+export async function signOutAllSessions() {
+  return apiClient<AuthMessageResponse>("/auth/custom/sessions/logout-all", {
+    method: "POST"
+  });
+}
+
+export type ActiveSession = {
+  userSessionId: string;
+  deviceType: string;
+  deviceName: string;
+  browserName: string;
+  browserVersion: string | null;
+  operatingSystem: string;
+  ipAddress: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  isCurrent: boolean;
+};
+
+export async function getActiveSessions() {
+  return apiClient<ActiveSession[]>("/auth/custom/sessions");
+}
+
+export async function revokeSession(userSessionId: string) {
+  return apiClient<AuthMessageResponse>(
+    `/auth/custom/sessions/${userSessionId}/revoke`,
+    {
+      method: "POST"
+    }
+  );
+}

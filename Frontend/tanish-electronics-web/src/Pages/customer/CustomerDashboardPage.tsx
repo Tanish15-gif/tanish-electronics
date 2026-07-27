@@ -98,7 +98,7 @@ function CustomerDashboardPage() {
   const recentRequests = dashboard.serviceRequests.slice(0, 3);
 
   return (
-    <main className="px-4 py-8 sm:px-6 lg:px-8">
+    <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
       <title>Customer | Dashboard</title>
       <CustomerDashboardAnnouncementPopup />
       <section className="overflow-hidden rounded-[2.5rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">

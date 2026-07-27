@@ -74,7 +74,7 @@ function AdminDashboardPage() {
 
   if (!summary) {
     return (
-      <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
+      <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-[1.5rem] border border-red-200 bg-red-50 p-6 text-sm font-bold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
             {error || "Dashboard could not be loaded."}
@@ -98,7 +98,7 @@ function AdminDashboardPage() {
     summary.lowStockProducts;
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+    <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
         {/* Header */}
         <header className="rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
@@ -707,7 +707,7 @@ function EnquiryBadge({ status }: { status: string }) {
 
 function DashboardLoading() {
   return (
-    <main className="min-h-screen bg-[#f7f5ef] px-4 py-8 dark:bg-[#11110f] sm:px-6 lg:px-8">
+    <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-8 dark:bg-[#11110f] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl animate-pulse">
         <div className="h-44 rounded-[1.75rem] bg-[#eee5d4] dark:bg-[#242016]" />
 

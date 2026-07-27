@@ -25,5 +25,9 @@ public partial class RefreshToken
 
     public string? ReplacedByTokenHash { get; set; }
 
+    public Guid? UserSessionId { get; set; }
+
     public virtual AppUser AppUser { get; set; } = null!;
+
+    public virtual UserSession? UserSession { get; set; }
 }

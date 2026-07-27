@@ -73,5 +73,7 @@ public partial class AppUser
 
     public virtual ICollection<UserAuthEvent> UserAuthEvents { get; set; } = new List<UserAuthEvent>();
 
+    public virtual ICollection<UserSession> UserSessions { get; set; } = new List<UserSession>();
+
     public virtual ICollection<WebsiteVisit> WebsiteVisits { get; set; } = new List<WebsiteVisit>();
 }

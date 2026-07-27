@@ -62,6 +62,7 @@ function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [information, setInformation] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   const otpCode = otpDigits.join("");
   const busy = busyAction !== null;
@@ -166,12 +167,16 @@ function ForgotPasswordPage() {
       clearResetSession();
 
       setInformation(response.message);
+      setRequestSubmitted(true);
       setResendSeconds(RESEND_SECONDS);
-      setStep("otp");
-
-      focusFirstOtpInput();
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError, "Unable to send the reset code."));
+      setRequestSubmitted(false);
+      setInformation("");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to send the reset code."
+      );
     } finally {
       setBusyAction(null);
     }
@@ -267,6 +272,7 @@ function ForgotPasswordPage() {
       );
 
       setEmail("");
+      setRequestSubmitted(false);
       setOtpDigits(createEmptyOtp());
 
       clearResetSession();
@@ -393,11 +399,40 @@ function ForgotPasswordPage() {
     }
 
     setStep("email");
+    setRequestSubmitted(false);
     setOtpDigits(createEmptyOtp());
     setResendSeconds(0);
 
     clearResetSession();
     clearMessages();
+  }
+
+  function continueToOtpStep() {
+    if (busy || !requestSubmitted) {
+      return;
+    }
+
+    setError("");
+    setStep("otp");
+    focusFirstOtpInput();
+  }
+
+  function tryAnotherEmail() {
+    if (busy) {
+      return;
+    }
+
+    setRequestSubmitted(false);
+    setEmail("");
+    setOtpDigits(createEmptyOtp());
+    setResendSeconds(0);
+
+    clearResetSession();
+    clearMessages();
+
+    window.requestAnimationFrame(() => {
+      document.getElementById("forgot-email")?.focus();
+    });
   }
 
   function returnToOtpStep() {
@@ -498,11 +533,17 @@ function ForgotPasswordPage() {
                   <EmailStep
                     email={email}
                     loading={busyAction === "request"}
+                    requestSubmitted={requestSubmitted}
                     error={error}
+                    information={information}
                     onEmailChange={(value) => {
                       setEmail(value);
                       setError("");
+                      setInformation("");
+                      setRequestSubmitted(false);
                     }}
+                    onContinue={continueToOtpStep}
+                    onTryAnother={tryAnotherEmail}
                     onSubmit={handleRequestOtp}
                   />
                 )}
@@ -722,16 +763,24 @@ function RecoveryProgress({ step }: { step: ForgotPasswordStep }) {
 type EmailStepProps = {
   email: string;
   loading: boolean;
+  requestSubmitted: boolean;
   error: string;
+  information: string;
   onEmailChange: (value: string) => void;
+  onContinue: () => void;
+  onTryAnother: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
 function EmailStep({
   email,
   loading,
+  requestSubmitted,
   error,
+  information,
   onEmailChange,
+  onContinue,
+  onTryAnother,
   onSubmit
 }: EmailStepProps) {
   return (
@@ -763,23 +812,52 @@ function EmailStep({
             autoComplete="email"
             inputMode="email"
             placeholder="you@example.com"
-            disabled={loading}
+            disabled={loading || requestSubmitted}
             className="admin-input h-12 pl-11"
           />
+
+          {requestSubmitted && (
+            <CheckCircle2 className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-emerald-600 dark:text-emerald-300" />
+          )}
         </div>
       </label>
 
       <AuthMessage type="error" message={error} />
+      <AuthMessage type="information" message={information} />
 
-      <ActionButton
-        type="submit"
-        loading={loading}
-        spinnerOnly
-        variant="dark"
-        className="mt-6 min-h-14"
-      >
-        Send reset code
-      </ActionButton>
+      {!requestSubmitted && (
+        <ActionButton
+          type="submit"
+          loading={loading}
+          spinnerOnly
+          variant="dark"
+          className="mt-6 min-h-14"
+        >
+          Send reset code
+        </ActionButton>
+      )}
+
+      {requestSubmitted && (
+        <div className="mt-6 space-y-3">
+          <ActionButton
+            type="button"
+            onClick={onContinue}
+            variant="dark"
+            className="min-h-14"
+          >
+            I received a code
+          </ActionButton>
+
+          <ActionButton
+            type="button"
+            onClick={onTryAnother}
+            variant="outline"
+            className="min-h-12"
+          >
+            Try another email
+          </ActionButton>
+        </div>
+      )}
 
       <p className="mt-6 text-center text-sm font-medium text-[#6f6758] dark:text-[#a8a093]">
         Remembered your password?{" "}

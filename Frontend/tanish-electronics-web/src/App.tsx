@@ -36,6 +36,8 @@ import AdminAuditLogsPage from "./Pages/admin/AdminAuditLogsPage";
 import AdminAnalyticsPage from "./Pages/admin/AdminAnalyticsPage";
 import AdminSettingsPage from "./Pages/admin/AdminSettingsPage";
 import ForgotPasswordPage from "./Pages/auth/ForgotPasswordPage";
+import AdminAccountPage from "./Pages/admin/AdminAccountPage";
+import AccountSecurityPage from "./Pages/account/AccountSecurityPage";
 
 function App() {
   return (
@@ -64,6 +66,7 @@ function App() {
             <Route path="repairs/:id" element={<CustomerRepairDetailsPage />} />
             <Route path="feedbacks" element={<CustomerFeedbacksPage />} />
             <Route path="enquiries" element={<CustomerEnquiriesPage />} />
+            <Route path="security" element={<AccountSecurityPage />} />
             <Route
               path="notifications"
               element={<CustomerNotificationsPage />}
@@ -74,6 +77,9 @@ function App() {
         <Route element={<RequireAdmin />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/admin/account" element={<AdminAccountPage />} />
+            <Route path="/admin/security" element={<AccountSecurityPage />} />
+
             <Route
               path="/admin/notifications"
               element={<AdminNotificationsPage />}

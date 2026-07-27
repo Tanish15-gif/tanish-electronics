@@ -1,9 +1,12 @@
-import { useApiAuth } from "../../hooks/useApiAuth";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
+
+import { useApiAuth } from "../../hooks/useApiAuth";
 
 const STORAGE_KEY = "te_sign_in_modal_seen";
 const MODAL_DELAY = 8000;
+const DIALOG_RETRY_DELAY = 1500;
 
 const excludedPaths = ["/sign-in", "/sign-up", "/customer", "/admin"];
 
@@ -28,34 +31,81 @@ function SignInExperienceModal() {
       return;
     }
 
+    let initialTimerId: number | null = null;
+    let retryTimerId: number | null = null;
+    let cancelled = false;
+
     const alreadySeen = sessionStorage.getItem(STORAGE_KEY) === "true";
 
     if (alreadySeen) {
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      /*
-       * Avoid opening this popup over another visible dialog,
-       * such as an announcement or booking modal.
-       */
-      const anotherDialog = document.querySelector('[role="dialog"]');
+    function tryOpeningModal() {
+      if (cancelled) {
+        return;
+      }
 
-      if (anotherDialog) {
+      /*
+       * Only block this modal when another visible dialog exists.
+       * Hidden dialogs should not prevent it from opening.
+       */
+      const visibleDialog = Array.from(
+        document.querySelectorAll<HTMLElement>('[role="dialog"]')
+      ).find((dialog) => {
+        const styles = window.getComputedStyle(dialog);
+
+        return (
+          styles.display !== "none" &&
+          styles.visibility !== "hidden" &&
+          dialog.getAttribute("aria-hidden") !== "true" &&
+          dialog.getClientRects().length > 0
+        );
+      });
+
+      if (visibleDialog) {
+        /*
+         * Another modal is open. Try again after it closes
+         * instead of cancelling permanently.
+         */
+        retryTimerId = window.setTimeout(tryOpeningModal, DIALOG_RETRY_DELAY);
+
         return;
       }
 
       setOpen(true);
+
+      /*
+       * Mark it as seen only when it really opens.
+       */
       sessionStorage.setItem(STORAGE_KEY, "true");
-    }, MODAL_DELAY);
+    }
+
+    initialTimerId = window.setTimeout(tryOpeningModal, MODAL_DELAY);
 
     return () => {
-      window.clearTimeout(timer);
+      cancelled = true;
+
+      if (initialTimerId !== null) {
+        window.clearTimeout(initialTimerId);
+      }
+
+      if (retryTimerId !== null) {
+        window.clearTimeout(retryTimerId);
+      }
     };
-  }, [isLoaded, isSignedIn, isExcludedPath, location.pathname]);
+  }, [
+    isLoaded,
+    isSignedIn,
+    isExcludedPath,
+    location.pathname,
+    location.search
+  ]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
 
     const previousOverflow = document.body.style.overflow;
 
@@ -90,14 +140,20 @@ function SignInExperienceModal() {
     }
   }
 
-  if (!open || isSignedIn || isExcludedPath) {
+  if (
+    !isLoaded ||
+    !open ||
+    isSignedIn ||
+    isExcludedPath ||
+    typeof document === "undefined"
+  ) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       onMouseDown={handleBackdropClick}
-      className="fixed inset-0 z-[600] flex items-end justify-center bg-black/55 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-6"
+      className="fixed inset-0 z-[900] flex items-end justify-center bg-black/60 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-6"
     >
       <div
         ref={dialogRef}
@@ -173,7 +229,8 @@ function SignInExperienceModal() {
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

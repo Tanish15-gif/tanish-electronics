@@ -297,7 +297,7 @@ function AdminLayout() {
                 email={displayEmail}
                 imageUrl={profileImageUrl}
                 manageAccountTo="/admin/account"
-                securityTo="/admin/account?section=security"
+                securityTo="/admin/security"
                 accountLabel="Administrator account"
                 onLogout={handleLogout}
               />

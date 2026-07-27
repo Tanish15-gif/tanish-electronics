@@ -214,32 +214,6 @@ function CustomerLayout() {
         <CustomerBrand />
 
         <div className="te-modal-scroll mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-          {/* Customer identity */}
-          <Link
-            to="/customer/profile"
-            className="block rounded-[1.25rem] border border-[#d8cdb6] bg-[#fff8e7] p-4 transition hover:border-[#c7b98e] hover:shadow-sm dark:border-[#302c24] dark:bg-[#11110f] dark:hover:border-[#50483b]"
-          >
-            <div className="flex items-center gap-3">
-              <ProfileAvatar
-                imageUrl={profileImageUrl}
-                name={displayName}
-                size="small"
-              />
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black">{displayName}</p>
-
-                <p className="mt-1 truncate text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                  {displayEmail}
-                </p>
-              </div>
-            </div>
-
-            <ProfileCompletionBadge
-              completed={Boolean(profile?.isProfileCompleted)}
-            />
-          </Link>
-
           {/* Navigation */}
           <nav aria-label="Customer navigation" className="mt-6 space-y-1">
             <CustomerNavLink to="/customer/dashboard" icon={<DashboardIcon />}>
@@ -346,6 +320,9 @@ function CustomerLayout() {
                 displayName={displayName}
                 email={displayEmail}
                 imageUrl={profileImageUrl}
+                manageAccountTo="/customer/profile"
+                securityTo="/customer/security"
+                accountLabel="Customer account"
                 onLogout={handleLogout}
               />
 
@@ -400,9 +377,6 @@ type CustomerMobileDrawerProps = {
 function CustomerMobileDrawer({
   open,
   profile,
-  profileImageUrl,
-  displayName,
-  displayEmail,
   closeButtonRef,
   onClose
 }: CustomerMobileDrawerProps) {
@@ -451,33 +425,6 @@ function CustomerMobileDrawer({
         </header>
 
         <div className="te-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5">
-          {/* Customer profile card */}
-          <Link
-            to="/customer/profile"
-            onClick={onClose}
-            className="block rounded-[1.25rem] border border-[#d8cdb6] bg-[#fff8e7] p-4 transition hover:border-[#c7b98e] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b]"
-          >
-            <div className="flex items-center gap-3">
-              <ProfileAvatar
-                imageUrl={profileImageUrl}
-                name={displayName}
-                size="small"
-              />
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black">{displayName}</p>
-
-                <p className="mt-1 truncate text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                  {displayEmail}
-                </p>
-              </div>
-            </div>
-
-            <ProfileCompletionBadge
-              completed={Boolean(profile?.isProfileCompleted)}
-            />
-          </Link>
-
           {/* Main navigation */}
           <section className="mt-7">
             <MenuSectionLabel>Navigation</MenuSectionLabel>
@@ -631,59 +578,6 @@ function CustomerBrand({
   );
 }
 
-function ProfileAvatar({
-  imageUrl,
-  name,
-  size
-}: {
-  imageUrl: string | null;
-  name: string;
-  size: "small";
-}) {
-  const [imageFailed, setImageFailed] = useState(false);
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [imageUrl]);
-
-  const className =
-    size === "small" ? "h-11 w-11 rounded-xl" : "h-11 w-11 rounded-xl";
-
-  const showImage = Boolean(imageUrl?.trim()) && !imageFailed;
-
-  return (
-    <span
-      className={`flex shrink-0 items-center justify-center overflow-hidden bg-[#1f1a12] text-xs font-black text-[#f7f5ef] dark:bg-[#e8e3d8] dark:text-[#11110f] ${className}`}
-    >
-      {showImage ? (
-        <img
-          src={imageUrl!}
-          alt={`${name} profile`}
-          className="h-full w-full object-cover"
-          referrerPolicy="no-referrer"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        getInitials(name)
-      )}
-    </span>
-  );
-}
-
-function ProfileCompletionBadge({ completed }: { completed: boolean }) {
-  return (
-    <div
-      className={`mt-4 rounded-xl border px-3 py-2 text-center text-xs font-black ${
-        completed
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
-          : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300"
-      }`}
-    >
-      {completed ? "Profile complete" : "Complete your profile"}
-    </div>
-  );
-}
-
 type CustomerNavLinkProps = {
   to: string;
   children: ReactNode;
@@ -808,19 +702,6 @@ function formatAddress(address: CustomerAddress) {
   return [address.addressLine, address.city, address.state, address.pincode]
     .filter(Boolean)
     .join(", ");
-}
-
-function getInitials(name?: string | null) {
-  if (!name?.trim()) {
-    return "CU";
-  }
-
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
 }
 
 function MenuIcon() {

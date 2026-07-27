@@ -1,5 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+
 import "./index.css";
 import App from "./App.tsx";
 import { CustomAuthProvider } from "./contexts/CustomAuthContext.tsx";
@@ -19,11 +21,19 @@ if (!savedTheme) {
   localStorage.setItem("theme", "dark");
 }
 
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+if (!googleClientId) {
+  throw new Error("VITE_GOOGLE_CLIENT_ID is missing.");
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <CustomAuthProvider>
-      <App />
-    </CustomAuthProvider>
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <CustomAuthProvider>
+        <App />
+      </CustomAuthProvider>
+    </GoogleOAuthProvider>
   </StrictMode>
 );
 

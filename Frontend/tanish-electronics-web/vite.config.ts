@@ -10,6 +10,10 @@ export default defineConfig({
 
     allowedHosts: ["arbitrary-drank-jeep.ngrok-free.dev", ".ngrok-free.dev"],
 
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups"
+    },
+
     proxy: {
       "/api": {
         target: "http://localhost:5229",
@@ -24,6 +28,7 @@ export default defineConfig({
         secure: false,
         ws: true
       },
+
       "/uploads": {
         target: "http://localhost:5229",
         changeOrigin: true,
@@ -37,6 +42,10 @@ export default defineConfig({
     port: 4173,
 
     allowedHosts: ["arbitrary-drank-jeep.ngrok-free.dev", ".ngrok-free.dev"],
+
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups"
+    },
 
     proxy: {
       "/api": {
@@ -55,4 +64,3 @@ export default defineConfig({
     }
   }
 });
-
