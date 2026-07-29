@@ -1,6 +1,6 @@
 import { useApiAuth } from "../../hooks/useApiAuth";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -384,20 +384,51 @@ function HealthCheckRow({ check }: { check: HealthCheckItem }) {
   );
 }
 
-type HoveredTimelinePoint = {
-  index: number;
-  mouseY: number;
-};
-
 function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
-  const [hoveredPoint, setHoveredPoint] = useState<HoveredTimelinePoint | null>(
-    null
-  );
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [pointerInside, setPointerInside] = useState(false);
+  const [compactChart, setCompactChart] = useState(false);
 
-  const width = 720;
-  const height = 220;
-  const paddingX = 42;
-  const paddingY = 30;
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+
+    function syncCompactChart() {
+      setCompactChart(mediaQuery.matches);
+    }
+
+    syncCompactChart();
+    mediaQuery.addEventListener("change", syncCompactChart);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncCompactChart);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (snapshots.length === 0) {
+      setActiveIndex(0);
+      return;
+    }
+
+    /*
+     * Follow the newest value when a new health snapshot arrives,
+     * unless the currently selected index still points to an item.
+     */
+    setActiveIndex(snapshots.length - 1);
+  }, [snapshots.length]);
+
+  const width = compactChart ? 380 : 900;
+  const height = compactChart ? 260 : 320;
+  const paddingLeft = compactChart ? 34 : 52;
+  const paddingRight = compactChart ? 16 : 24;
+  const paddingTop = compactChart ? 22 : 24;
+  const paddingBottom = compactChart ? 34 : 38;
+
+  const plotLeft = paddingLeft;
+  const plotRight = width - paddingRight;
+  const plotTop = paddingTop;
+  const plotBottom = height - paddingBottom;
+  const plotHeight = plotBottom - plotTop;
 
   const observedMax = Math.max(
     1,
@@ -408,138 +439,211 @@ function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
     ])
   );
 
-  const maxValue = Math.max(2, Math.ceil(observedMax * 1.25 * 100) / 100);
+  const maxValue = getNiceChartMaximum(observedMax);
 
-  const totalValues = snapshots.map((item) => item.totalDurationMs);
-  const sqlValues = snapshots.map((item) => item.sqlLatencyMs);
-  const cacheValues = snapshots.map((item) => item.cacheDurationMs);
+  const totalValues = snapshots.map((snapshot) => snapshot.totalDurationMs);
 
-  const totalPath = buildTimelinePath(
+  const sqlValues = snapshots.map((snapshot) => snapshot.sqlLatencyMs);
+
+  const cacheValues = snapshots.map((snapshot) => snapshot.cacheDurationMs);
+
+  const totalPath = buildTimelinePathWithBounds(
     totalValues,
     maxValue,
-    width,
-    height,
-    paddingX,
-    paddingY
+    plotLeft,
+    plotRight,
+    plotTop,
+    plotBottom
   );
 
-  const sqlPath = buildTimelinePath(
+  const sqlPath = buildTimelinePathWithBounds(
     sqlValues,
     maxValue,
-    width,
-    height,
-    paddingX,
-    paddingY
+    plotLeft,
+    plotRight,
+    plotTop,
+    plotBottom
   );
 
-  const cachePath = buildTimelinePath(
+  const cachePath = buildTimelinePathWithBounds(
     cacheValues,
     maxValue,
-    width,
-    height,
-    paddingX,
-    paddingY
+    plotLeft,
+    plotRight,
+    plotTop,
+    plotBottom
   );
 
-  const totalAreaPath = buildTimelineAreaPath(
+  const totalAreaPath = buildTimelineAreaPathWithBounds(
     totalValues,
     maxValue,
-    width,
-    height,
-    paddingX,
-    paddingY
+    plotLeft,
+    plotRight,
+    plotTop,
+    plotBottom
   );
 
-  const latest = snapshots[snapshots.length - 1];
+  const latest = snapshots.at(-1);
+
+  const safeActiveIndex =
+    snapshots.length === 0
+      ? 0
+      : Math.min(Math.max(activeIndex, 0), snapshots.length - 1);
+
+  const activeSnapshot = snapshots[safeActiveIndex] ?? null;
+
+  const activeX = activeSnapshot
+    ? getTimelineXWithinBounds(
+        safeActiveIndex,
+        snapshots.length,
+        plotLeft,
+        plotRight
+      )
+    : plotLeft;
+
+  const activeTotalY = activeSnapshot
+    ? getTimelineYWithinBounds(
+        activeSnapshot.totalDurationMs,
+        maxValue,
+        plotTop,
+        plotBottom
+      )
+    : plotBottom;
+
+  const activeSqlY = activeSnapshot
+    ? getTimelineYWithinBounds(
+        activeSnapshot.sqlLatencyMs,
+        maxValue,
+        plotTop,
+        plotBottom
+      )
+    : plotBottom;
+
+  const activeCacheY = activeSnapshot
+    ? getTimelineYWithinBounds(
+        activeSnapshot.cacheDurationMs,
+        maxValue,
+        plotTop,
+        plotBottom
+      )
+    : plotBottom;
+
   const gridLevels = [0, 0.25, 0.5, 0.75, 1];
 
-  const hoveredSnapshot =
-    hoveredPoint && snapshots[hoveredPoint.index]
-      ? snapshots[hoveredPoint.index]
-      : null;
+  const timeTickIndexes = getTimelineTickIndexes(
+    snapshots.length,
+    compactChart ? 3 : 4
+  );
 
-  const hoveredX =
-    hoveredPoint && hoveredSnapshot
-      ? getTimelineX(hoveredPoint.index, snapshots.length, width, paddingX)
-      : 0;
+  /*
+   * Each item owns a full vertical region bounded by the
+   * midpoint between itself and the neighbouring points.
+   *
+   * The first and last regions extend all the way to the
+   * SVG edges, so edge nodes are no longer difficult to select.
+   */
+  const hitZones = snapshots.map((_, index) => {
+    const pointX = getTimelineXWithinBounds(
+      index,
+      snapshots.length,
+      plotLeft,
+      plotRight
+    );
 
-  const hoveredTotalY = hoveredSnapshot
-    ? getTimelineY(hoveredSnapshot.totalDurationMs, maxValue, height, paddingY)
-    : 0;
+    const previousX =
+      index === 0
+        ? 0
+        : getTimelineXWithinBounds(
+            index - 1,
+            snapshots.length,
+            plotLeft,
+            plotRight
+          );
 
-  const hoveredSqlY = hoveredSnapshot
-    ? getTimelineY(hoveredSnapshot.sqlLatencyMs, maxValue, height, paddingY)
-    : 0;
+    const nextX =
+      index === snapshots.length - 1
+        ? width
+        : getTimelineXWithinBounds(
+            index + 1,
+            snapshots.length,
+            plotLeft,
+            plotRight
+          );
 
-  const hoveredCacheY = hoveredSnapshot
-    ? getTimelineY(hoveredSnapshot.cacheDurationMs, maxValue, height, paddingY)
-    : 0;
+    const zoneStart = index === 0 ? 0 : (previousX + pointX) / 2;
 
-  const crosshairValue = hoveredPoint
-    ? getTimelineValueFromY(hoveredPoint.mouseY, maxValue, height, paddingY)
-    : 0;
+    const zoneEnd =
+      index === snapshots.length - 1 ? width : (pointX + nextX) / 2;
 
-  function handleChartHover(event: MouseEvent<SVGRectElement>) {
-    if (snapshots.length < 2) return;
+    return {
+      index,
+      x: zoneStart,
+      width: Math.max(1, zoneEnd - zoneStart)
+    };
+  });
 
-    const svg = event.currentTarget.ownerSVGElement;
+  function selectNearestPoint(event: ReactPointerEvent<SVGSVGElement>) {
+    if (snapshots.length === 0) {
+      return;
+    }
 
-    if (!svg) return;
+    const rectangle = event.currentTarget.getBoundingClientRect();
 
-    const rect = svg.getBoundingClientRect();
+    const svgX = ((event.clientX - rectangle.left) / rectangle.width) * width;
 
-    const mouseX = ((event.clientX - rect.left) / rect.width) * width;
-    const mouseY = ((event.clientY - rect.top) / rect.height) * height;
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
 
-    const chartWidth = width - paddingX * 2;
-    const ratio = (mouseX - paddingX) / chartWidth;
+    snapshots.forEach((_, index) => {
+      const pointX = getTimelineXWithinBounds(
+        index,
+        snapshots.length,
+        plotLeft,
+        plotRight
+      );
 
-    const index = Math.round(ratio * (snapshots.length - 1));
-    const safeIndex = Math.min(Math.max(index, 0), snapshots.length - 1);
+      const distance = Math.abs(svgX - pointX);
 
-    const clampedY = Math.min(Math.max(mouseY, paddingY), height - paddingY);
-
-    setHoveredPoint((current) => {
-      if (current?.index === safeIndex && current.mouseY === clampedY) {
-        return current;
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
       }
-
-      return {
-        index: safeIndex,
-        mouseY: clampedY
-      };
     });
+
+    setActiveIndex(nearestIndex);
   }
 
   return (
     <section className="rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
             Live performance
           </p>
 
-          <h2 className="mt-1 text-xl font-black text-[#1f1a12] dark:text-[#f7f5ef]">
+          <h2 className="font-display mt-1 text-3xl font-bold tracking-tight text-[#1f1a12] dark:text-[#f7f5ef]">
             Response timeline
           </h2>
 
-          <p className="mt-1 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
             Last {snapshots.length} checks · refreshes every 15 seconds
           </p>
         </div>
 
         {latest && (
-          <div className="grid grid-cols-3 gap-3 rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] p-3 dark:border-[#302c24] dark:bg-[#11110f]">
+          <div className="grid grid-cols-3 gap-2 rounded-[1.2rem] border border-[#d8cdb6] bg-[#fffaf0] p-3 dark:border-[#302c24] dark:bg-[#11110f] sm:gap-4">
             <Metric label="Total" value={latest.totalDurationMs} />
+
             <Metric label="SQL" value={latest.sqlLatencyMs} />
+
             <Metric label="Cache" value={latest.cacheDurationMs} />
           </div>
         )}
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffaf0] p-3 dark:border-[#302c24] dark:bg-[#11110f] sm:p-4">
+      <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffaf0] dark:border-[#302c24] dark:bg-[#11110f]">
         {snapshots.length < 2 ? (
-          <div className="flex h-64 items-center justify-center text-center">
+          <div className="flex h-64 items-center justify-center px-4 text-center">
             <div>
               <Activity className="mx-auto h-6 w-6 text-[#928a7d]" />
 
@@ -554,223 +658,250 @@ function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
           </div>
         ) : (
           <>
-            <div className="relative select-none">
-              <svg
-                viewBox={`0 0 ${width} ${height}`}
-                className="h-64 w-full select-none"
-                role="img"
-                aria-label="System health response-time timeline"
-                onMouseLeave={() => setHoveredPoint(null)}
-              >
-                {gridLevels.map((level) => {
-                  const y = height - paddingY - level * (height - paddingY * 2);
+            <div className="overflow-hidden rounded-[1.25rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#2a241c] dark:bg-[#090907]">
+              {/* Trading-style chart toolbar */}
+              <div className="flex items-center justify-between gap-3 border-b border-[#e4dbc9] bg-[#fffaf0] px-4 py-3 dark:border-[#2a241c] dark:bg-[#0d0c09]">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                    Live
+                  </span>
 
-                  return (
-                    <g key={level}>
+                  <span className="rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#817867] dark:border-white/10 dark:bg-white/[0.04] dark:text-[#a8a093]">
+                    15s
+                  </span>
+                </div>
+
+                {activeSnapshot && (
+                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#817867] dark:text-[#928a7d]">
+                    {activeSnapshot.timeLabel}
+                  </span>
+                )}
+              </div>
+
+              <div className="relative">
+                {!compactChart && activeSnapshot && (
+                  <DesktopTimelineInspector snapshot={activeSnapshot} />
+                )}
+
+                <svg
+                  viewBox={`0 0 ${width} ${height}`}
+                  className="block h-[280px] w-full select-none touch-none sm:h-[350px]"
+                  role="img"
+                  aria-label="Interactive system health response-time timeline"
+                  onPointerEnter={() => setPointerInside(true)}
+                  onPointerLeave={() => setPointerInside(false)}
+                  onPointerMove={(event) => {
+                    setPointerInside(true);
+                    selectNearestPoint(event);
+                  }}
+                  onPointerDown={(event) => {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+
+                    setPointerInside(true);
+                    selectNearestPoint(event);
+                  }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="health-total-area"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor="#d6b46a" stopOpacity="0.3" />
+
+                      <stop
+                        offset="100%"
+                        stopColor="#d6b46a"
+                        stopOpacity="0.015"
+                      />
+                    </linearGradient>
+
+                    <filter
+                      id="health-line-glow"
+                      x="-20%"
+                      y="-20%"
+                      width="140%"
+                      height="140%"
+                    >
+                      <feGaussianBlur stdDeviation="2.5" result="blur" />
+
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+
+                  {gridLevels.map((level) => {
+                    const y = plotBottom - level * plotHeight;
+
+                    return (
+                      <g key={level}>
+                        <line
+                          x1={plotLeft}
+                          y1={y}
+                          x2={plotRight}
+                          y2={y}
+                          stroke="currentColor"
+                          strokeWidth="1"
+                          strokeDasharray="4 7"
+                          className="text-[#e4dbc9] dark:text-[#3a3022]"
+                          opacity="0.8"
+                        />
+
+                        <text
+                          x={4}
+                          y={y + 4}
+                          className="fill-[#8a6624] text-[10px] font-black tabular-nums dark:fill-[#d6b46a]"
+                        >
+                          {formatDecimalMs(level * maxValue)}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {timeTickIndexes.map((index) => {
+                    const x = getTimelineXWithinBounds(
+                      index,
+                      snapshots.length,
+                      plotLeft,
+                      plotRight
+                    );
+
+                    return (
+                      <g key={index}>
+                        <line
+                          x1={x}
+                          y1={plotTop}
+                          x2={x}
+                          y2={plotBottom}
+                          stroke="currentColor"
+                          strokeWidth="1"
+                          strokeDasharray="3 8"
+                          className="text-[#eee6d7] dark:text-[#221d16]"
+                        />
+
+                        <text
+                          x={x}
+                          y={height - 10}
+                          textAnchor={
+                            index === 0
+                              ? "start"
+                              : index === snapshots.length - 1
+                                ? "end"
+                                : "middle"
+                          }
+                          className="fill-[#8a6624] text-[10px] font-black tabular-nums dark:fill-[#d6b46a]"
+                        >
+                          {snapshots[index]?.timeLabel}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  <path d={totalAreaPath} fill="url(#health-total-area)" />
+
+                  <path
+                    d={totalPath}
+                    fill="none"
+                    stroke="#d6b46a"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    filter="url(#health-line-glow)"
+                  />
+
+                  <path
+                    d={sqlPath}
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth="2.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  <path
+                    d={cachePath}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="7 7"
+                    className="text-[#817867] dark:text-[#d3cec5]"
+                  />
+
+                  {hitZones.map((zone) => (
+                    <rect
+                      key={zone.index}
+                      x={zone.x}
+                      y={plotTop}
+                      width={zone.width}
+                      height={plotHeight}
+                      fill="transparent"
+                      className="cursor-crosshair"
+                      onPointerEnter={() => setActiveIndex(zone.index)}
+                      onPointerDown={() => setActiveIndex(zone.index)}
+                    />
+                  ))}
+
+                  {activeSnapshot && (
+                    <g pointerEvents="none">
                       <line
-                        x1={paddingX}
-                        y1={y}
-                        x2={width - paddingX}
-                        y2={y}
-                        stroke="currentColor"
-                        strokeWidth="1"
-                        className="text-[#e4dac7] dark:text-[#302c24]"
+                        x1={activeX}
+                        y1={plotTop}
+                        x2={activeX}
+                        y2={plotBottom}
+                        stroke="#d6b46a"
+                        strokeWidth="1.2"
+                        strokeDasharray="4 5"
+                        opacity={pointerInside ? 0.95 : 0.65}
                       />
 
-                      <text
-                        x="6"
-                        y={y + 4}
-                        className="fill-[#d8cdb6] text-[10px] font-black tabular-nums dark:fill-[#c7bda9]"
-                      >
-                        {formatDecimalMs(level * maxValue)}
-                      </text>
+                      <line
+                        x1={plotLeft}
+                        y1={activeTotalY}
+                        x2={plotRight}
+                        y2={activeTotalY}
+                        stroke="#d6b46a"
+                        strokeWidth="1"
+                        strokeDasharray="3 7"
+                        opacity="0.3"
+                      />
+
+                      <SelectedTimelinePoint
+                        x={activeX}
+                        y={activeTotalY}
+                        fill="#d6b46a"
+                      />
+
+                      <SelectedTimelinePoint
+                        x={activeX}
+                        y={activeSqlY}
+                        fill="#10b981"
+                        radius={4.8}
+                      />
+
+                      <SelectedTimelinePoint
+                        x={activeX}
+                        y={activeCacheY}
+                        fill="#d3cec5"
+                        radius={4.4}
+                      />
                     </g>
-                  );
-                })}
-
-                <path
-                  d={totalAreaPath}
-                  className="fill-[#d6b46a]/15 dark:fill-[#d6b46a]/10"
-                />
-
-                <path
-                  d={totalPath}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-[#d6b46a]"
-                />
-
-                <path
-                  d={sqlPath}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-emerald-500 dark:text-emerald-400"
-                />
-
-                <path
-                  d={cachePath}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.25"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeDasharray="6 6"
-                  className="text-[#a8a093]"
-                />
-
-                {hoveredSnapshot && hoveredPoint && (
-                  <g pointerEvents="none">
-                    <line
-                      x1={hoveredX}
-                      y1={paddingY}
-                      x2={hoveredX}
-                      y2={height - paddingY}
-                      stroke="currentColor"
-                      strokeWidth="1"
-                      strokeDasharray="4 4"
-                      className="text-[#d6b46a]/70"
-                    />
-
-                    <line
-                      x1={paddingX}
-                      y1={hoveredPoint.mouseY}
-                      x2={width - paddingX}
-                      y2={hoveredPoint.mouseY}
-                      stroke="currentColor"
-                      strokeWidth="1"
-                      strokeDasharray="4 4"
-                      className="text-[#d6b46a]/70"
-                    />
-
-                    <rect
-                      x={2}
-                      y={hoveredPoint.mouseY - 8}
-                      width={paddingX - 4}
-                      height={16}
-                      rx={4}
-                      className="fill-[#d6b46a]"
-                    />
-
-                    <text
-                      x={2 + (paddingX - 4) / 2}
-                      y={hoveredPoint.mouseY + 4}
-                      textAnchor="middle"
-                      className="fill-[#11110f] text-[10px] font-black tabular-nums"
-                    >
-                      {formatDecimalMs(crosshairValue)}
-                    </text>
-
-                    <rect
-                      x={hoveredX - 26}
-                      y={height - paddingY + 6}
-                      width={52}
-                      height={16}
-                      rx={4}
-                      className="fill-[#d6b46a]"
-                    />
-
-                    <text
-                      x={hoveredX}
-                      y={height - paddingY + 18}
-                      textAnchor="middle"
-                      className="fill-[#11110f] text-[10px] font-black tabular-nums"
-                    >
-                      {hoveredSnapshot.timeLabel}
-                    </text>
-
-                    <circle
-                      cx={hoveredX}
-                      cy={hoveredTotalY}
-                      r="5"
-                      className="fill-[#d6b46a] stroke-[#fffaf0] dark:stroke-[#11110f]"
-                      strokeWidth="2"
-                    />
-
-                    <circle
-                      cx={hoveredX}
-                      cy={hoveredSqlY}
-                      r="4.5"
-                      className="fill-emerald-500 stroke-[#fffaf0] dark:fill-emerald-400 dark:stroke-[#11110f]"
-                      strokeWidth="2"
-                    />
-
-                    <circle
-                      cx={hoveredX}
-                      cy={hoveredCacheY}
-                      r="4.5"
-                      className="fill-[#a8a093] stroke-[#fffaf0] dark:stroke-[#11110f]"
-                      strokeWidth="2"
-                    />
-                  </g>
-                )}
-
-                <rect
-                  x={paddingX}
-                  y={paddingY}
-                  width={width - paddingX * 2}
-                  height={height - paddingY * 2}
-                  fill="transparent"
-                  className="cursor-crosshair"
-                  onMouseMove={handleChartHover}
-                />
-
-                {!hoveredPoint && (
-                  <>
-                    <text
-                      x={paddingX}
-                      y={height - 4}
-                      className="fill-[#d8cdb6] text-[10px] font-black tabular-nums dark:fill-[#c7bda9]"
-                    >
-                      {snapshots[0]?.timeLabel}
-                    </text>
-
-                    <text
-                      x={width - paddingX}
-                      y={height - 4}
-                      textAnchor="end"
-                      className="fill-[#d8cdb6] text-[10px] font-black tabular-nums dark:fill-[#c7bda9]"
-                    >
-                      {latest?.timeLabel}
-                    </text>
-                  </>
-                )}
-              </svg>
-
-              {hoveredSnapshot && hoveredPoint && (
-                <TimelineHtmlTooltip
-                  x={hoveredX}
-                  y={Math.min(hoveredTotalY, hoveredSqlY, hoveredCacheY)}
-                  width={width}
-                  height={height}
-                  timeLabel={hoveredSnapshot.timeLabel}
-                  rows={[
-                    {
-                      label: "Total duration",
-                      value: hoveredSnapshot.totalDurationMs,
-                      dotClass: "bg-[#d6b46a]"
-                    },
-                    {
-                      label: "SQL latency",
-                      value: hoveredSnapshot.sqlLatencyMs,
-                      dotClass: "bg-emerald-500"
-                    },
-                    {
-                      label: "Cache duration",
-                      value: hoveredSnapshot.cacheDurationMs,
-                      dotClass: "bg-[#a8a093]"
-                    }
-                  ]}
-                />
-              )}
+                  )}
+                </svg>
+              </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#d8cdb6] pt-3 text-xs font-bold text-[#6f6758] dark:border-[#302c24] dark:text-[#a8a093]">
+            {activeSnapshot && compactChart && (
+              <MobileTimelineInspector snapshot={activeSnapshot} />
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#d8cdb6] px-4 py-3 text-xs font-bold text-[#6f6758] dark:border-[#302c24] dark:text-[#a8a093]">
               <LegendDot className="bg-[#d6b46a]" label="Total duration" />
 
               <LegendDot
@@ -781,7 +912,8 @@ function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
               <LegendDot className="bg-[#a8a093]" label="Cache duration" />
 
               <span className="tabular-nums sm:ml-auto">
-                Scale: 0–{formatDecimalMs(maxValue)} ms
+                Scale: 0–
+                {formatDecimalMs(maxValue)} ms
               </span>
             </div>
           </>
@@ -791,63 +923,267 @@ function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
   );
 }
 
-function TimelineHtmlTooltip({
-  x,
-  y,
-  width,
-  height,
-  timeLabel,
-  rows
-}: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  timeLabel: string;
-  rows: { label: string; value: number; dotClass: string }[];
-}) {
-  const leftPercent = (x / width) * 100;
-  const topPercent = (y / height) * 100;
-
-  const showOnLeft = x > width * 0.68;
-  const showBelow = y < height * 0.4;
-
-  const translateX = showOnLeft ? "calc(-100% - 16px)" : "16px";
-  const translateY = showBelow ? "0px" : "calc(-100% - 0px)";
-
+function DesktopTimelineInspector({ snapshot }: { snapshot: HealthSnapshot }) {
   return (
-    <div
-      className="pointer-events-none absolute z-20 min-w-44 rounded-2xl border border-[#d6b46a] bg-[#11110f] px-4 py-3 text-[#f7f5ef] shadow-2xl shadow-black/40"
-      style={{
-        left: `${leftPercent}%`,
-        top: `${topPercent}%`,
-        transform: `translate(${translateX}, ${translateY})`,
-        willChange: "transform"
-      }}
-    >
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#d6b46a]">
-        {timeLabel}
+    <div className="pointer-events-none absolute right-4 top-4 z-20 w-[260px] rounded-[1.4rem] border border-[#d6b46a]/70 bg-[#fffdf7]/95 px-4 py-3 text-[#1f1a12] shadow-[0_22px_70px_rgba(31,26,18,0.18)] backdrop-blur dark:bg-[#090907]/95 dark:text-[#f7f5ef] dark:shadow-[0_22px_70px_rgba(0,0,0,0.48)]">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
+        {snapshot.timeLabel}
       </p>
 
-      <div className="mt-2 space-y-1.5">
-        {rows.map((row) => (
-          <div
-            key={row.label}
-            className="flex items-center justify-between gap-4"
-          >
-            <span className="flex items-center gap-2 text-[11px] font-bold text-[#a8a093]">
-              <span className={`h-2 w-2 rounded-full ${row.dotClass}`} />
-              {row.label}
-            </span>
+      <div className="mt-3 space-y-2">
+        <TimelineInspectorRow
+          label="Total duration"
+          value={snapshot.totalDurationMs}
+          dotClass="bg-[#d6b46a]"
+        />
 
-            <span className="text-sm font-black tabular-nums text-[#f7f5ef]">
-              {formatDecimalMs(row.value)} ms
-            </span>
-          </div>
-        ))}
+        <TimelineInspectorRow
+          label="SQL latency"
+          value={snapshot.sqlLatencyMs}
+          dotClass="bg-emerald-500"
+        />
+
+        <TimelineInspectorRow
+          label="Cache duration"
+          value={snapshot.cacheDurationMs}
+          dotClass="bg-[#817867] dark:bg-[#d3cec5]"
+        />
       </div>
     </div>
   );
+}
+
+function MobileTimelineInspector({ snapshot }: { snapshot: HealthSnapshot }) {
+  return (
+    <div className="border-t border-[#d8cdb6] px-4 py-4 dark:border-[#302c24]">
+      <div className="rounded-[1.25rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
+            Selected check
+          </p>
+
+          <span className="rounded-full border border-[#d8cdb6] bg-[#fffaf0] px-2.5 py-1 text-[10px] font-black tabular-nums dark:border-[#302c24] dark:bg-[#11110f]">
+            {snapshot.timeLabel}
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <CompactMetric
+            label="Total"
+            value={snapshot.totalDurationMs}
+            valueClassName="text-[#8a6624] dark:text-[#d6b46a]"
+          />
+
+          <CompactMetric
+            label="SQL"
+            value={snapshot.sqlLatencyMs}
+            valueClassName="text-emerald-600 dark:text-emerald-400"
+          />
+
+          <CompactMetric label="Cache" value={snapshot.cacheDurationMs} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimelineInspectorRow({
+  label,
+  value,
+  dotClass
+}: {
+  label: string;
+  value: number;
+  dotClass: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="flex items-center gap-2 text-[11px] font-bold text-[#6f6758] dark:text-[#c8c1b6]">
+        <span className={`h-2.5 w-2.5 rounded-full ${dotClass}`} />
+
+        {label}
+      </span>
+
+      <span className="text-sm font-black tabular-nums text-[#1f1a12] dark:text-[#f7f5ef]">
+        {formatDecimalMs(value)} ms
+      </span>
+    </div>
+  );
+}
+
+function CompactMetric({
+  label,
+  value,
+  valueClassName = "text-[#1f1a12] dark:text-[#f7f5ef]"
+}: {
+  label: string;
+  value: number;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[#e4dbc9] bg-[#fffaf0] p-3 dark:border-[#302c24] dark:bg-[#11110f]">
+      <p className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#817867] dark:text-[#928a7d]">
+        {label}
+      </p>
+
+      <p
+        className={`mt-1 truncate text-sm font-black tabular-nums ${valueClassName}`}
+      >
+        {formatDecimalMs(value)}
+      </p>
+
+      <p className="text-[9px] font-bold text-[#928a7d]">ms</p>
+    </div>
+  );
+}
+
+function SelectedTimelinePoint({
+  x,
+  y,
+  fill,
+  radius = 5.4
+}: {
+  x: number;
+  y: number;
+  fill: string;
+  radius?: number;
+}) {
+  return (
+    <>
+      <circle cx={x} cy={y} r={radius + 4} fill={fill} opacity="0.13" />
+
+      <circle
+        cx={x}
+        cy={y}
+        r={radius}
+        fill={fill}
+        stroke="currentColor"
+        strokeWidth="2.4"
+        className="text-[#fffdf7] dark:text-[#090907]"
+      />
+    </>
+  );
+}
+
+function getTimelineTickIndexes(total: number, requestedTickCount: number) {
+  if (total <= 0) {
+    return [];
+  }
+
+  if (total <= requestedTickCount) {
+    return Array.from({ length: total }, (_, index) => index);
+  }
+
+  const indexes = new Set<number>();
+
+  for (let tick = 0; tick < requestedTickCount; tick += 1) {
+    indexes.add(Math.round((tick / (requestedTickCount - 1)) * (total - 1)));
+  }
+
+  return Array.from(indexes).sort((left, right) => left - right);
+}
+
+function getNiceChartMaximum(observedMaximum: number) {
+  const paddedMaximum = Math.max(observedMaximum * 1.18, 2);
+
+  const magnitude = 10 ** Math.floor(Math.log10(paddedMaximum));
+
+  const normalized = paddedMaximum / magnitude;
+
+  const niceNormalized =
+    normalized <= 1
+      ? 1
+      : normalized <= 2
+        ? 2
+        : normalized <= 2.5
+          ? 2.5
+          : normalized <= 5
+            ? 5
+            : 10;
+
+  return niceNormalized * magnitude;
+}
+
+function buildTimelinePathWithBounds(
+  values: number[],
+  maxValue: number,
+  left: number,
+  right: number,
+  top: number,
+  bottom: number
+) {
+  if (values.length === 0) {
+    return "";
+  }
+
+  return values
+    .map((value, index) => {
+      const x = getTimelineXWithinBounds(index, values.length, left, right);
+
+      const y = getTimelineYWithinBounds(value, maxValue, top, bottom);
+
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+}
+
+function buildTimelineAreaPathWithBounds(
+  values: number[],
+  maxValue: number,
+  left: number,
+  right: number,
+  top: number,
+  bottom: number
+) {
+  if (values.length === 0) {
+    return "";
+  }
+
+  const linePath = buildTimelinePathWithBounds(
+    values,
+    maxValue,
+    left,
+    right,
+    top,
+    bottom
+  );
+
+  const firstX = getTimelineXWithinBounds(0, values.length, left, right);
+
+  const lastX = getTimelineXWithinBounds(
+    values.length - 1,
+    values.length,
+    left,
+    right
+  );
+
+  return `${linePath} L ${lastX} ${bottom} L ${firstX} ${bottom} Z`;
+}
+
+function getTimelineXWithinBounds(
+  index: number,
+  total: number,
+  left: number,
+  right: number
+) {
+  if (total <= 1) {
+    return left;
+  }
+
+  return left + (index / (total - 1)) * (right - left);
+}
+
+function getTimelineYWithinBounds(
+  value: number,
+  maxValue: number,
+  top: number,
+  bottom: number
+) {
+  const safeMaximum = Math.max(maxValue, 1);
+
+  const ratio = Math.min(Math.max(value / safeMaximum, 0), 1);
+
+  return bottom - ratio * (bottom - top);
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
@@ -908,89 +1244,6 @@ function HealthLoading() {
       <div className="h-96 animate-pulse rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]" />
     </div>
   );
-}
-
-function buildTimelinePath(
-  values: number[],
-  maxValue: number,
-  width: number,
-  height: number,
-  paddingX: number,
-  paddingY: number
-) {
-  if (values.length === 0) return "";
-
-  return values
-    .map((value, index) => {
-      const x = getTimelineX(index, values.length, width, paddingX);
-      const y = getTimelineY(value, maxValue, height, paddingY);
-
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
-}
-
-function buildTimelineAreaPath(
-  values: number[],
-  maxValue: number,
-  width: number,
-  height: number,
-  paddingX: number,
-  paddingY: number
-) {
-  if (values.length === 0) return "";
-
-  const linePath = values
-    .map((value, index) => {
-      const x = getTimelineX(index, values.length, width, paddingX);
-      const y = getTimelineY(value, maxValue, height, paddingY);
-
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
-
-  const firstX = getTimelineX(0, values.length, width, paddingX);
-  const lastX = getTimelineX(values.length - 1, values.length, width, paddingX);
-  const bottomY = height - paddingY;
-
-  return `${linePath} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
-}
-
-function getTimelineX(
-  index: number,
-  total: number,
-  width: number,
-  paddingX: number
-) {
-  if (total <= 1) return paddingX;
-
-  return paddingX + (index / (total - 1)) * (width - paddingX * 2);
-}
-
-function getTimelineY(
-  value: number,
-  maxValue: number,
-  height: number,
-  paddingY: number
-) {
-  const safeMax = Math.max(maxValue, 1);
-  const ratio = Math.min(Math.max(value / safeMax, 0), 1);
-
-  return height - paddingY - ratio * (height - paddingY * 2);
-}
-
-function getTimelineValueFromY(
-  y: number,
-  maxValue: number,
-  height: number,
-  paddingY: number
-) {
-  const ratio = Math.min(
-    Math.max((height - paddingY - y) / (height - paddingY * 2), 0),
-    1
-  );
-
-  return ratio * maxValue;
 }
 
 function getHealthCheckLatency(report: HealthReport, checkName: string) {

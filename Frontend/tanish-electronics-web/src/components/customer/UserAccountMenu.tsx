@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
+import { LoadingSpinner } from "../../Pages/admin/AdminUserDetailsPage";
 
 type AppearanceMode = "light" | "dark" | "system";
 
@@ -249,7 +250,7 @@ function UserAccountMenu({
           >
             <LogoutIcon />
 
-            {loggingOut ? "Signing out" : "Sign out"}
+            {loggingOut ? <LoadingSpinner /> : "Sign out"}
           </button>
         </div>
       </section>

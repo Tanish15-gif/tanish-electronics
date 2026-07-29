@@ -39,10 +39,26 @@ function saveAuthResponse(response: AuthResponse) {
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
 }
 
-function clearAuthStorage() {
+let authRedirectStarted = false;
+
+export function clearAuthStorage(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
+}
+
+function clearAuthStorageAndRedirect(): void {
+  clearAuthStorage();
+
+  if (authRedirectStarted) {
+    return;
+  }
+
+  authRedirectStarted = true;
+
+  if (!window.location.pathname.startsWith("/sign-in")) {
+    window.location.replace("/sign-in?reason=session-ended");
+  }
 }
 
 async function refreshAccessToken() {
@@ -59,27 +75,40 @@ async function refreshAccessToken() {
   }
 }
 
-async function refreshAccessTokenInternal() {
+async function refreshAccessTokenInternal(): Promise<string | null> {
   const refreshToken = getStoredRefreshToken();
 
   if (!refreshToken) {
-    clearAuthStorage();
+    clearAuthStorageAndRedirect();
     return null;
   }
 
-  const response = await fetch(`${BASE_URL}/auth/custom/refresh`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      refreshToken
-    })
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${BASE_URL}/auth/custom/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        refreshToken
+      })
+    });
+  } catch {
+    throw new Error(
+      "Unable to connect to the server. Please check your connection."
+    );
+  }
+
+  // Refresh token expired, revoked, or session revoked.
+  if (response.status === 401 || response.status === 403) {
+    clearAuthStorageAndRedirect();
+    return null;
+  }
 
   if (!response.ok) {
-    clearAuthStorage();
-    return null;
+    return await parseResponse<string | null>(response);
   }
 
   const data = (await response.json()) as AuthResponse;
@@ -172,32 +201,37 @@ export async function apiClient<T>(
     response.status === 401 &&
     !skipAuthRefresh &&
     fixedEndpoint !== "/auth/custom/login" &&
+    fixedEndpoint !== "/auth/custom/google-login" &&
     fixedEndpoint !== "/auth/custom/register" &&
     fixedEndpoint !== "/auth/custom/refresh" &&
     fixedEndpoint !== "/auth/custom/logout"
   ) {
     const newAccessToken = await refreshAccessToken();
 
-    if (newAccessToken) {
-      const retryHeaders = new Headers(optionHeaders);
-
-      if (
-        fetchOptions.body &&
-        !isFormData &&
-        !retryHeaders.has("Content-Type")
-      ) {
-        retryHeaders.set("Content-Type", "application/json");
-      }
-
-      retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
-
-      const retryResponse = await fetch(`${BASE_URL}${fixedEndpoint}`, {
-        ...fetchOptions,
-        headers: retryHeaders
-      });
-
-      return await parseResponse<T>(retryResponse);
+    if (!newAccessToken) {
+      throw new Error("Your session has ended. Please sign in again.");
     }
+
+    const retryHeaders = new Headers(optionHeaders);
+
+    if (fetchOptions.body && !isFormData && !retryHeaders.has("Content-Type")) {
+      retryHeaders.set("Content-Type", "application/json");
+    }
+
+    retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
+
+    const retryResponse = await fetch(`${BASE_URL}${fixedEndpoint}`, {
+      ...fetchOptions,
+      headers: retryHeaders
+    });
+
+    if (retryResponse.status === 401 || retryResponse.status === 403) {
+      clearAuthStorageAndRedirect();
+
+      throw new Error("Your session has ended. Please sign in again.");
+    }
+
+    return await parseResponse<T>(retryResponse);
   }
 
   return await parseResponse<T>(response);

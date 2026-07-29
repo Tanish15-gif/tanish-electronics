@@ -190,4 +190,11 @@ public class CustomAuthController : ControllerBase
             message = "The selected device has been signed out."
         });
     }
+
+    [HttpGet("sessions/validate")]
+    [Authorize(Policy = AppPolicies.AdminOrCustomer)]
+    public IActionResult ValidateCurrentSession()
+    {
+        return NoContent();
+    }
 }

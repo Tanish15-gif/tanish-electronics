@@ -38,10 +38,14 @@ import AdminSettingsPage from "./Pages/admin/AdminSettingsPage";
 import ForgotPasswordPage from "./Pages/auth/ForgotPasswordPage";
 import AdminAccountPage from "./Pages/admin/AdminAccountPage";
 import AccountSecurityPage from "./Pages/account/AccountSecurityPage";
+import SessionWatcher from "./components/auth/SessionWatcher";
+import AdminUsersPage from "./Pages/admin/AdminUsersPage";
+import AdminUserDetailsPage from "./Pages/admin/AdminUserDetailsPage";
 
 function App() {
   return (
     <BrowserRouter>
+      <SessionWatcher />
       <ScrollToTop />
       <Routes>
         <Route path="/sign-in/*" element={<SignInPage />} />
@@ -78,6 +82,11 @@ function App() {
           <Route element={<AdminLayout />}>
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
             <Route path="/admin/account" element={<AdminAccountPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route
+              path="/admin/users/:appUserId"
+              element={<AdminUserDetailsPage />}
+            />
             <Route path="/admin/security" element={<AccountSecurityPage />} />
 
             <Route
@@ -117,7 +126,7 @@ function App() {
               element={<AdminSystemHealthPage />}
             />
             <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
-            <Route path="admin/analytics" element={<AdminAnalyticsPage />} />
+            <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
             <Route path="/admin/settings" element={<AdminSettingsPage />} />
           </Route>
         </Route>

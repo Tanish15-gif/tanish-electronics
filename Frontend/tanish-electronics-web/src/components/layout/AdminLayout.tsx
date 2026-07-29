@@ -19,6 +19,8 @@ import {
 
 import AdminNotificationBell from "../../Pages/admin/AdminNotificationBell";
 
+import { Users } from "lucide-react";
+
 import {
   getAdminNotifications,
   type AdminNotification
@@ -173,6 +175,13 @@ function AdminLayout() {
           <nav aria-label="Admin navigation" className="mt-6 space-y-1">
             <AdminNavLink to="/admin/dashboard" icon={<DashboardIcon />}>
               Dashboard
+            </AdminNavLink>
+
+            <AdminNavLink
+              to="/admin/users"
+              icon={<Users className="h-5 w-5" />}
+            >
+              Users
             </AdminNavLink>
 
             <AdminNavLink to="/admin/service-requests" icon={<RequestsIcon />}>
@@ -409,6 +418,14 @@ function AdminMobileDrawer({
               </AdminMobileNavLink>
 
               <AdminMobileNavLink
+                to="/admin/users"
+                icon={<Users className="h-5 w-5" />}
+                onClick={onClose}
+              >
+                Users
+              </AdminMobileNavLink>
+
+              <AdminMobileNavLink
                 to="/admin/service-requests"
                 icon={<RequestsIcon />}
                 onClick={onClose}
@@ -447,6 +464,7 @@ function AdminMobileDrawer({
               >
                 Announcements
               </AdminMobileNavLink>
+
               <AdminMobileNavLink
                 to="/admin/system-health"
                 icon={<HealthIcon />}
@@ -729,6 +747,10 @@ function getAdminPageTitle(pathname: string) {
 
   if (pathname.startsWith("/admin/settings")) {
     return "Settings";
+  }
+
+  if (pathname.startsWith("/admin/users")) {
+    return "Users";
   }
 
   return "Dashboard";

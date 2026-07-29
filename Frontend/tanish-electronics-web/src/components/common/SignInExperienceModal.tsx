@@ -41,44 +41,42 @@ function SignInExperienceModal() {
       return;
     }
 
+    function isActuallyVisible(element: HTMLElement) {
+      const styles = window.getComputedStyle(element);
+      const rectangle = element.getBoundingClientRect();
+
+      return (
+        styles.display !== "none" &&
+        styles.visibility !== "hidden" &&
+        Number(styles.opacity) > 0 &&
+        element.getAttribute("aria-hidden") !== "true" &&
+        rectangle.width > 0 &&
+        rectangle.height > 0 &&
+        rectangle.bottom > 0 &&
+        rectangle.right > 0 &&
+        rectangle.top < window.innerHeight &&
+        rectangle.left < window.innerWidth
+      );
+    }
+
     function tryOpeningModal() {
       if (cancelled) {
         return;
       }
 
-      /*
-       * Only block this modal when another visible dialog exists.
-       * Hidden dialogs should not prevent it from opening.
-       */
       const visibleDialog = Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"]')
-      ).find((dialog) => {
-        const styles = window.getComputedStyle(dialog);
-
-        return (
-          styles.display !== "none" &&
-          styles.visibility !== "hidden" &&
-          dialog.getAttribute("aria-hidden") !== "true" &&
-          dialog.getClientRects().length > 0
-        );
-      });
+        document.querySelectorAll<HTMLElement>(
+          '[role="dialog"]:not([data-sign-in-experience-dialog])'
+        )
+      ).find(isActuallyVisible);
 
       if (visibleDialog) {
-        /*
-         * Another modal is open. Try again after it closes
-         * instead of cancelling permanently.
-         */
         retryTimerId = window.setTimeout(tryOpeningModal, DIALOG_RETRY_DELAY);
 
         return;
       }
 
       setOpen(true);
-
-      /*
-       * Mark it as seen only when it really opens.
-       */
-      sessionStorage.setItem(STORAGE_KEY, "true");
     }
 
     initialTimerId = window.setTimeout(tryOpeningModal, MODAL_DELAY);

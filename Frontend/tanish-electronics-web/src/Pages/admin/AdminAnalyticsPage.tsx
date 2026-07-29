@@ -795,7 +795,7 @@ function RecentVisitsSection({
 
                     <td className="px-5 py-4">
                       <p className="text-sm font-black tabular-nums">
-                        {formatDateTime(visit.createdAt)}
+                        {formatLongDate(visit.createdAt)}
                       </p>
                     </td>
                   </tr>
@@ -813,7 +813,7 @@ function RecentVisitsSection({
                   </span>
 
                   <span className="rounded-full border border-[#d8cdb6] bg-[#fff8e7] px-3 py-1 text-xs font-black tabular-nums dark:border-[#302c24] dark:bg-[#11110f]">
-                    {formatDateTime(visit.createdAt)}
+                    {formatLongDate(visit.createdAt)}
                   </span>
                 </div>
 
@@ -1081,19 +1081,6 @@ function formatShortDate(value: string) {
   });
 }
 
-function formatDateTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Invalid date";
-  }
-
-  return date.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short"
-  });
-}
-
 function formatUserAgent(userAgent?: string | null) {
   if (!userAgent?.trim()) {
     return "Unknown device";
@@ -1117,5 +1104,27 @@ function formatUserAgent(userAgent?: string | null) {
 
   return userAgent;
 }
+function formatLongDate(value?: string | null) {
+  if (!value) {
+    return "Not recorded";
+  }
 
+  const utcValue =
+    value.endsWith("Z") || value.includes("+") ? value : `${value}Z`;
+
+  const date = new Date(utcValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unavailable";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata"
+  }).format(date);
+}
 export default AdminAnalyticsPage;

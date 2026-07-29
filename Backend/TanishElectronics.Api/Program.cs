@@ -22,6 +22,8 @@ using TanishElectronics.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using TanishElectronics.Api.Interfaces.Common;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,18 +69,44 @@ builder.Services
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwtSettings.Issuer,
-
             ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+
+            ValidIssuer = jwtSettings.Issuer,
             ValidAudience = jwtSettings.Audience,
 
-            ValidateIssuerSigningKey = true,
+
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtSettings.SecretKey)
             ),
+            ClockSkew = TimeSpan.Zero
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var userIdValue = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var sessionIdValue = context.Principal?.FindFirstValue("sid");
 
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1)
+                if (!int.TryParse(userIdValue, out var appUserId) || !Guid.TryParse(sessionIdValue, out var sessionId))
+                {
+                    context.Fail("Invalid authentication session.");
+                    return;
+                }
+
+                var dbContext = context.HttpContext.RequestServices.GetRequiredService<TanishElectronicsDbContext>();
+
+                var sessionIsActive = await dbContext.UserSessions
+                    .AsNoTracking()
+                    .AnyAsync(session =>
+                        session.UserSessionId == sessionId &&
+                        session.AppUserId == appUserId &&
+                        session.RevokedAt == null
+                    );
+
+                if (!sessionIsActive) context.Fail("This session has been revoked.");
+            }
         };
     });
 
@@ -378,6 +406,9 @@ builder.Services.AddScoped<IShopSettingsService, ShopSettingsService>();
 builder.Services.AddScoped<IAdminExportRepository, AdminExportRepository>();
 builder.Services.AddScoped<IAdminExportService, AdminExportService>();
 
+builder.Services.AddScoped<IAdminUsersRepository, AdminUsersRepository>();
+builder.Services.AddScoped<IAdminUsersService, AdminUsersService>();
+
 builder.Services.AddScoped<IPasswordHasherService, PasswordHasherService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 
@@ -394,6 +425,8 @@ builder.Services.AddScoped<IAnnouncementRealtimeNotifier, AnnouncementRealtimeNo
 
 builder.Services.AddSingleton<IUserAgentParser, UserAgentParser>();
 builder.Services.AddSingleton<IAppMemoryCacheService, AppMemoryCacheService>();
+
+builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
 builder.Services.AddScoped<IPublicOutputCacheInvalidator, PublicOutputCacheInvalidator>();
 

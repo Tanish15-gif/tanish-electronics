@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentAuthUser, type AuthUser } from "../../Services/authService";
 import ThemeToggle from "../UI/ThemeToggle";
 import { useShopSettings } from "../../hooks/useShopSettings";
 import { useApiAuth } from "../../hooks/useApiAuth";
+import { useCustomAuth } from "../../contexts/CustomAuthContext";
+import UserAccountMenu from "../customer/UserAccountMenu";
 
 function PublicNavbar() {
   const { isLoaded, isSignedIn, getToken } = useApiAuth();
 
   const location = useLocation();
+
+  const { user, logout } = useCustomAuth();
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -17,6 +21,19 @@ function PublicNavbar() {
   const [scrolled, setScrolled] = useState(false);
 
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const navigate = useNavigate();
+
+  const displayName = user?.fullName?.trim() || "Customer Account";
+
+  const displayEmail = user?.email || "Signed-in customer";
+
+  const profileImageUrl = user?.profileImageUrl ?? null;
+
+  async function handleLogout() {
+    await logout();
+
+    navigate("/sign-in", { replace: true });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -187,6 +204,16 @@ function PublicNavbar() {
 
           <div className="ml-3 flex shrink-0 items-center gap-2">
             <ThemeToggle />
+
+            <UserAccountMenu
+              displayName={displayName}
+              email={displayEmail}
+              imageUrl={profileImageUrl}
+              manageAccountTo="/customer/profile"
+              securityTo="/customer/security"
+              accountLabel="Customer account"
+              onLogout={handleLogout}
+            />
             <button
               type="button"
               aria-label="Open navigation menu"
@@ -245,7 +272,15 @@ function PublicNavbar() {
                   {dashboardLabel}
                 </Link>
 
-                <div className="flex h-11 w-11 items-center justify-center"></div>
+                <UserAccountMenu
+                  displayName={displayName}
+                  email={displayEmail}
+                  imageUrl={profileImageUrl}
+                  manageAccountTo="/customer/profile"
+                  securityTo="/customer/security"
+                  accountLabel="Customer account"
+                  onLogout={handleLogout}
+                />
               </>
             )}
 
@@ -266,6 +301,7 @@ function PublicNavbar() {
             dashboardPath={dashboardPath}
             dashboardLabel={dashboardLabel}
             isAdmin={Boolean(authUser?.isAdmin)}
+            profileImageUrl={profileImageUrl}
             onClose={closeMenu}
           />,
           document.body
@@ -335,6 +371,7 @@ function MobileNavigationDrawer({
   dashboardPath,
   dashboardLabel,
   isAdmin,
+  profileImageUrl,
   onClose
 }: {
   open: boolean;
@@ -343,6 +380,7 @@ function MobileNavigationDrawer({
   dashboardPath: string;
   dashboardLabel: string;
   isAdmin: boolean;
+  profileImageUrl: string | null;
   onClose: () => void;
 }) {
   return (
@@ -445,7 +483,18 @@ function MobileNavigationDrawer({
               ) : (
                 <div className="rounded-xl border border-[#d8cdb6] bg-[#fffdf7] p-3 dark:border-[#302c24] dark:bg-[#1a1712]">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center"></div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#d8cdb6] bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#242016]">
+                      {profileImageUrl ? (
+                        <img
+                          src={profileImageUrl}
+                          alt="Your profile"
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <UserIcon />
+                      )}
+                    </div>
 
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-black">Signed-in account</p>
@@ -716,6 +765,26 @@ function DashboardIcon() {
         rx="1"
         stroke="currentColor"
         strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className="h-[55%] w-[55%] text-[#8a6624] dark:text-[#d6b46a]"
+    >
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+
+      <path
+        d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
       />
     </svg>
   );
