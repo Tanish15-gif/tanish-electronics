@@ -100,6 +100,40 @@ function ProductsPage() {
     [conditions]
   );
 
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    counts.set("All", products.length);
+
+    products.forEach((product) => {
+      if (!product.categoryName) return;
+
+      counts.set(
+        product.categoryName,
+        (counts.get(product.categoryName) ?? 0) + 1
+      );
+    });
+
+    return counts;
+  }, [products]);
+
+  const conditionCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    counts.set("All", products.length);
+
+    products.forEach((product) => {
+      if (!product.conditionName) return;
+
+      counts.set(
+        product.conditionName,
+        (counts.get(product.conditionName) ?? 0) + 1
+      );
+    });
+
+    return counts;
+  }, [products]);
+
   const visibleProducts = useMemo(() => {
     const searchText = search.trim().toLowerCase();
 
@@ -181,43 +215,58 @@ function ProductsPage() {
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-        {/* Compact page header */}
-        <header className="rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] px-5 py-6 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:px-7 sm:py-7">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
-                In-store products
-              </p>
+        {/* Premium page header */}
+        <header className="relative overflow-hidden rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] px-5 py-7 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:px-8 sm:py-9">
+          <div
+            className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#d6b46a]/10 blur-3xl dark:bg-[#d6b46a]/[0.07]"
+            aria-hidden="true"
+          />
 
-              <h1 className="font-display mt-2 text-4xl font-bold leading-none tracking-tight sm:text-5xl">
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#d8cdb6] bg-[#fff8e7] px-3 py-1.5 dark:border-[#302c24] dark:bg-[#11110f]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
+                  In-store catalog
+                </p>
+              </div>
+
+              <h1 className="font-display mt-4 text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
                 Products available
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
                 Browse second-hand TVs, remotes and electronics accessories
-                currently listed by Tanish Electronics.
+                currently listed by {settings.shopName}.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-wrap items-center gap-3">
               {!loading && (
-                <span className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-4 text-sm font-black text-[#6f6758] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#a8a093]">
-                  {products.length}{" "}
-                  {products.length === 1 ? "product" : "products"}
-                </span>
+                <div className="rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] px-5 py-3 text-center dark:border-[#302c24] dark:bg-[#11110f]">
+                  <p className="text-2xl font-black tabular-nums leading-none">
+                    {products.length}
+                  </p>
+
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
+                    {products.length === 1 ? "Product" : "Products"}
+                  </p>
+                </div>
               )}
 
               <a
                 href="tel:8850973399"
-                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#1f1a12] px-5 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#1f1a12] px-6 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#c9a85f]"
               >
+                <PhoneIcon />
                 Call shop
               </a>
             </div>
           </div>
         </header>
 
-        {/* Search and mobile filters */}
+        {/* Search and sort */}
         <section className="mt-5 rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-5">
           <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_220px_auto] lg:items-end">
             <div>
@@ -303,7 +352,7 @@ function ProductsPage() {
         )}
 
         {!loading && !error && (
-          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
             {/* Desktop filters */}
             <aside className="sticky top-24 hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] lg:block">
               <div className="flex items-center justify-between">
@@ -324,6 +373,7 @@ function ProductsPage() {
                 <FilterGroup
                   title="Category"
                   items={categories}
+                  counts={categoryCounts}
                   selected={selectedCategory}
                   onSelect={setSelectedCategory}
                 />
@@ -334,6 +384,7 @@ function ProductsPage() {
               <FilterGroup
                 title="Condition"
                 items={conditions}
+                counts={conditionCounts}
                 selected={selectedCondition}
                 onSelect={setSelectedCondition}
               />
@@ -395,35 +446,36 @@ function ProductCard({
   return (
     <Link
       to={`/products/${product.productId}`}
-      className="group flex min-w-0 flex-col overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#c8b98f] hover:shadow-xl hover:shadow-[#d8cdb6]/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:shadow-black/30"
+      className="group flex min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-[#c8b98f] hover:shadow-2xl hover:shadow-[#d8cdb6]/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:shadow-black/40"
     >
       {/* Product image */}
-      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden border-b border-[#d8cdb6] bg-[#f3efe6] p-5 dark:border-[#302c24] dark:bg-[#0f0e0c]">
+      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden border-b border-[#d8cdb6] bg-gradient-to-b from-[#f3efe6] to-[#eae3d1] p-6 dark:border-[#302c24] dark:from-[#0f0e0c] dark:to-[#151310]">
         {product.primaryImageUrl ? (
           <img
             src={getProductImageUrl(product.primaryImageUrl)}
             alt={product.productName}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.04]"
+            className="h-full w-full object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.05]"
           />
         ) : (
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#fff4cc] text-3xl font-black text-[#7a570f] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#fff4cc] text-3xl font-black text-[#7a570f] shadow-inner dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
             {product.productName.trim().charAt(0).toUpperCase()}
           </div>
         )}
 
-        <span className="absolute left-3 top-3 max-w-[65%] truncate rounded-full border border-[#d8cdb6] bg-[#fffdf7]/95 px-3 py-1.5 text-[10px] font-black text-[#725522] shadow-sm backdrop-blur dark:border-[#302c24] dark:bg-[#1a1712]/95 dark:text-[#d6b46a]">
+        <span className="absolute left-3 top-3 max-w-[65%] truncate rounded-full border border-[#d8cdb6] bg-[#fffdf7]/95 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.06em] text-[#725522] shadow-sm backdrop-blur dark:border-[#302c24] dark:bg-[#1a1712]/95 dark:text-[#d6b46a]">
           {product.categoryName}
         </span>
 
-        <span className="absolute right-3 top-3 rounded-full border border-emerald-200 bg-emerald-50/95 px-2.5 py-1.5 text-[10px] font-black text-emerald-700 backdrop-blur dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
+        <span className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/95 px-2.5 py-1.5 text-[10px] font-black text-emerald-700 shadow-sm backdrop-blur dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           Available
         </span>
       </div>
 
       {/* Product information */}
-      <div className="flex flex-1 flex-col p-5">
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
         <Badge>{product.conditionName}</Badge>
 
         <h2 className="mt-3 line-clamp-2 text-2xl font-black leading-tight tracking-[-0.025em] transition group-hover:text-[#8a6624] dark:group-hover:text-[#d6b46a]">
@@ -434,22 +486,18 @@ function ProductCard({
           {productDetails}
         </p>
 
-        <p className="mt-4 text-xs font-semibold leading-5 text-[#817867] dark:text-[#928a7d]">
-          View complete condition and product details before visiting.
-        </p>
-
         <div className="mt-auto flex items-end justify-between gap-4 border-t border-[#e4dac5] pt-5 dark:border-[#302c24]">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#8a6624] dark:text-[#d6b46a]">
               Price
             </p>
 
-            <p className="mt-1 text-2xl font-black">
+            <p className="mt-1 text-2xl font-black tabular-nums tracking-tight">
               {formatPrice(product.price)}
             </p>
           </div>
 
-          <span className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-4 text-xs font-black text-[#f7f5ef] transition group-hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:group-hover:bg-[#d6b46a]">
+          <span className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-4 text-xs font-black text-[#f7f5ef] transition group-hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:group-hover:bg-[#d6b46a]">
             View details
             <ArrowRightIcon />
           </span>
@@ -462,11 +510,18 @@ function ProductCard({
 type FilterGroupProps = {
   title: string;
   items: string[];
+  counts: Map<string, number>;
   selected: string;
   onSelect: (value: string) => void;
 };
 
-function FilterGroup({ title, items, selected, onSelect }: FilterGroupProps) {
+function FilterGroup({
+  title,
+  items,
+  counts,
+  selected,
+  onSelect
+}: FilterGroupProps) {
   return (
     <div>
       <h3 className="text-xs font-black uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
@@ -476,6 +531,7 @@ function FilterGroup({ title, items, selected, onSelect }: FilterGroupProps) {
       <div className="mt-3 space-y-1.5">
         {items.map((item) => {
           const active = selected === item;
+          const count = counts.get(item) ?? 0;
 
           return (
             <button
@@ -492,7 +548,19 @@ function FilterGroup({ title, items, selected, onSelect }: FilterGroupProps) {
                 {item === "All" ? `All ${title.toLowerCase()}` : item}
               </span>
 
-              {active && <CheckIcon />}
+              <span className="flex shrink-0 items-center gap-2">
+                <span
+                  className={`text-[11px] font-black tabular-nums ${
+                    active
+                      ? "text-[#f7f5ef]/70 dark:text-[#11110f]/60"
+                      : "text-[#a8a093] dark:text-[#817a6e]"
+                  }`}
+                >
+                  {count}
+                </span>
+
+                {active && <CheckIcon />}
+              </span>
             </button>
           );
         })}
@@ -503,15 +571,15 @@ function FilterGroup({ title, items, selected, onSelect }: FilterGroupProps) {
 
 function ProductsLoading() {
   return (
-    <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:ml-[264px] 2xl:grid-cols-3">
+    <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:ml-[284px] 2xl:grid-cols-3">
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
+          className="overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
         >
           <div className="aspect-[4/3] animate-pulse bg-[#eee5d4] dark:bg-[#242016]" />
 
-          <div className="p-5">
+          <div className="p-5 sm:p-6">
             <div className="h-5 w-20 animate-pulse rounded-full bg-[#eee5d4] dark:bg-[#302c24]" />
             <div className="mt-4 h-7 w-4/5 animate-pulse rounded-lg bg-[#eee5d4] dark:bg-[#302c24]" />
             <div className="mt-3 h-4 w-1/2 animate-pulse rounded-lg bg-[#eee5d4] dark:bg-[#302c24]" />
@@ -638,6 +706,19 @@ function ArrowRightIcon() {
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
+      <path
+        d="M6.6 10.8a15.5 15.5 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.5.56a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.5 21 3 13.5 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.2.2 2.4.56 3.5a1 1 0 0 1-.25 1L6.6 10.8Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
         strokeLinejoin="round"
       />
     </svg>

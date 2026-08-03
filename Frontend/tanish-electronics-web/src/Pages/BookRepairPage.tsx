@@ -225,6 +225,31 @@ function BookRepairPage() {
     [categories]
   );
 
+  useEffect(() => {
+    if (selectedCategoryId <= 0) return;
+
+    const category = categories.find((item) => item.id === selectedCategoryId);
+    const isTvRepairCategory = category?.name
+      .toLowerCase()
+      .includes("tv repair");
+
+    if (!isTvRepairCategory && selectedServiceType === "Home Visit") {
+      setValue("serviceType", "Shop Repair", { shouldValidate: true });
+    }
+  }, [selectedCategoryId, categories, selectedServiceType, setValue]);
+
+  const availableServiceTypeOptions = useMemo<
+    DropdownOption<ServiceType>[]
+  >(() => {
+    const category = categories.find((item) => item.id === selectedCategoryId);
+    const isTvRepairCategory =
+      category?.name.toLowerCase().includes("tv repair") ?? true;
+
+    return isTvRepairCategory
+      ? serviceTypeOptions
+      : serviceTypeOptions.filter((option) => option.value === "Shop Repair");
+  }, [categories, selectedCategoryId]);
+
   const locationOptions = useMemo<DropdownOption<number>[]>(
     () =>
       locations.map((location) => ({
@@ -690,7 +715,7 @@ function BookRepairPage() {
                           <UniversalDropdown<ServiceType>
                             label="Service type"
                             required
-                            options={serviceTypeOptions}
+                            options={availableServiceTypeOptions}
                             value={field.value as ServiceType}
                             onChange={field.onChange}
                             placeholder="Select service type"

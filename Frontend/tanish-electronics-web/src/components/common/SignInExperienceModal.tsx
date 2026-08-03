@@ -35,7 +35,7 @@ function SignInExperienceModal() {
     let retryTimerId: number | null = null;
     let cancelled = false;
 
-    const alreadySeen = sessionStorage.getItem(STORAGE_KEY) === "true";
+    const alreadySeen = localStorage.getItem(STORAGE_KEY) === "true";
 
     if (alreadySeen) {
       return;
@@ -72,9 +72,10 @@ function SignInExperienceModal() {
 
       if (visibleDialog) {
         retryTimerId = window.setTimeout(tryOpeningModal, DIALOG_RETRY_DELAY);
-
         return;
       }
+
+      localStorage.setItem(STORAGE_KEY, "true");
 
       setOpen(true);
     }

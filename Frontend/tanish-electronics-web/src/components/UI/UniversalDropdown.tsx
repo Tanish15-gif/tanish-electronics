@@ -1,11 +1,13 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
   type ReactNode
 } from "react";
+import { createPortal } from "react-dom";
 
 export type DropdownOption<T extends string | number = string> = {
   value: T;
@@ -38,21 +40,32 @@ function UniversalDropdown<T extends string | number>({
 }: UniversalDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [menuRect, setMenuRect] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const listboxId = useId();
 
   const selectedOption =
     options.find((option) => option.value === value) ?? null;
 
+  // Close on outside click — now needs to also ignore clicks inside the
+  // portaled menu, since it's no longer a DOM descendant of containerRef.
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      const target = event.target as Node;
+
+      const clickedInsideTrigger = containerRef.current?.contains(target);
+      const clickedInsideMenu = menuRef.current?.contains(target);
+
+      if (!clickedInsideTrigger && !clickedInsideMenu) {
         setOpen(false);
       }
     }
@@ -75,6 +88,51 @@ function UniversalDropdown<T extends string | number>({
 
     setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : firstEnabledIndex);
   }, [open, options, value]);
+
+  // Compute the menu's position from the trigger button whenever it opens,
+  // and keep it in sync on scroll/resize while open (since it's now
+  // positioned relative to the viewport via a portal, not via CSS `absolute`
+  // inside the trigger's own container).
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    function updatePosition() {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const viewportHeight = window.innerHeight;
+      const menuMaxHeight = 256; // matches max-h-64
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      const shouldOpenUpward =
+        spaceBelow < menuMaxHeight + 8 && spaceAbove > spaceBelow;
+
+      if (shouldOpenUpward) {
+        setMenuRect({
+          bottom: viewportHeight - rect.top + 8,
+          left: rect.left,
+          width: rect.width
+        });
+      } else {
+        setMenuRect({
+          top: rect.bottom + 8,
+          left: rect.left,
+          width: rect.width
+        });
+      }
+    }
+
+    updatePosition();
+
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open]);
 
   function findNextEnabledIndex(currentIndex: number, direction: 1 | -1) {
     if (options.length === 0) return -1;
@@ -223,49 +281,63 @@ function UniversalDropdown<T extends string | number>({
         <ChevronDownIcon open={open} />
       </button>
 
-      {open && !disabled && (
-        <div
-          id={listboxId}
-          role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+8px)] z-[100] max-h-64 overflow-y-auto rounded-xl border border-[#d8cdb6] bg-[#fffdf7] p-1.5 shadow-[0_18px_50px_-20px_rgba(31,26,18,0.45)] dark:border-[#302c24] dark:bg-[#181612] dark:shadow-black/60"
-        >
-          {options.length === 0 ? (
-            <p className="px-3 py-4 text-center text-sm font-semibold text-[#817867] dark:text-[#928a7d]">
-              No options available
-            </p>
-          ) : (
-            options.map((option, index) => {
-              const isSelected = option.value === value;
-              const isHighlighted = highlightedIndex === index;
+      {open &&
+        !disabled &&
+        menuRect &&
+        createPortal(
+          <div
+            ref={menuRef}
+            id={listboxId}
+            role="listbox"
+            style={{
+              position: "fixed",
+              ...(menuRect.top !== undefined ? { top: menuRect.top } : {}),
+              ...(menuRect.bottom !== undefined
+                ? { bottom: menuRect.bottom }
+                : {}),
+              left: menuRect.left,
+              width: menuRect.width
+            }}
+            className="z-[1000] max-h-64 overflow-y-auto rounded-xl border border-[#d8cdb6] bg-[#fffdf7] p-1.5 shadow-[0_18px_50px_-20px_rgba(31,26,18,0.45)] dark:border-[#302c24] dark:bg-[#181612] dark:shadow-black/60"
+          >
+            {options.length === 0 ? (
+              <p className="px-3 py-4 text-center text-sm font-semibold text-[#817867] dark:text-[#928a7d]">
+                No options available
+              </p>
+            ) : (
+              options.map((option, index) => {
+                const isSelected = option.value === value;
+                const isHighlighted = highlightedIndex === index;
 
-              return (
-                <button
-                  key={String(option.value)}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  disabled={option.disabled}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                  onClick={() => selectOption(option)}
-                  className={`flex w-full items-center justify-between gap-4 rounded-lg px-3 py-3 text-left text-sm font-bold transition ${
-                    option.disabled
-                      ? "cursor-not-allowed opacity-40"
-                      : "cursor-pointer"
-                  } ${
-                    isHighlighted
-                      ? "bg-[#f2eadb] text-[#1f1a12] dark:bg-[#29241c] dark:text-[#e8e3d8]"
-                      : "text-[#5f574a] dark:text-[#b7afa1]"
-                  } ${isSelected ? "text-[#8a6624] dark:text-[#d6b46a]" : ""}`}
-                >
-                  <span className="truncate">{option.label}</span>
+                return (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    disabled={option.disabled}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    onClick={() => selectOption(option)}
+                    className={`flex w-full items-center justify-between gap-4 rounded-lg px-3 py-3 text-left text-sm font-bold transition ${
+                      option.disabled
+                        ? "cursor-not-allowed opacity-40"
+                        : "cursor-pointer"
+                    } ${
+                      isHighlighted
+                        ? "bg-[#f2eadb] text-[#1f1a12] dark:bg-[#29241c] dark:text-[#e8e3d8]"
+                        : "text-[#5f574a] dark:text-[#b7afa1]"
+                    } ${isSelected ? "text-[#8a6624] dark:text-[#d6b46a]" : ""}`}
+                  >
+                    <span className="truncate">{option.label}</span>
 
-                  {isSelected && <CheckIcon />}
-                </button>
-              );
-            })
-          )}
-        </div>
-      )}
+                    {isSelected && <CheckIcon />}
+                  </button>
+                );
+              })
+            )}
+          </div>,
+          document.body
+        )}
 
       {error && (
         <p className="mt-2 text-xs font-semibold text-red-600 dark:text-red-300">

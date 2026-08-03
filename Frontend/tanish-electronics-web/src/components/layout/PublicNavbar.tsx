@@ -6,7 +6,7 @@ import ThemeToggle from "../UI/ThemeToggle";
 import { useShopSettings } from "../../hooks/useShopSettings";
 import { useApiAuth } from "../../hooks/useApiAuth";
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
-import UserAccountMenu from "../customer/UserAccountMenu";
+import UserAccountMenu from "../auth/UserAccountMenu";
 
 function PublicNavbar() {
   const { isLoaded, isSignedIn, getToken } = useApiAuth();
@@ -205,15 +205,17 @@ function PublicNavbar() {
           <div className="ml-3 flex shrink-0 items-center gap-2">
             <ThemeToggle />
 
-            <UserAccountMenu
-              displayName={displayName}
-              email={displayEmail}
-              imageUrl={profileImageUrl}
-              manageAccountTo="/customer/profile"
-              securityTo="/customer/security"
-              accountLabel="Customer account"
-              onLogout={handleLogout}
-            />
+            {isSignedIn ?? (
+              <UserAccountMenu
+                displayName={displayName}
+                email={displayEmail}
+                imageUrl={profileImageUrl}
+                manageAccountTo="/customer/profile"
+                securityTo="/customer/security"
+                accountLabel="Customer account"
+                onLogout={handleLogout}
+              />
+            )}
             <button
               type="button"
               aria-label="Open navigation menu"

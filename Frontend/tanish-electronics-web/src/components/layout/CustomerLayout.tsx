@@ -28,7 +28,7 @@ import {
   type CustomerNotification
 } from "../../Services/customerNotificationService";
 import { useApiAuth } from "../../hooks/useApiAuth";
-import UserAccountMenu from "../customer/UserAccountMenu";
+import UserAccountMenu from "../auth/UserAccountMenu";
 
 function CustomerLayout() {
   const { isLoaded, isSignedIn, getToken } = useApiAuth();

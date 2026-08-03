@@ -26,7 +26,7 @@ import {
   type AdminNotification
 } from "../../Services/adminNotificationService";
 
-import UserAccountMenu from "../customer/UserAccountMenu";
+import UserAccountMenu from "../auth/UserAccountMenu";
 
 function AdminLayout() {
   const { isLoaded, isSignedIn, getToken } = useApiAuth();

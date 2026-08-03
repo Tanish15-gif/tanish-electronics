@@ -137,7 +137,7 @@ public class CustomAuthRepository : ICustomAuthRepository
             AppUserId = appUser.AppUserId,
             FullName = appUser.FullName,
             PhoneNumber = string.IsNullOrWhiteSpace(appUser.PhoneNumber)
-                ? "0000000000"
+                ? ""
                 : appUser.PhoneNumber,
             Email = appUser.Email,
             IsActive = true,

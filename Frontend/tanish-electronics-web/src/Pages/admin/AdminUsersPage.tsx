@@ -455,10 +455,10 @@ function UsersHero({
   onRefresh: () => void;
 }) {
   return (
-    <header className="relative overflow-hidden rounded-[2rem] border border-[#302c24] bg-[#1f1a12] p-6 text-[#f7f5ef] shadow-[0_24px_70px_-36px_rgba(17,16,15,0.75)] sm:p-8 lg:p-10">
+    <header className="relative overflow-hidden rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 text-[#1f1a12] shadow-[0_24px_70px_-36px_rgba(17,16,15,0.75)] dark:border-[#302c24] dark:bg-[#1f1a12] dark:text-[#f7f5ef] sm:p-8 lg:p-10">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        className="pointer-events-none absolute inset-0 opacity-[0.07] dark:opacity-[0.07]"
         style={{
           backgroundImage:
             "linear-gradient(#d6b46a 1px, transparent 1px), linear-gradient(90deg, #d6b46a 1px, transparent 1px)",
@@ -478,7 +478,7 @@ function UsersHero({
             <Users className="h-6 w-6" />
           </span>
 
-          <p className="mt-7 text-[11px] font-bold uppercase tracking-[0.2em] text-[#d6b46a]">
+          <p className="mt-7 text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
             Identity administration
           </p>
 
@@ -486,7 +486,7 @@ function UsersHero({
             User directory
           </h1>
 
-          <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-[#c8bead]">
+          <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-[#6f6758] dark:text-[#c8bead]">
             Review customer and administrator identities, authentication
             methods, account state and trusted-device activity.
           </p>
@@ -545,8 +545,8 @@ function HeroMetric({
   icon: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#17130e]/85 p-4 backdrop-blur">
-      <div className="flex items-center gap-2 text-[#d6b46a]">
+    <div className="rounded-2xl border border-[#e4dbc9] bg-[#fffaf0]/90 p-4 backdrop-blur dark:border-white/10 dark:bg-[#17130e]/85">
+      <div className="flex items-center gap-2 text-[#8a6624] dark:text-[#d6b46a]">
         {icon}
 
         <p className="text-[10px] font-bold uppercase tracking-[0.11em]">
@@ -554,7 +554,9 @@ function HeroMetric({
         </p>
       </div>
 
-      <p className="mt-3 truncate text-sm font-bold text-[#f7f5ef]">{value}</p>
+      <p className="mt-3 truncate text-sm font-bold text-[#1f1a12] dark:text-[#f7f5ef]">
+        {value}
+      </p>
     </div>
   );
 }

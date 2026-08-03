@@ -306,6 +306,11 @@ builder.Services.AddHealthChecks()
         "upload-storage",
         failureStatus: HealthStatus.Unhealthy,
         tags: new[] { "ready", "storage" }
+    )
+    .AddCheck<SessionStoreHealthCheck>(
+        "session-store",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: new[] { "ready", "database" }
     );
 
 builder.Services.AddOutputCache(options =>

@@ -1,9 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, Cog, Home, Search } from "lucide-react";
 import { useEffect } from "react";
+import { useShopSettings } from "../hooks/useShopSettings";
 
 function NotFoundPage() {
   const location = useLocation();
+  const { settings } = useShopSettings();
 
   const requestedPath = location.pathname || "/";
   const errorCode = buildErrorCode(requestedPath);
@@ -12,7 +14,7 @@ function NotFoundPage() {
     document.title = "404 | Not found";
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = `${settings.shopName}`;
     };
   }, []);
 
@@ -100,7 +102,7 @@ function NotFoundPage() {
             to="/"
             className="text-sm font-black uppercase tracking-[0.18em] text-[#1f1a12] transition hover:text-[#8a6624] dark:text-[#f7f5ef] dark:hover:text-[#d6b46a]"
           >
-            Tanish Electronics
+            {settings.shopName}
           </Link>
 
           <span className="hidden items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#928a7d] sm:flex">
@@ -175,7 +177,7 @@ function NotFoundPage() {
 
       <footer className="relative z-10 px-5 pb-7 text-center sm:px-8">
         <p className="text-[11px] font-semibold text-[#928a7d]">
-          Tanish Electronics · Service &amp; repair
+          {settings.shopName} · Service &amp; repair
         </p>
       </footer>
     </main>

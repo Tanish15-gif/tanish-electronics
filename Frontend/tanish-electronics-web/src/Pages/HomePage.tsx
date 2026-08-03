@@ -371,6 +371,13 @@ function HomePage() {
         </div>
       </section>
 
+      <FounderSection
+        photoUrl="/images/GokuBlack.jpg"
+        name={settings.ownerName}
+        role={`Founder, ${settings.shopName}`}
+        bio="With over 20 years of hands-on electronics-repair experience, Subhash has built Tanish Electronics on a simple idea — honest guidance, fair pricing and dependable local service for every customer in Santacruz West."
+      />
+
       {/* Process */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
         <Reveal>
@@ -1245,5 +1252,62 @@ function getTelHref(phoneNumber: string) {
   }
 
   return `tel:+91${digits}`;
+}
+function FounderSection({
+  photoUrl,
+  name,
+  role,
+  bio
+}: {
+  photoUrl: string;
+  name: string;
+  role: string;
+  bio: string;
+}) {
+  return (
+    <section className="border-y border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center lg:px-8 lg:py-20">
+        <Reveal>
+          <div className="relative">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-[#d6b46a]/15 blur-3xl dark:bg-[#d6b46a]/8"
+            />
+
+            <img
+              src={photoUrl}
+              alt={name}
+              className="relative aspect-[4/5] w-full rounded-[2rem] border border-[#d8cdb6] object-cover shadow-xl shadow-black/10 dark:border-[#302c24] dark:shadow-black/30 sm:aspect-[5/6] lg:aspect-[4/5]"
+            />
+          </div>
+        </Reveal>
+
+        <Reveal delay={120}>
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
+              Meet the founder
+            </p>
+
+            <h2 className="font-display mt-4 max-w-xl text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl">
+              {name}
+            </h2>
+
+            <p className="mt-3 text-sm font-black uppercase tracking-[0.08em] text-[#8a6624] dark:text-[#d6b46a]">
+              {role}
+            </p>
+
+            <p className="mt-6 max-w-xl text-base font-semibold leading-8 text-[#6f6758] dark:text-[#a8a093]">
+              {bio}
+            </p>
+
+            <div className="mt-7 grid max-w-md grid-cols-2 gap-3">
+              <AboutMetric value="20+" label="Years of experience" />
+              <AboutMetric value="1000+" label="Devices repaired" />
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
 }
 export default HomePage;
