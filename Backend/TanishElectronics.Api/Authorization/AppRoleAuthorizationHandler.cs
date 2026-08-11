@@ -4,8 +4,7 @@ using TanishElectronics.Api.Interfaces.Repositories;
 
 namespace TanishElectronics.Api.Authorization;
 
-public class AppRoleAuthorizationHandler
-    : AuthorizationHandler<AppRoleRequirement>
+public class AppRoleAuthorizationHandler : AuthorizationHandler<AppRoleRequirement>
 {
     private readonly IAuthRepository _authRepository;
 

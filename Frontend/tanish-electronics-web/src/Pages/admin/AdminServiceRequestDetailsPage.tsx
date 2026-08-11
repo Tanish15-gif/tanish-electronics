@@ -877,44 +877,6 @@ function AdminServiceRequestDetailsPage() {
     );
   }
 
-  type PriceInputProps = {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-    placeholder: string;
-  };
-
-  function PriceInput({
-    label,
-    value,
-    onChange,
-    placeholder
-  }: PriceInputProps) {
-    return (
-      <div>
-        <label className="mb-2 block text-xs font-black text-[#5f574a] dark:text-[#b5ada0]">
-          {label}
-        </label>
-
-        <div className="relative">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-[#8a6624] dark:text-[#d6b46a]">
-            ₹
-          </span>
-
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            className="admin-input pl-9"
-            placeholder={placeholder}
-          />
-        </div>
-      </div>
-    );
-  }
-
   type StatusHistoryTimelineProps = {
     history: {
       oldStatus?: string | null;
@@ -1306,3 +1268,35 @@ function AdminServiceRequestDetailsPage() {
   }
 }
 export default AdminServiceRequestDetailsPage;
+type PriceInputProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+};
+
+function PriceInput({ label, value, onChange, placeholder }: PriceInputProps) {
+  return (
+    <div>
+      <label className="mb-2 block text-xs font-black text-[#5f574a] dark:text-[#b5ada0]">
+        {label}
+      </label>
+
+      <div className="relative">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-[#8a6624] dark:text-[#d6b46a]">
+          ₹
+        </span>
+
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="admin-input pl-9"
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  );
+}

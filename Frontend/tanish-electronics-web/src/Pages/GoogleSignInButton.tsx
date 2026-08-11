@@ -260,38 +260,38 @@ function GoogleSignInButton({
   const unavailable = disabled || processing || status !== "ready";
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div
         ref={containerRef}
         aria-busy={status === "loading" || processing}
-        className="relative h-11 w-full"
+        className="relative h-11 w-full overflow-hidden rounded-xl border border-[#d8cdb6] dark:border-[#302c24]"
       >
         <div
           ref={buttonHostRef}
-          className={`flex h-11 w-full items-center justify-center overflow-hidden transition-opacity ${
+          className={`flex h-11 w-full items-center justify-center transition-opacity ${
             unavailable ? "pointer-events-none opacity-60" : "opacity-100"
           }`}
         />
 
         {status === "loading" && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#11110f]">
-            <span className="h-4 w-4 animate-spin-fast rounded-full border-2 border-[#8a6624] border-t-transparent dark:border-[#d6b46a] dark:border-t-transparent" />
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-[#fffdf7] dark:bg-[#11110f]">
+            <span className="h-3.5 w-3.5 animate-spin-fast rounded-full border-2 border-[#8a6624] border-t-transparent dark:border-[#d6b46a] dark:border-t-transparent" />
 
-            <span className="ml-2 text-xs font-bold text-[#6f6758] dark:text-[#a8a093]">
-              {mode === "signup"
-                ? "Loading Google sign-up…"
-                : "Loading Google…"}
+            <span className="text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
+              {mode === "signup" ? "Loading Google sign-up" : "Loading Google"}
             </span>
           </div>
         )}
 
         {processing && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7]/95 backdrop-blur-sm dark:border-[#302c24] dark:bg-[#11110f]/95">
-            <span className="h-4 w-4 animate-spin-fast rounded-full border-2 border-[#8a6624] border-t-transparent dark:border-[#d6b46a] dark:border-t-transparent" />
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-[#fffdf7]/95 backdrop-blur-sm dark:bg-[#11110f]/95">
+            <span className="h-3.5 w-3.5 animate-spin-fast rounded-full border-2 border-[#8a6624] border-t-transparent dark:border-[#d6b46a] dark:border-t-transparent" />
 
-            <span className="ml-2 text-xs font-bold text-[#6f6758] dark:text-[#a8a093]">
-              {mode === "signup" ? "Creating your account…" : ""}
-            </span>
+            {mode === "signup" && (
+              <span className="text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
+                Creating your account
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -303,7 +303,7 @@ function GoogleSignInButton({
             lastRenderedWidthRef.current = 0;
             setRetryKey((current) => current + 1);
           }}
-          className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700 transition hover:bg-red-100 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300 dark:hover:bg-red-400/15"
+          className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300 dark:hover:bg-red-400/15"
         >
           Google sign-in unavailable — retry
         </button>
@@ -312,7 +312,7 @@ function GoogleSignInButton({
       {error && status !== "error" && (
         <p
           role="alert"
-          className="text-center text-xs font-semibold leading-5 text-red-600 dark:text-red-300"
+          className="text-center text-xs font-medium leading-5 text-red-600 dark:text-red-300"
         >
           {error}
         </p>

@@ -362,13 +362,13 @@ public class CustomAuthService : ICustomAuthService
             "User logged out successfully."
         );
     }
-    #endregion 
+    #endregion
 
-
-    #region Google Auth
 
     public async Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginRequestDto dto)
     {
+        ///<section>
+        /// Validation of the necessary data!
         if (string.IsNullOrWhiteSpace(dto.IdToken))
         {
             throw new UnauthorizedAccessException("Google token is required");
@@ -377,11 +377,18 @@ public class CustomAuthService : ICustomAuthService
         {
             throw new UnauthorizedAccessException("google client id is missing");
         }
+        ///</section>
 
+        /// <section>
+        /// Getting the Google data from the Google
+        /// Name, Email, Profile Picture
         GoogleJsonWebSignature.Payload payload;
+        ///</section>
 
         try
         {
+            ///<section>
+            /// Validating the Google token from the client Id
             payload = await GoogleJsonWebSignature.ValidateAsync(
                 dto.IdToken,
                 new GoogleJsonWebSignature.ValidationSettings
@@ -389,9 +396,12 @@ public class CustomAuthService : ICustomAuthService
                     Audience = new[] { _googleAuthSettings.ClientId }
                 }
             );
+            ///</section>
         }
         catch
         {
+            ///<section>
+            /// If Google token is invalid throw
             await LogAuthEventAsync(
                 null,
                 null,
@@ -400,7 +410,10 @@ public class CustomAuthService : ICustomAuthService
                 "Invalid Google Token."
             );
             throw new UnauthorizedAccessException("Invalid Google Token");
+            /// </section>
         }
+        /// <section> 
+        /// Checking if Google values are not null
         if (string.IsNullOrWhiteSpace(payload.Email))
         {
             throw new UnauthorizedAccessException("Google account email was not found.");
@@ -415,7 +428,7 @@ public class CustomAuthService : ICustomAuthService
         {
             throw new UnauthorizedAccessException("Google account identifier was not found.");
         }
-
+        /// </section>
         var provider = ExternalLoginProvider.Google.ToString();
         var providerUserId = payload.Subject.Trim();
         var normalizedEmail = NormalizeEmail(payload.Email);
@@ -545,8 +558,6 @@ public class CustomAuthService : ICustomAuthService
 
         return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
     }
-
-    #endregion
 
 
     #region Forgot Password

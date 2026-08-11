@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SVGProps } from "react";
 
 function ThemeToggle() {
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    return document.documentElement.classList.contains("dark");
-  });
+  const [isDark, setIsDark] = useState<boolean>(() =>
+    typeof document !== "undefined"
+      ? document.documentElement.classList.contains("dark")
+      : false
+  );
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-
-    if (savedTheme === "dark") {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark") {
       document.documentElement.classList.add("dark");
       setIsDark(true);
-    } else if (savedTheme === "light") {
+    } else if (saved === "light") {
       document.documentElement.classList.remove("dark");
       setIsDark(false);
     }
@@ -19,17 +20,10 @@ function ThemeToggle() {
 
   function toggleTheme() {
     const root = document.documentElement;
-    const nextDark = !root.classList.contains("dark");
-
-    if (nextDark) {
-      root.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-
-    setIsDark(nextDark);
+    const next = !root.classList.contains("dark");
+    root.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+    setIsDark(next);
   }
 
   return (
@@ -37,28 +31,51 @@ function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       aria-label="Toggle theme"
-      className="flex h-10 w-10 items-center justify-center cursor-pointer rounded-xl border border-slate-300 bg-white text-slate-950 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-yellow-300 dark:hover:bg-slate-800"
+      aria-pressed={isDark}
+      className="group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors duration-200 ease-out
+        border-[#d6dbe1] bg-white hover:bg-[#f5f7f9] active:scale-95
+        dark:border-[#2b2e36] dark:bg-[#14161b] dark:hover:bg-[#1b1e24]
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33404f]/40 dark:focus-visible:ring-[#d6b46a]/50"
     >
-      {isDark ? (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-        >
-          <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Zm0 4a1 1 0 0 1 1 1v0a1 1 0 1 1-2 0v0a1 1 0 0 1 1-1Zm0-20a1 1 0 0 1 1-1v0a1 1 0 1 1-2 0v0a1 1 0 0 1 1 1Zm10 10a1 1 0 0 1 1 1v0a1 1 0 1 1-2 0v0a1 1 0 0 1 1-1ZM2 12a1 1 0 0 1 1-1v0a1 1 0 1 1 0 2v0a1 1 0 0 1-1-1Zm16.95 6.536a1 1 0 0 1 1.414 0v0a1 1 0 1 1-1.414 1.414v0a1 1 0 0 1 0-1.414ZM3.636 5.05A1 1 0 0 1 5.05 3.636v0A1 1 0 1 1 3.636 5.05v0Zm15.314-1.414a1 1 0 0 1 1.414 1.414v0A1 1 0 1 1 18.95 3.636v0ZM3.636 18.95a1 1 0 0 1 1.414-1.414v0A1 1 0 1 1 3.636 18.95v0Z" />
-        </svg>
-      ) : (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-        >
-          <path d="M21 12.79A9 9 0 1 1 11.21 3c0 .34-.02.67-.02 1a7 7 0 0 0 7 7c.33 0 .66-.02 1-.06.28-.03.55-.08.81-.15Z" />
-        </svg>
-      )}
+      <SunGlyph
+        className={`absolute h-[18px] w-[18px] text-[#33404f] transition-all duration-300 ease-out ${
+          isDark
+            ? "scale-50 rotate-45 opacity-0"
+            : "scale-100 rotate-0 opacity-100"
+        }`}
+      />
+      <MoonGlyph
+        className={`absolute h-4 w-4 text-[#d6b46a] transition-all duration-300 ease-out ${
+          isDark
+            ? "scale-100 rotate-0 opacity-100"
+            : "scale-50 -rotate-45 opacity-0"
+        }`}
+      />
     </button>
+  );
+}
+
+function SunGlyph({ className }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      className={className}
+    >
+      <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+      <path d="M12 2v2.2M12 19.8V22M4.2 4.2l1.55 1.55M18.25 18.25l1.55 1.55M2 12h2.2M19.8 12H22M4.2 19.8l1.55-1.55M18.25 5.75l1.55-1.55" />
+    </svg>
+  );
+}
+
+function MoonGlyph({ className }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M20.4 14.9c-1.1.4-2.2.6-3.4.6-5 0-9-4-9-9 0-1.2.2-2.3.6-3.4C4.5 4.4 2 8 2 12.2 2 17.6 6.4 22 11.8 22c4.2 0 7.8-2.5 9.4-6.1-.3 0-.5.1-.8.1-.4 0-.7 0-1-.1Z" />
+    </svg>
   );
 }
 

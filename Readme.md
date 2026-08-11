@@ -1,0 +1,405 @@
+# Tanish Electronics
+
+> Tanish Electronics is a full-stack web platform for an electronics repair and sales shop. Customers can book repair requests for devices like TVs, Bluetooth speakers, home theatres, and remotes (with images), track their request status in real time, and select an in-shop visit or technician for home visit (for TVs). Admins can review, approve, and update repair requests, and manage sales of products like second-hand TVs and new remotes. Built with a C# (ASP.NET Core) backend using Entity Framework Core and SQL Server, SignalR for real-time updates, and a React + TypeScript frontend.
+
+## Features
+
+**Customer**
+
+- Book a repair request for a specific device (TV, Bluetooth speaker, home theatre, remote, etc.)
+- Upload images of the device/issue while booking the request
+- Choose between visiting the shop or requesting a home visit by a technician (home visit available for TVs only)
+- Track the live status of a submitted repair request
+- Browse and purchase products — second-hand TVs, new remotes, etc.
+
+**Admin**
+
+- View incoming repair requests
+- Approve/reject a customer's repair request
+- Call the customer to coordinate the repair after approval
+- Update the status of a repair request (e.g. Pending → Approved → In Progress → Completed)
+- Manage product listings (second-hand TVs, remotes, etc.)
+
+## Tech Stack
+
+**Backend**
+
+- C# (.Net / ASP.NET Core, .NET 10.0)
+- Entity Framework Core (ORM)
+- SQL Server (Database)
+- SignalR (real-time updates)
+- Custom JWT auth with server-side session revocation
+- RBAC (Role-Based Access Control) via policy-based authorization
+- Google Auth (OAuth sign-in)
+- Email Service via MailKit (notification, OTP)
+- OTP verification (expiry, resend cooldown, max attempts)
+- Rate limiting (per-endpoint policies: login, OTP, uploads, admin actions)
+- Health checks (SQL Server, cache, storage, sessions)
+- Output caching (public/products endpoints)
+- Audit logging
+
+**Frontend**
+
+- React + Typescript
+- React Router (routing)
+- React Hook Form (form handling)
+- Tailwind CSS (styling)
+- Lucide React (icons)
+- jsPDF + html2canvas (generating PDFs, e.g. reciepts)
+- @microsoft/signalr (real-time client)
+
+## Project Structure
+
+```
+TanishElectronics\
+├── Readme.md
+├── .gitignore
+├── screenshots\
+├── Backend/
+│   └── TanishElectronics.Api/
+|       ├── Program.cs
+|       ├── TanishElectronics.sql      # DB schema — tables, indexes
+│       ├── Authorization/
+│       ├── BackgroundServices/
+│       ├── Constants/
+│       ├── Controllers/
+│       │   ├── Admin/
+│       │   ├── Auth/
+│       │   ├── Customer/
+│       │   └── Public/
+│       ├── Data/
+│       ├── Delegates/
+│       ├── DTOs/
+│       │   ├── Admin/
+│       │   │   ├── Analytics/
+│       │   │   ├── Announcements/
+│       │   │   ├── AuditLogs/
+│       │   │   ├── Dashboard/
+│       │   │   ├── Enquiries/
+│       │   │   ├── Exports/
+│       │   │   ├── Feedback/
+│       │   │   ├── Notifications/
+│       │   │   ├── Products/
+│       │   │   ├── ServiceRequests/
+│       │   │   ├── Settings/
+│       │   │   └── Users/
+│       │   ├── Auth/
+│       │   │   ├── Google/
+│       │   │   ├── LogInOut/
+│       │   │   ├── OTP/
+│       │   │   ├── Passwords/
+│       │   │   └── Session/
+│       │   ├── Common/
+│       │   ├── customer/
+│       │   │   ├── dashboard/
+│       │   │   ├── Feedback/
+│       │   │   ├── notification/
+│       │   │   ├── profile/
+│       │   │   └── Repairs/
+│       │   ├── Enquiries/
+│       │   ├── Products/
+│       │   ├── Public/
+│       │   │   ├── Announcements/
+│       │   │   └── Feedbacks/
+│       │   └── ServiceRequests/
+│       ├── Entities/
+│       ├── Enums/
+│       │   └── Auth/
+│       ├── Events/
+│       │   └── Products/
+│       ├── Exceptions/
+│       ├── HealthChecks/
+│       ├── Helpers/
+│       ├── Hubs/           # SignalR hubs (real- time annoucements)
+│       ├── Interfaces/
+│       │   ├── Common/
+│       │   ├── Events/
+│       │   ├── Repositories/
+│       │   └── Services/
+│       ├── Middleware/
+│       ├── Migrations/     # EF Core migrations
+│       ├── Models/
+│       ├── Properties/
+│       ├── Repositories/
+│       ├── Services/
+│       ├── Settings/
+│       └── wwwroot/
+│           └── uploads/
+│               ├── announcements/
+│               ├── products/
+│               └── service-requests/
+│
+└── Frontend/
+    └── tanish-electronics-web/
+        ├── public/
+        ├── images/
+        └── src/
+            ├── App.tsx
+            ├── components/
+            │   ├── auth/
+            │   ├── common/
+            │   ├── customer/
+            │   ├── layout/
+            │   ├── public/
+            │   └── UI/
+            ├── contexts/
+            ├── hooks/
+            ├── Pages/
+            │   ├── account/
+            │   ├── admin/
+            │   ├── auth/
+            │   └── customer/
+            ├── Services/
+            ├── Types/
+            └── utils/
+```
+
+## Prerequisites
+
+- [.NET SDK](https://dotnet.microsoft.com/download) (version 10.0 or higher)
+- [Node.js](https://nodejs.org/) (version 10.9 or higher) and npm
+- [SQL Server](https://www.microsoft.com/sql-server)
+
+## Database
+
+The full schema (tables, indexes, constraints) is defined in `TanishElectronics.sql` at the Backend folder root. Run the script against your SQL Server instance to set up the database, or use the EF Core migrations in `Backend/TanishElectronics.Api/Migrations/`.
+
+## Getting Started
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Tanish15-gif/tanish-electronics.git
+cd tanish-electronics
+```
+
+### 2. Backend Setup
+
+```bash
+cd Backend/TanishElectronics.Api
+```
+
+Update the connection string in `appsettings.json` to point to your SQl Server instance:
+
+```json
+"ConnectionStrings":{
+    "DefaultConnection": "Server={Server_Name};Database=TanishElectronicsDb;Trusted_Connection=True;TrustServerCertificate=True;"
+}
+```
+
+```bash
+dotnet ef database update
+```
+
+Run the backend:
+
+```bash
+dotnet run
+```
+
+The API should now be running at `http://localhost:XXXX`.
+
+### Frontend Setup
+
+```bash
+cd tanish-electronics-web
+npm install
+npm run dev
+```
+
+The app should now be running at `http://localhost:5173` (or whichever port VITE/CRA assigns).
+
+## Environment Variables
+
+```
+VITE_API_BASE_URL=/api
+VITE_GOOGLE_CLIENT_ID=google-client-id-here
+```
+
+> ⚠️ Never commit real values here — these are placeholder names only. Keep actual secrets in `appsettings.Development.json` / .NET User Secrets (backend) and a local `.env` file (frontend), both excluded via `.gitignore`.
+
+## API Endpoints
+
+Full route list generated from the live OpenAPI spec (`/openapi/v1.json`).
+
+<details>
+<summary><strong>Auth</strong> — Custom JWT + Google OAuth + sessions</summary>
+
+| Method | Endpoint                                       | Description                                          |
+| ------ | ---------------------------------------------- | ---------------------------------------------------- |
+| POST   | `/auth/custom/register`                        | Register a new account                               |
+| POST   | `/auth/custom/login`                           | Login with email/password                            |
+| POST   | `/auth/custom/google`                          | Login/register via Google                            |
+| POST   | `/auth/custom/refresh`                         | Refresh access token                                 |
+| POST   | `/auth/custom/logout`                          | Logout current session                               |
+| POST   | `/auth/custom/change-password`                 | Change password                                      |
+| POST   | `/auth/custom/forgot-password/request`         | Request password reset OTP                           |
+| POST   | `/auth/custom/forgot-password/verify`          | Verify password reset OTP                            |
+| POST   | `/auth/custom/forgot-password/reset`           | Reset password with token                            |
+| POST   | `/auth/custom/set-password/google-reauth`      | Re-authenticate via Google before setting a password |
+| POST   | `/auth/custom/set-password/complete`           | Complete password setup                              |
+| GET    | `/auth/custom/security-summary`                | Get account security overview                        |
+| GET    | `/auth/custom/sessions`                        | List active sessions                                 |
+| GET    | `/auth/custom/sessions/validate`               | Validate current session                             |
+| POST   | `/auth/custom/sessions/{userSessionId}/revoke` | Revoke a specific session                            |
+| POST   | `/auth/custom/sessions/logout-others`          | Log out all other sessions                           |
+| POST   | `/auth/custom/sessions/logout-all`             | Log out all sessions                                 |
+
+</details>
+
+<details>
+<summary><strong>Customer — Repairs & Announcements</strong></summary>
+
+| Method | Endpoint                                        | Description                                  |
+| ------ | ----------------------------------------------- | -------------------------------------------- |
+| POST   | `/ServiceRequests`                              | Submit a new repair request                  |
+| POST   | `/ServiceRequests/{serviceRequestId}/images`    | Upload images for a repair request           |
+| GET    | `/ServiceRequests/track`                        | Track a request by request number and phone  |
+| GET    | `/CustomerRepairs/{serviceRequestId}`           | Get repair request details                   |
+| GET    | `/CustomerRepairs/feedbacks`                    | Get customer's submitted feedback            |
+| GET    | `/CustomerRepairs/{serviceRequestId}/feedback`  | Get feedback for a repair request            |
+| POST   | `/CustomerRepairs/{serviceRequestId}/feedback`  | Submit feedback for a completed repair       |
+| GET    | `/customer/announcements`                       | Get announcements for the logged-in customer |
+| GET    | `/customer/announcements/popup`                 | Get popup announcement                       |
+| POST   | `/customer/announcements/{announcementId}/view` | Mark an announcement as viewed               |
+
+</details>
+
+<details>
+<summary><strong>Customer — Profile, Dashboard & Notifications</strong></summary>
+
+| Method | Endpoint                                         | Description                     |
+| ------ | ------------------------------------------------ | ------------------------------- |
+| GET    | `/CustomerDashboard`                             | Get customer dashboard summary  |
+| GET    | `/CustomerProfile`                               | Get customer profile details    |
+| PUT    | `/CustomerProfile/details`                       | Update customer profile details |
+| GET    | `/CustomerProfile/addresses`                     | List saved addresses            |
+| POST   | `/CustomerProfile/addresses`                     | Add a new address               |
+| PUT    | `/CustomerProfile/addresses/{addressId}`         | Update a saved address          |
+| DELETE | `/CustomerProfile/addresses/{addressId}`         | Delete a saved address          |
+| PUT    | `/CustomerProfile/addresses/{addressId}/default` | Set an address as the default   |
+| GET    | `/CustomerNotifications`                         | List customer notifications     |
+| PUT    | `/CustomerNotifications/{notificationId}/read`   | Mark a notification as read     |
+| PUT    | `/CustomerNotifications/read-all`                | Mark all notifications as read  |
+
+</details>
+
+<details>
+<summary><strong>Admin — Repairs, Enquiries & Feedback</strong></summary>
+
+| Method | Endpoint                                         | Description                             |
+| ------ | ------------------------------------------------ | --------------------------------------- |
+| GET    | `/admin/service-requests`                        | List all repair requests                |
+| GET    | `/admin/service-requests/{id}`                   | Get repair request details              |
+| PUT    | `/admin/service-requests/{id}/status`            | Update repair request status            |
+| PUT    | `/admin/service-requests/{id}/pricing`           | Set estimated or final repair price     |
+| PUT    | `/admin/service-requests/{id}/repair-work-notes` | Add diagnosis and repair work notes     |
+| GET    | `/admin/enquiries`                               | List customer enquiries                 |
+| GET    | `/admin/enquiries/{id}`                          | Get enquiry details                     |
+| PUT    | `/admin/enquiries/{id}/status`                   | Update enquiry status                   |
+| GET    | `/admin/enquiries/{id}/notes`                    | Get internal notes for an enquiry       |
+| POST   | `/admin/enquiries/{id}/notes`                    | Add an internal note to an enquiry      |
+| GET    | `/admin/feedbacks`                               | List customer repair feedback           |
+| PUT    | `/admin/feedbacks/{feedbackId}/public-status`    | Show or hide customer feedback publicly |
+
+</details>
+
+<details>
+<summary><strong>Admin — Products, Announcements & Settings</strong></summary>
+
+| Method | Endpoint                          | Description                  |
+| ------ | --------------------------------- | ---------------------------- |
+| GET    | `/admin/products`                 | List all products            |
+| POST   | `/admin/products`                 | Add a new product            |
+| GET    | `/admin/products/{id}`            | Get product details          |
+| PUT    | `/admin/products/{id}`            | Update a product             |
+| DELETE | `/admin/products/{id}`            | Delete a product             |
+| GET    | `/admin/announcements`            | List announcements           |
+| POST   | `/admin/announcements`            | Create an announcement       |
+| PUT    | `/admin/announcements/{id}`       | Update an announcement       |
+| DELETE | `/admin/announcements/{id}`       | Delete an announcement       |
+| POST   | `/admin/announcements/{id}/image` | Upload an announcement image |
+| GET    | `/admin/settings`                 | Get shop settings            |
+| PUT    | `/admin/settings`                 | Update shop settings         |
+
+</details>
+
+<details>
+<summary><strong>Admin — Users, Analytics, Audit & Exports</strong></summary>
+
+| Method | Endpoint                                       | Description                           |
+| ------ | ---------------------------------------------- | ------------------------------------- |
+| GET    | `/admin/users`                                 | List users with filtering and sorting |
+| GET    | `/admin/users/summary`                         | Get user statistics summary           |
+| GET    | `/admin/users/{appUserId}`                     | Get user details                      |
+| PATCH  | `/admin/users/{appUserId}/status`              | Activate or deactivate a user         |
+| POST   | `/admin/users/{appUserId}/unlock`              | Unlock a locked user account          |
+| POST   | `/admin/users/{appUserId}/sessions/revoke-all` | Force logout a user from all sessions |
+| GET    | `/admin/dashboard/summary`                     | Get admin dashboard overview          |
+| GET    | `/admin/analytics/summary`                     | Get analytics summary                 |
+| GET    | `/admin/analytics/website-visits`              | Get website visit analytics           |
+| GET    | `/admin/audit-logs`                            | View audit logs                       |
+| GET    | `/admin/notifications`                         | List admin notifications              |
+| PUT    | `/admin/notifications/{notificationId}/read`   | Mark an admin notification as read    |
+| PUT    | `/admin/notifications/read-all`                | Mark all admin notifications as read  |
+| GET    | `/admin/exports/service-requests`              | Export repair requests                |
+| GET    | `/admin/exports/enquiries`                     | Export enquiries                      |
+| GET    | `/admin/exports/products`                      | Export products                       |
+| GET    | `/admin/exports/feedbacks`                     | Export customer feedback              |
+| GET    | `/admin/exports/announcements`                 | Export announcements                  |
+| GET    | `/admin/exports/audit-logs`                    | Export audit logs                     |
+| GET    | `/admin/exports/website-visits`                | Export website visit data             |
+
+</details>
+
+<details>
+<summary><strong>Public</strong> — No authentication required</summary>
+
+| Method | Endpoint                      | Description                                                  |
+| ------ | ----------------------------- | ------------------------------------------------------------ |
+| GET    | `/Products`                   | Browse products with category, condition, and search filters |
+| GET    | `/Products/{id}`              | Get product details                                          |
+| GET    | `/public/announcements`       | Get public announcements                                     |
+| GET    | `/public/feedbacks`           | Get publicly visible customer feedback                       |
+| GET    | `/public/shop-settings`       | Get shop information, address, hours, and contact details    |
+| POST   | `/public/website-visits`      | Log a website visit for analytics                            |
+| POST   | `/Enquiries`                  | Submit a general customer enquiry                            |
+| GET    | `/LookUps/service-categories` | Get available repair service categories                      |
+| GET    | `/LookUps/service-locations`  | Get available service locations                              |
+| GET    | `/LookUps/service-statuses`   | Get available repair status options                          |
+| GET    | `/LookUps/enquiry-statuses`   | Get available enquiry status options                         |
+| GET    | `/LookUps/product-categories` | Get available product categories                             |
+| GET    | `/LookUps/product-conditions` | Get available product condition options                      |
+
+</details>
+
+## Screenshots
+
+### Home Page
+
+![Home Page](screenshots/home.png)
+
+### Book Repair Request
+
+![Book Repair Request](screenshots/repair-form.png)
+
+### Track Repair Status
+
+![Track Repair Status](screenshots/track-status.png)
+
+### Admin Dashboard
+
+![Admin Dashboard](screenshots/admin-dashboard.png)
+
+## Future Improvements
+
+- Technician Dashboard — a dedicated view for technicians to see their assigned repair jobs
+- Repair Assignment — allow admin to assign incoming repair requests to specific technicians
+
+## Author
+
+GitHub: [@Tanish15-gif](https://github.com/Tanish15-gif)
+
+## License
+
+All rights reserved. This project and its source code are proprietary to Tanish Electronics. No part of this repository may be copied, modified, or redistributed without explicit permission from the author.
