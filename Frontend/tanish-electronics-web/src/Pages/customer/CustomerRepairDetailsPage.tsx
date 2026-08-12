@@ -10,8 +10,11 @@ import {
 } from "../../Services/customerRepairService";
 import { generateRepairReceiptPdf } from "../../utils/generateRepairReceiptPdf";
 import ActionButton from "../../components/UI/ActionButton";
+import { useShopSettings } from "../../hooks/useShopSettings";
+import { getCachedShopSettings } from "../../Services/publicShopSettingsService";
 
 function CustomerRepairDetailsPage() {
+  const { settings } = useShopSettings();
   const { id } = useParams();
   const { getToken } = useApiAuth();
 
@@ -26,6 +29,15 @@ function CustomerRepairDetailsPage() {
   useEffect(() => {
     loadRepairDetails();
   }, [id]);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = `${repair?.requestNumber} | ${settings.shopName}`;
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [repair]);
 
   async function loadRepairDetails() {
     try {
@@ -354,7 +366,7 @@ function CustomerRepairDetailsPage() {
 
               <a
                 href={`https://api.whatsapp.com/send?phone=918850973399&text=${encodeURIComponent(
-                  `Hello Tanish Electronics, I need update for request ${repair.requestNumber}.`
+                  `Hello ${settings.shopName}, I need update for request ${repair.requestNumber}.`
                 )}`}
                 target="_blank"
                 rel="noreferrer"
@@ -613,7 +625,8 @@ function RepairProgressTracker({ repair }: { repair: CustomerRepairDetails }) {
 
       {repair.finalPrice != null ? (
         <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
-          Final repair price has been updated by Tanish Electronics.
+          Final repair price has been updated by{" "}
+          {getCachedShopSettings().shopName}.
         </div>
       ) : repair.estimatedPrice != null ? (
         <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-700 dark:border-yellow-400/20 dark:bg-yellow-400/10 dark:text-yellow-300">
@@ -846,7 +859,8 @@ function FeedbackModal({
           </h2>
 
           <p className="mt-3 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-            Please rate your repair experience with Tanish Electronics.
+            Please rate your repair experience with{" "}
+            {getCachedShopSettings().shopName}.
           </p>
         </div>
 

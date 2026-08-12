@@ -375,7 +375,7 @@ function HomePage() {
         photoUrl="/images/GokuBlack.jpg"
         name={settings.ownerName}
         role={`Founder, ${settings.shopName}`}
-        bio="With over 20 years of hands-on electronics-repair experience, Subhash has built Tanish Electronics on a simple idea — honest guidance, fair pricing and dependable local service for every customer in Santacruz West."
+        bio={`With over 20 years of hands-on electronics-repair experience, ${settings.ownerName} has built ${settings.shopName} on a simple idea — honest guidance, fair pricing and dependable local service for every customer in Santacruz West.`}
       />
 
       {/* Process */}

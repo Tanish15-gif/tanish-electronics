@@ -147,7 +147,7 @@ function CustomerProfilePage() {
   useEffect(() => {
     const previousTitle = document.title;
 
-    document.title = "My Profile | Tanish Electronics";
+    document.title = "My Profile";
 
     return () => {
       document.title = previousTitle;

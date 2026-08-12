@@ -21,6 +21,7 @@ import {
   type CreateAnnouncement
 } from "../../Services/adminAnnouncementService";
 import { exportAnnouncements } from "../../Services/adminExportService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type AnnouncementTab = "overview" | "editor";
 
@@ -123,6 +124,8 @@ const emptyForm: AnnouncementForm = {
 function AdminAnnouncementsPage() {
   const { getToken } = useApiAuth();
 
+  const { settings } = useShopSettings();
+
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
 
   const [form, setForm] = useState<AnnouncementForm>(emptyForm);
@@ -167,14 +170,14 @@ function AdminAnnouncementsPage() {
   useEffect(() => {
     if (activeTab === "editor") {
       document.title = editingId
-        ? `Edit Announcement #${editingId} | Tanish Electronics Admin`
-        : "Create Announcement | Tanish Electronics Admin";
+        ? `Edit Announcement #${editingId} | ${settings.shopName}`
+        : `Create Announcement | ${settings.shopName}`;
     } else {
-      document.title = "Announcements | Tanish Electronics Admin";
+      document.title = `Announcements | ${settings.shopName}`;
     }
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = settings.shopName;
     };
   }, [activeTab, editingId]);
 

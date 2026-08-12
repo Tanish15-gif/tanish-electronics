@@ -20,8 +20,10 @@ import {
 } from "../../Services/adminProductService";
 import type { LookUpItem } from "../../Services/serviceRequestService";
 import { exportProducts } from "../../Services/adminExportService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 function AdminProductsPage() {
+  const { settings } = useShopSettings();
   const { getToken } = useApiAuth();
 
   const [products, setProducts] = useState<AdminProductListItem[]>([]);
@@ -61,10 +63,11 @@ function AdminProductsPage() {
   }, []);
 
   useEffect(() => {
-    document.title = "Products | Tanish Electronics Admin";
+    const previousTitle = document.title;
+    document.title = `Products | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, []);
 

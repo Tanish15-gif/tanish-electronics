@@ -15,8 +15,10 @@ import {
 } from "../../Services/adminServiceRequestService";
 import type { LookUpItem } from "../../Services/serviceRequestService";
 import { exportServiceRequests } from "../../Services/adminExportService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 function AdminServiceRequestsPage() {
+  const { settings } = useShopSettings();
   const [requests, setRequests] = useState<AdminServiceRequestListItem[]>([]);
   const [statuses, setStatuses] = useState<LookUpItem[]>([]);
 
@@ -41,10 +43,11 @@ function AdminServiceRequestsPage() {
   const endRecord = Math.min(pageNumber * pageSize, totalRecords);
 
   useEffect(() => {
-    document.title = "Service Requests | Tanish Electronics";
+    const previousTitle = document.title;
+    document.title = `Service Requests | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, []);
 

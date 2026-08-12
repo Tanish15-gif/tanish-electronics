@@ -5,11 +5,14 @@ import {
   getAdminDashboardSummary,
   type AdminDashboardSummary
 } from "../../Services/adminDashboardService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type DashboardTab = "overview" | "activity";
 
 function AdminDashboardPage() {
   const { getToken } = useApiAuth();
+
+  const { settings } = useShopSettings();
 
   const [summary, setSummary] = useState<AdminDashboardSummary | null>(null);
 
@@ -26,10 +29,11 @@ function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
-    document.title = "Admin Dashboard | Tanish Electronics";
+    const previousTitle = document.title;
+    document.title = `Admin Dashboard | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, []);
 

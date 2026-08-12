@@ -16,6 +16,7 @@ import {
   type AdminRepairFeedback
 } from "../../Services/adminRepairFeedbackService";
 import { exportFeedbacks } from "../../Services/adminExportService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type PublicFilter = "all" | "public" | "private";
 
@@ -35,6 +36,7 @@ const visibilityOptions: DropdownOption<PublicFilter>[] = [
 ];
 
 function AdminFeedbacksPage() {
+  const { settings } = useShopSettings();
   const { getToken } = useApiAuth();
 
   const [feedbacks, setFeedbacks] = useState<AdminRepairFeedback[]>([]);
@@ -65,10 +67,11 @@ function AdminFeedbacksPage() {
   const endRecord = Math.min(pageNumber * pageSize, totalRecords);
 
   useEffect(() => {
-    document.title = "Customer Feedback | Tanish Electronics Admin";
+    const previousTitle = document.title;
+    document.title = `Customer Feedback | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, []);
 
@@ -692,7 +695,7 @@ function FeedbackVisibilityModal({
 
         <p className="mt-3 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
           {publishing
-            ? "This customer feedback may become visible on public sections of the Tanish Electronics website."
+            ? `This customer feedback may become visible on Home Page.`
             : "This feedback will be removed from public sections but will remain available in the admin panel."}
         </p>
 

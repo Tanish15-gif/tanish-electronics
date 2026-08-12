@@ -20,6 +20,7 @@ import ActionButton from "../../components/UI/ActionButton";
 import UniversalDropdown, {
   type DropdownOption
 } from "../../components/UI/UniversalDropdown";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type RequestTab = "overview" | "repair" | "activity";
 
@@ -37,8 +38,8 @@ const paymentStatusOptions: DropdownOption<string>[] = [
     label: "Not Required"
   }
 ];
-
 function AdminServiceRequestDetailsPage() {
+  const { settings } = useShopSettings();
   const { id } = useParams();
 
   const [request, setRequest] = useState<AdminServiceRequestDetails | null>(
@@ -78,14 +79,15 @@ function AdminServiceRequestDetailsPage() {
   const { getToken } = useApiAuth();
 
   useEffect(() => {
+    const previousTitle = document.title;
     if (request) {
-      document.title = `${request.requestNumber} | Tanish Electronics`;
+      document.title = `${request.requestNumber} | ${settings.shopName}`;
     } else {
-      document.title = "Service Request | Tanish Electronics";
+      document.title = `Service Request | ${settings.shopName}`;
     }
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, [request]);
 
@@ -312,7 +314,7 @@ function AdminServiceRequestDetailsPage() {
     }
 
     return encodeURIComponent(
-      `Hello ${request.customerName}, this is Tanish Electronics regarding your service request ${request.requestNumber}.`
+      `Hello ${request.customerName}, this is ${settings.shopName} regarding your service request ${request.requestNumber}.`
     );
   }
   async function handleRepairWorkNotesUpdate() {

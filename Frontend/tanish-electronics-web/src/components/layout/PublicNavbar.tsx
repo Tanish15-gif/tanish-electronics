@@ -324,7 +324,7 @@ function Brand({
     <Link
       to="/"
       onClick={onClick}
-      aria-label="Tanish Electronics home"
+      aria-label={`${settings.shopName} home`}
       className="group flex min-w-0 shrink-0 items-center gap-3"
     >
       <span

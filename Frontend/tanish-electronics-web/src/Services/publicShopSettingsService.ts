@@ -43,3 +43,6 @@ export async function getPublicShopSettings() {
 
   return data;
 }
+export function getCachedShopSettings(): PublicShopSettings {
+  return cachedShopSettings ?? fallbackShopSettings;
+}

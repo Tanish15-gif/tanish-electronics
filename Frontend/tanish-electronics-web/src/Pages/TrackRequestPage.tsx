@@ -11,6 +11,7 @@ import {
   trackServiceRequest,
   type TrackServiceRequestResult
 } from "../Services/serviceRequestService";
+import { useShopSettings } from "../hooks/useShopSettings";
 
 const statusSteps = [
   "Pending",
@@ -25,6 +26,7 @@ type TrackFormErrors = {
 };
 
 function TrackRequestPage() {
+  const { settings } = useShopSettings();
   const [searchParams] = useSearchParams();
 
   const requestNumberFromUrl = searchParams.get("requestNumber") ?? "";
@@ -50,7 +52,7 @@ function TrackRequestPage() {
   useEffect(() => {
     const previousTitle = document.title;
 
-    document.title = "Track Repair | Tanish Electronics";
+    document.title = `Track Repair | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;

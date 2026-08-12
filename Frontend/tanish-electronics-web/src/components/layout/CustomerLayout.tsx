@@ -29,8 +29,11 @@ import {
 } from "../../Services/customerNotificationService";
 import { useApiAuth } from "../../hooks/useApiAuth";
 import UserAccountMenu from "../auth/UserAccountMenu";
+import { useShopSettings } from "../../hooks/useShopSettings";
+import { getCachedShopSettings } from "../../Services/publicShopSettingsService";
 
 function CustomerLayout() {
+  const { settings } = useShopSettings();
   const { isLoaded, isSignedIn, getToken } = useApiAuth();
   const { user, logout } = useCustomAuth();
 
@@ -299,7 +302,7 @@ function CustomerLayout() {
                 </span>
 
                 <span className="block truncate text-[10px] font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                  Tanish Electronics
+                  {settings.shopName}
                 </span>
               </span>
             </Link>
@@ -567,7 +570,7 @@ function CustomerBrand({
 
       <span className="min-w-0">
         <span className="block truncate text-sm font-black leading-tight">
-          Tanish Electronics
+          {getCachedShopSettings().shopName}
         </span>
 
         <span className="mt-0.5 block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[#817867] dark:text-[#928a7d]">

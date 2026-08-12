@@ -57,6 +57,15 @@ function CustomerRepairsPage() {
     loadRepairs();
   }, []);
 
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = "My Repairs";
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, []);
+
   async function loadRepairs() {
     try {
       setLoading(true);
@@ -150,7 +159,6 @@ function CustomerRepairsPage() {
 
   return (
     <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
-      <title>My Repair</title>
       <section className="rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] px-6 py-6 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:px-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>

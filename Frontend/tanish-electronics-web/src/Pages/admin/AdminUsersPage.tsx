@@ -40,6 +40,7 @@ import UniversalDropdown, {
   type DropdownOption
 } from "../../components/UI/UniversalDropdown";
 import { useNavigate } from "react-router-dom";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 const EMPTY_SUMMARY: AdminUsersSummary = {
   totalUsers: 0,
@@ -97,6 +98,7 @@ const PAGE_SIZE_OPTIONS: DropdownOption<number>[] = [
 ];
 
 export default function AdminUsersPage() {
+  const { settings } = useShopSettings();
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [summary, setSummary] = useState<AdminUsersSummary>(EMPTY_SUMMARY);
 
@@ -126,7 +128,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = "User Administration | Tanish Electronics";
+    document.title = `User Administration | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;

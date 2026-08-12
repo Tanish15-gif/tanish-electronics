@@ -15,8 +15,10 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
 import GoogleSignInButton from "../GoogleSignInButton";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 function SignUpPage() {
+  const { settings } = useShopSettings();
   const navigate = useNavigate();
   const { register } = useCustomAuth();
 
@@ -39,7 +41,7 @@ function SignUpPage() {
   useEffect(() => {
     const previousTitle = document.title;
 
-    document.title = "Create Account | Tanish Electronics";
+    document.title = `Create Account | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;
@@ -152,7 +154,7 @@ function SignUpPage() {
         <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
           <Link
             to="/"
-            aria-label="Go to Tanish Electronics home"
+            aria-label={`Go to ${settings.shopName} home`}
             className="flex min-w-0 items-center gap-3"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] text-xs font-black text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f]">
@@ -161,7 +163,7 @@ function SignUpPage() {
 
             <span className="min-w-0">
               <span className="block truncate text-sm font-bold sm:text-base">
-                Tanish Electronics
+                {settings.shopName}
               </span>
 
               <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
@@ -234,7 +236,7 @@ function SignUpPage() {
                 </p>
 
                 <h2 className="font-display mt-3 text-4xl font-semibold leading-none">
-                  Join Tanish Electronics
+                  Join {settings.shopName}
                 </h2>
 
                 <p className="mt-4 text-sm font-medium leading-6 text-[#6f6758] dark:text-[#a8a093]">
@@ -457,7 +459,9 @@ function SignUpPage() {
 
         {/* Footer */}
         <footer className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-3 px-4 py-5 text-xs font-medium text-[#817867] dark:text-[#928a7d] sm:flex-row sm:px-6 lg:px-8">
-          <p>© {new Date().getFullYear()} Tanish Electronics</p>
+          <p>
+            © {new Date().getFullYear()} {settings.shopName}
+          </p>
 
           <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <Link

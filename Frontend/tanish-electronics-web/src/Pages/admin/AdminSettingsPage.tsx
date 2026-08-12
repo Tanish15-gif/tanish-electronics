@@ -5,6 +5,7 @@ import {
   updateAdminShopSettings,
   type AdminShopSettings
 } from "../../Services/adminSettingsService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type SettingsForm = {
   shopName: string;
@@ -48,9 +49,10 @@ const initialSettingsForm: SettingsForm = {
 
 function AdminSettingsPage() {
   const { getToken } = useApiAuth();
+  const { settings } = useShopSettings();
 
   const [form, setForm] = useState<SettingsForm>(initialSettingsForm);
-  const [settings, setSettings] = useState<AdminShopSettings | null>(null);
+  const [setting, setSettings] = useState<AdminShopSettings | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -59,20 +61,21 @@ function AdminSettingsPage() {
   const [success, setSuccess] = useState("");
 
   const lastUpdatedText = useMemo(() => {
-    if (!settings?.updatedAt) {
-      return settings?.createdAt
-        ? `Created ${formatDateTime(settings.createdAt)}`
+    if (!setting?.updatedAt) {
+      return setting?.createdAt
+        ? `Created ${formatDateTime(setting.createdAt)}`
         : "Not updated yet";
     }
 
-    return `Updated ${formatDateTime(settings.updatedAt)}`;
-  }, [settings]);
+    return `Updated ${formatDateTime(setting.updatedAt)}`;
+  }, [setting]);
 
   useEffect(() => {
-    document.title = "Settings | Tanish Electronics Admin";
+    const previousTitle = document.title;
+    document.title = `Settings | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, []);
 

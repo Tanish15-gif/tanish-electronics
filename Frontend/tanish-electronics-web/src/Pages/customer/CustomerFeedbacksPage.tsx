@@ -16,6 +16,7 @@ import {
   upsertCustomerRepairFeedback,
   type CustomerRepairFeedbackCenterItem
 } from "../../Services/customerRepairService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type FeedbackTab = "needs" | "submitted" | "waiting";
 
@@ -28,6 +29,7 @@ const ratingLabels: Record<number, string> = {
 };
 
 function CustomerFeedbacksPage() {
+  const { settings } = useShopSettings();
   const { getToken } = useApiAuth();
 
   const initialTabSelectedRef = useRef(false);
@@ -170,7 +172,7 @@ function CustomerFeedbacksPage() {
   useEffect(() => {
     const previousTitle = document.title;
 
-    document.title = "My Feedback | Tanish Electronics";
+    document.title = `My Feedback | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;

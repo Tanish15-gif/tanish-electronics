@@ -26,6 +26,7 @@ import {
   resetPassword,
   verifyForgotPasswordOtp
 } from "../../Services/customAuthService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type ForgotPasswordStep = "email" | "otp" | "password" | "success";
 
@@ -36,7 +37,7 @@ const RESEND_SECONDS = 60;
 
 function ForgotPasswordPage() {
   const navigate = useNavigate();
-
+  const { settings } = useShopSettings();
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const [step, setStep] = useState<ForgotPasswordStep>("email");
@@ -70,7 +71,7 @@ function ForgotPasswordPage() {
   useEffect(() => {
     const previousTitle = document.title;
 
-    document.title = "Reset Password | Tanish Electronics";
+    document.title = `Reset Password | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;
@@ -491,7 +492,7 @@ function ForgotPasswordPage() {
         <header className="flex items-center justify-between gap-4">
           <Link
             to="/"
-            aria-label="Go to Tanish Electronics home"
+            aria-label={`Go to ${settings.shopName} home`}
             className="flex min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/25"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] text-xs font-black text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f]">
@@ -500,7 +501,7 @@ function ForgotPasswordPage() {
 
             <span className="min-w-0">
               <span className="block truncate text-sm font-bold sm:text-base">
-                Tanish Electronics
+                {settings.shopName}
               </span>
 
               <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
@@ -614,7 +615,9 @@ function ForgotPasswordPage() {
         </section>
 
         <footer className="flex flex-col items-center justify-between gap-2 pb-1 text-center text-[11px] font-medium text-[#817867] dark:text-[#928a7d] sm:flex-row sm:text-left">
-          <p>© {new Date().getFullYear()} Tanish Electronics</p>
+          <p>
+            © {new Date().getFullYear()} {settings.shopName}
+          </p>
 
           <p>Secure account recovery</p>
         </footer>

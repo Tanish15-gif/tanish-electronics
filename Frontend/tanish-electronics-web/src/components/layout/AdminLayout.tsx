@@ -27,8 +27,10 @@ import {
 } from "../../Services/adminNotificationService";
 
 import UserAccountMenu from "../auth/UserAccountMenu";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 function AdminLayout() {
+  const { settings } = useShopSettings();
   const { isLoaded, isSignedIn, getToken } = useApiAuth();
   const { user, logout } = useCustomAuth();
 
@@ -250,7 +252,7 @@ function AdminLayout() {
               <p className="text-xs font-black">Protected workspace</p>
 
               <p className="mt-1 text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
-                Administration tools for Tanish Electronics.
+                Administration tools for ${settings.shopName}
               </p>
             </div>
           </div>
@@ -275,7 +277,7 @@ function AdminLayout() {
                 <span className="block truncate text-sm font-black">Admin</span>
 
                 <span className="block truncate text-[10px] font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                  Tanish Electronics
+                  {settings.shopName}
                 </span>
               </span>
             </Link>
@@ -345,243 +347,243 @@ function AdminLayout() {
         )}
     </div>
   );
-}
 
-type AdminMobileDrawerProps = {
-  open: boolean;
-  displayName: string;
-  displayEmail: string;
-  profileImageUrl: string | null;
-  unreadNotificationCount: number;
-  closeButtonRef: RefObject<HTMLButtonElement | null>;
-  onClose: () => void;
-};
+  type AdminMobileDrawerProps = {
+    open: boolean;
+    displayName: string;
+    displayEmail: string;
+    profileImageUrl: string | null;
+    unreadNotificationCount: number;
+    closeButtonRef: RefObject<HTMLButtonElement | null>;
+    onClose: () => void;
+  };
 
-function AdminMobileDrawer({
-  open,
-  closeButtonRef,
-  onClose
-}: AdminMobileDrawerProps) {
-  return (
-    <div
-      className={`fixed inset-0 z-[700] lg:hidden ${
-        open ? "pointer-events-auto" : "pointer-events-none"
-      }`}
-      aria-hidden={!open}
-    >
-      {/* Backdrop */}
+  function AdminMobileDrawer({
+    open,
+    closeButtonRef,
+    onClose
+  }: AdminMobileDrawerProps) {
+    return (
       <div
-        role="presentation"
-        onClick={onClose}
-        className={`absolute inset-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300 ${
-          open ? "opacity-100" : "opacity-0"
+        className={`fixed inset-0 z-[700] lg:hidden ${
+          open ? "pointer-events-auto" : "pointer-events-none"
         }`}
-      />
-
-      {/* Drawer */}
-      <aside
-        id="admin-mobile-menu"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Admin navigation"
-        className={`absolute left-0 top-0 flex h-[100dvh] w-[88vw] max-w-[360px] flex-col border-r border-[#d8cdb6] bg-[#f7f5ef] text-[#1f1a12] shadow-2xl transition-transform duration-300 ease-out dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        aria-hidden={!open}
       >
-        {/* Header */}
-        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#d8cdb6] px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-[#302c24]">
-          <AdminBrand compact onClick={onClose} />
+        {/* Backdrop */}
+        <div
+          role="presentation"
+          onClick={onClose}
+          className={`absolute inset-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300 ${
+            open ? "opacity-100" : "opacity-0"
+          }`}
+        />
 
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            aria-label="Close admin menu"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
-          >
-            <CloseIcon />
-          </button>
-        </header>
+        {/* Drawer */}
+        <aside
+          id="admin-mobile-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Admin navigation"
+          className={`absolute left-0 top-0 flex h-[100dvh] w-[88vw] max-w-[360px] flex-col border-r border-[#d8cdb6] bg-[#f7f5ef] text-[#1f1a12] shadow-2xl transition-transform duration-300 ease-out dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] ${
+            open ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {/* Header */}
+          <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#d8cdb6] px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-[#302c24]">
+            <AdminBrand compact onClick={onClose} />
 
-        <div className="te-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5">
-          {/* Navigation */}
-          <section className="mt-7">
-            <MenuSectionLabel>Navigation</MenuSectionLabel>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={onClose}
+              aria-label="Close admin menu"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+            >
+              <CloseIcon />
+            </button>
+          </header>
 
-            <nav className="mt-3 space-y-1">
-              <AdminMobileNavLink
-                to="/admin/dashboard"
-                icon={<DashboardIcon />}
-                onClick={onClose}
-              >
-                Dashboard
-              </AdminMobileNavLink>
+          <div className="te-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5">
+            {/* Navigation */}
+            <section className="mt-7">
+              <MenuSectionLabel>Navigation</MenuSectionLabel>
 
-              <AdminMobileNavLink
-                to="/admin/users"
-                icon={<Users className="h-5 w-5" />}
-                onClick={onClose}
-              >
-                Users
-              </AdminMobileNavLink>
+              <nav className="mt-3 space-y-1">
+                <AdminMobileNavLink
+                  to="/admin/dashboard"
+                  icon={<DashboardIcon />}
+                  onClick={onClose}
+                >
+                  Dashboard
+                </AdminMobileNavLink>
 
-              <AdminMobileNavLink
-                to="/admin/service-requests"
-                icon={<RequestsIcon />}
-                onClick={onClose}
-              >
-                Service Requests
-              </AdminMobileNavLink>
+                <AdminMobileNavLink
+                  to="/admin/users"
+                  icon={<Users className="h-5 w-5" />}
+                  onClick={onClose}
+                >
+                  Users
+                </AdminMobileNavLink>
 
-              <AdminMobileNavLink
-                to="/admin/enquiries"
-                icon={<EnquiriesIcon />}
-                onClick={onClose}
-              >
-                Enquiries
-              </AdminMobileNavLink>
+                <AdminMobileNavLink
+                  to="/admin/service-requests"
+                  icon={<RequestsIcon />}
+                  onClick={onClose}
+                >
+                  Service Requests
+                </AdminMobileNavLink>
 
-              <AdminMobileNavLink
-                to="/admin/products"
-                icon={<ProductsIcon />}
-                onClick={onClose}
-              >
-                Products
-              </AdminMobileNavLink>
+                <AdminMobileNavLink
+                  to="/admin/enquiries"
+                  icon={<EnquiriesIcon />}
+                  onClick={onClose}
+                >
+                  Enquiries
+                </AdminMobileNavLink>
 
-              <AdminMobileNavLink
-                to="/admin/feedbacks"
-                icon={<FeedbackIcon />}
-                onClick={onClose}
-              >
-                Feedback
-              </AdminMobileNavLink>
+                <AdminMobileNavLink
+                  to="/admin/products"
+                  icon={<ProductsIcon />}
+                  onClick={onClose}
+                >
+                  Products
+                </AdminMobileNavLink>
 
-              <AdminMobileNavLink
-                to="/admin/announcements"
-                icon={<AnnouncementIcon />}
-                onClick={onClose}
-              >
-                Announcements
-              </AdminMobileNavLink>
+                <AdminMobileNavLink
+                  to="/admin/feedbacks"
+                  icon={<FeedbackIcon />}
+                  onClick={onClose}
+                >
+                  Feedback
+                </AdminMobileNavLink>
 
-              <AdminMobileNavLink
-                to="/admin/system-health"
-                icon={<HealthIcon />}
-                onClick={onClose}
-              >
-                System Health
-              </AdminMobileNavLink>
+                <AdminMobileNavLink
+                  to="/admin/announcements"
+                  icon={<AnnouncementIcon />}
+                  onClick={onClose}
+                >
+                  Announcements
+                </AdminMobileNavLink>
 
-              <AdminMobileNavLink
-                to="/admin/audit-logs"
-                icon={<AuditLogIcon />}
-                onClick={onClose}
-              >
-                Audit Logs
-              </AdminMobileNavLink>
+                <AdminMobileNavLink
+                  to="/admin/system-health"
+                  icon={<HealthIcon />}
+                  onClick={onClose}
+                >
+                  System Health
+                </AdminMobileNavLink>
 
-              <AdminMobileNavLink
-                to="/admin/analytics"
-                icon={<AnalyticsIcon />}
-                onClick={onClose}
-              >
-                Analytics
-              </AdminMobileNavLink>
-            </nav>
-          </section>
+                <AdminMobileNavLink
+                  to="/admin/audit-logs"
+                  icon={<AuditLogIcon />}
+                  onClick={onClose}
+                >
+                  Audit Logs
+                </AdminMobileNavLink>
 
-          {/* Quick actions */}
-          <section className="mt-7 border-t border-[#d8cdb6] pt-6 dark:border-[#302c24]">
-            <MenuSectionLabel>Quick actions</MenuSectionLabel>
+                <AdminMobileNavLink
+                  to="/admin/analytics"
+                  icon={<AnalyticsIcon />}
+                  onClick={onClose}
+                >
+                  Analytics
+                </AdminMobileNavLink>
+              </nav>
+            </section>
 
-            <div className="mt-3 space-y-1">
-              <AdminMobileActionLink
-                to="/admin/products/new"
-                icon={<PlusIcon />}
-                onClick={onClose}
-              >
-                Add product
-              </AdminMobileActionLink>
+            {/* Quick actions */}
+            <section className="mt-7 border-t border-[#d8cdb6] pt-6 dark:border-[#302c24]">
+              <MenuSectionLabel>Quick actions</MenuSectionLabel>
 
-              <AdminMobileActionLink
-                to="/admin/announcements"
-                icon={<AnnouncementIcon />}
-                onClick={onClose}
-              >
-                Manage announcements
-              </AdminMobileActionLink>
+              <div className="mt-3 space-y-1">
+                <AdminMobileActionLink
+                  to="/admin/products/new"
+                  icon={<PlusIcon />}
+                  onClick={onClose}
+                >
+                  Add product
+                </AdminMobileActionLink>
 
-              <AdminMobileActionLink
-                to="/"
-                icon={<PublicIcon />}
-                onClick={onClose}
-              >
-                Public site
-              </AdminMobileActionLink>
-            </div>
-          </section>
+                <AdminMobileActionLink
+                  to="/admin/announcements"
+                  icon={<AnnouncementIcon />}
+                  onClick={onClose}
+                >
+                  Manage announcements
+                </AdminMobileActionLink>
 
-          {/* Protected-access card */}
-          <section className="mt-7 rounded-[1.25rem] border border-[#d8cdb6] bg-[#fff8e7] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff4cc] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-                <ShieldIcon />
-              </span>
-
-              <div>
-                <p className="text-xs font-black">Protected workspace</p>
-
-                <p className="mt-1 text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
-                  Owner and administration tools for the business.
-                </p>
+                <AdminMobileActionLink
+                  to="/"
+                  icon={<PublicIcon />}
+                  onClick={onClose}
+                >
+                  Public site
+                </AdminMobileActionLink>
               </div>
-            </div>
-          </section>
-        </div>
+            </section>
 
-        <footer className="shrink-0 border-t border-[#d8cdb6] bg-[#fffaf0] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 dark:border-[#302c24] dark:bg-[#11110f]">
-          <p className="text-center text-[10px] font-black uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
-            Administrator account
-          </p>
-        </footer>
-      </aside>
-    </div>
-  );
-}
+            {/* Protected-access card */}
+            <section className="mt-7 rounded-[1.25rem] border border-[#d8cdb6] bg-[#fff8e7] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff4cc] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+                  <ShieldIcon />
+                </span>
 
-function AdminBrand({
-  compact = false,
-  onClick
-}: {
-  compact?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <Link
-      to="/admin/dashboard"
-      onClick={onClick}
-      className="flex min-w-0 items-center gap-3"
-    >
-      <span
-        className={`flex shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] font-black text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f] ${
-          compact ? "h-10 w-10 text-xs" : "h-11 w-11 text-sm"
-        }`}
+                <div>
+                  <p className="text-xs font-black">Protected workspace</p>
+
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
+                    Owner and administration tools for the business.
+                  </p>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <footer className="shrink-0 border-t border-[#d8cdb6] bg-[#fffaf0] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 dark:border-[#302c24] dark:bg-[#11110f]">
+            <p className="text-center text-[10px] font-black uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
+              Administrator account
+            </p>
+          </footer>
+        </aside>
+      </div>
+    );
+  }
+
+  function AdminBrand({
+    compact = false,
+    onClick
+  }: {
+    compact?: boolean;
+    onClick?: () => void;
+  }) {
+    return (
+      <Link
+        to="/admin/dashboard"
+        onClick={onClick}
+        className="flex min-w-0 items-center gap-3"
       >
-        TE
-      </span>
-
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-black leading-tight">
-          Tanish Electronics
+        <span
+          className={`flex shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] font-black text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f] ${
+            compact ? "h-10 w-10 text-xs" : "h-11 w-11 text-sm"
+          }`}
+        >
+          TE
         </span>
 
-        <span className="mt-0.5 block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[#817867] dark:text-[#928a7d]">
-          Admin Panel
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-black leading-tight">
+            {settings.shopName}
+          </span>
+
+          <span className="mt-0.5 block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[#817867] dark:text-[#928a7d]">
+            Admin Panel
+          </span>
         </span>
-      </span>
-    </Link>
-  );
+      </Link>
+    );
+  }
 }
 
 type AdminNavLinkProps = {

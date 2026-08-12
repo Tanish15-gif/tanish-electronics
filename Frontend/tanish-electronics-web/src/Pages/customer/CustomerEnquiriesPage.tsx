@@ -12,6 +12,7 @@ import {
   type CustomerDashboard,
   type CustomerDashboardEnquiry
 } from "../../Services/customerDashboardService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type StatusFilter = "All" | "New" | "Pending" | "Contacted" | "Closed";
 
@@ -31,6 +32,7 @@ const statusOptions: DropdownOption<StatusFilter>[] = statusFilters.map(
 );
 
 function CustomerEnquiriesPage() {
+  const { settings } = useShopSettings();
   const { getToken } = useApiAuth();
   const navigate = useNavigate();
 
@@ -89,7 +91,7 @@ function CustomerEnquiriesPage() {
   useEffect(() => {
     const previousTitle = document.title;
 
-    document.title = "My Enquiries | Tanish Electronics";
+    document.title = `My Enquiries | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;

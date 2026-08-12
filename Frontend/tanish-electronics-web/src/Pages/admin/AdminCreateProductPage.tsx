@@ -20,6 +20,7 @@ import {
   uploadProductImage
 } from "../../Services/adminProductService";
 import type { LookUpItem } from "../../Services/serviceRequestService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type ProductForm = {
   productCategoryId: number;
@@ -118,6 +119,7 @@ function validateProductImage(file: File | null) {
 
 function AdminCreateProductPage() {
   const navigate = useNavigate();
+  const { settings } = useShopSettings();
   const { getToken } = useApiAuth();
 
   const [categories, setCategories] = useState<LookUpItem[]>([]);
@@ -141,10 +143,10 @@ function AdminCreateProductPage() {
   }, []);
 
   useEffect(() => {
-    document.title = "Add Product | Tanish Electronics Admin";
+    document.title = `Add Product | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = settings.shopName;
     };
   }, []);
 
@@ -700,7 +702,7 @@ function AdminCreateProductPage() {
                         updateField("announcementMessage", event.target.value)
                       }
                       rows={4}
-                      placeholder="This product is now available at Tanish Electronics."
+                      placeholder={`This product is now available at ${settings.shopName}`}
                       className="admin-input resize-none"
                     />
                   </FormField>

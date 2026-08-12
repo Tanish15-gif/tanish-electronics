@@ -38,6 +38,7 @@ import {
 } from "../../Services/adminUsersService";
 
 import ActionButton from "../../components/UI/ActionButton";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type AdminUserAction = "activate" | "deactivate" | "unlock" | "revoke-sessions";
 
@@ -47,6 +48,7 @@ type ActionMessage = {
 } | null;
 
 export default function AdminUserDetailsPage() {
+  const { settings } = useShopSettings();
   const { appUserId } = useParams();
 
   const [user, setUser] = useState<AdminUserDetails | null>(null);
@@ -158,7 +160,7 @@ export default function AdminUserDetailsPage() {
 
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = "User Details | Tanish Electronics";
+    document.title = `User Details | ${settings.shopName}`;
 
     void loadUser();
 

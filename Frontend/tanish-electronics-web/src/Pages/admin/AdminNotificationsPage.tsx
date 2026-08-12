@@ -9,8 +9,10 @@ import {
   type AdminNotification
 } from "../../Services/adminNotificationService";
 import { NotificationIcon } from "../../components/layout/CustomerLayout";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 function AdminNotificationsPage() {
+  const { settings } = useShopSettings();
   const { getToken } = useApiAuth();
   const navigate = useNavigate();
 
@@ -34,6 +36,15 @@ function AdminNotificationsPage() {
 
     return notifications;
   }, [notifications, filter]);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = `Notifications | ${settings.shopName}`;
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, []);
 
   useEffect(() => {
     loadNotifications();

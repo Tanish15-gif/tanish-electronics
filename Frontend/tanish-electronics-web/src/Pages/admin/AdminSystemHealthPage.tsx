@@ -17,6 +17,7 @@ import {
   type HealthReport,
   type HealthStatus
 } from "../../Services/healthService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 const MAX_HEALTH_HISTORY_POINTS = 20;
 const HEALTH_REFRESH_INTERVAL_MS = 15_000;
@@ -31,6 +32,7 @@ type HealthSnapshot = {
 };
 
 function AdminSystemHealthPage() {
+  const { settings } = useShopSettings();
   const { getToken } = useApiAuth();
 
   const [health, setHealth] = useState<HealthReport | null>(null);
@@ -52,10 +54,10 @@ function AdminSystemHealthPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    document.title = "System Health";
+    document.title = `System Health | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = `${settings.shopName}`;
     };
   }, []);
 

@@ -54,6 +54,15 @@ function CustomerDashboardPage() {
     loadDashboard();
   }, [isLoaded, isSignedIn, getToken]);
 
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = "Customer | Dashboard";
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, []);
+
   if (loading || !isLoaded) {
     return (
       <main className="px-4 py-8 sm:px-6 lg:px-8">
@@ -99,7 +108,6 @@ function CustomerDashboardPage() {
 
   return (
     <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
-      <title>Customer | Dashboard</title>
       <CustomerDashboardAnnouncementPopup />
       <section className="overflow-hidden rounded-[2.5rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
         <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[1fr_420px] xl:items-center">

@@ -163,10 +163,6 @@ function AdminNotificationBell() {
     };
   }, [updatePanelPosition]);
 
-  /*
-   * Keep the desktop dropdown aligned to
-   * the notification bell.
-   */
   useEffect(() => {
     if (!open || isMobile) {
       return;

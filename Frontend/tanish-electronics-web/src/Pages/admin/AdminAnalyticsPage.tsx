@@ -19,6 +19,7 @@ import {
   type AdminTopPage
 } from "../../Services/adminAnalyticsService";
 import { exportWebsiteVisits } from "../../Services/adminExportService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 function AdminAnalyticsPage() {
   const { getToken } = useApiAuth();
@@ -38,11 +39,14 @@ function AdminAnalyticsPage() {
 
   const [error, setError] = useState("");
 
+  const { settings } = useShopSettings();
+
   useEffect(() => {
-    document.title = "Analytics | Tanish Electronics Admin";
+    const previousTitle = document.title;
+    document.title = `Analytics | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, []);
 

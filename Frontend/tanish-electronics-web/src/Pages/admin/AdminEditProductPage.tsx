@@ -10,6 +10,7 @@ import {
 } from "../../Services/adminProductService";
 import type { LookUpItem } from "../../Services/serviceRequestService";
 import ActionButton from "../../components/UI/ActionButton";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type ProductForm = {
   productCategoryId: number;
@@ -29,6 +30,7 @@ type ProductForm = {
 
 function AdminEditProductPage() {
   const { getToken } = useApiAuth();
+  const { settings } = useShopSettings();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -58,6 +60,15 @@ function AdminEditProductPage() {
 
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = `Edit Products | ${settings.shopName}`;
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, []);
 
   useEffect(() => {
     loadPageData();
@@ -258,7 +269,6 @@ function AdminEditProductPage() {
 
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-      <title>Edit Product</title>
       <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
         <Link
           to="/admin/products"

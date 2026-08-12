@@ -21,10 +21,12 @@ import {
   type EnquiryNote
 } from "../../Services/adminEnquiryService";
 import type { LookUpItem } from "../../Services/serviceRequestService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type EnquiryTab = "overview" | "follow-up";
 
 function AdminEnquiryDetailsPage() {
+  const { settings } = useShopSettings();
   const { id } = useParams();
   const { getToken } = useApiAuth();
 
@@ -51,14 +53,15 @@ function AdminEnquiryDetailsPage() {
   }, [id]);
 
   useEffect(() => {
+    const previousTitle = document.title;
     if (enquiry) {
-      document.title = `Enquiry #${enquiry.enquiryId} | Tanish Electronics Admin`;
+      document.title = `Enquiry #${enquiry.enquiryId} | ${settings.shopName}`;
     } else {
-      document.title = "Enquiry Details | Tanish Electronics Admin";
+      document.title = `Enquiry Details | ${settings.shopName}`;
     }
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, [enquiry]);
 
@@ -248,7 +251,7 @@ function AdminEnquiryDetailsPage() {
   const whatsappMessage = encodeURIComponent(
     [
       `Hello ${enquiry.fullName},`,
-      "This is Tanish Electronics regarding your enquiry.",
+      `This is ${settings.shopName} regarding your enquiry.`,
       enquiry.productName
         ? `Product: ${enquiry.productName}`
         : "General enquiry",

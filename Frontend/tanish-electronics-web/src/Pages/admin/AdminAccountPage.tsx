@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type CopiedField = "email" | "phone" | null;
 
@@ -20,10 +21,12 @@ function AdminAccountPage() {
   const [imageFailed, setImageFailed] = useState(false);
   const [copiedField, setCopiedField] = useState<CopiedField>(null);
 
+  const { settings } = useShopSettings();
+
   useEffect(() => {
     const previousTitle = document.title;
 
-    document.title = "Administrator Profile | Tanish Electronics";
+    document.title = `Administrator Profile | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;

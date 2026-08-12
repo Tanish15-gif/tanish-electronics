@@ -23,6 +23,7 @@ import {
   type AdminAuditLog
 } from "../../Services/adminAuditLogService";
 import { exportAuditLogs } from "../../Services/adminExportService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type AuditFilters = {
   search: string;
@@ -40,6 +41,8 @@ const PAGE_SIZE = 10;
 
 function AdminAuditLogsPage() {
   const { getToken } = useApiAuth();
+
+  const { settings } = useShopSettings();
 
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
 
@@ -63,7 +66,7 @@ function AdminAuditLogsPage() {
 
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = "Audit Logs | Tanish Electronics Admin";
+    document.title = `Audit Logs | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;

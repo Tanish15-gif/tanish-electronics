@@ -15,11 +15,13 @@ import {
   getProductById,
   type ProductDetails
 } from "../Services/productService";
+import { useShopSettings } from "../hooks/useShopSettings";
 
 const SHOP_PHONE = "8850973399";
 const SWIPE_THRESHOLD = 50;
 
 function ProductDetailsPage() {
+  const { settings } = useShopSettings();
   const { id } = useParams();
   const { isSignedIn, isLoaded, getToken } = useApiAuth();
 
@@ -43,14 +45,15 @@ function ProductDetailsPage() {
     void loadProduct();
   }, [id]);
   useEffect(() => {
+    const previousTitle = document.title;
     if (product) {
-      document.title = `${product.productName} | Tanish Electronics`;
+      document.title = `${product.productName} | ${settings.shopName}`;
     } else {
-      document.title = "Product Details | Tanish Electronics";
+      document.title = `Product Details | ${settings.shopName}`;
     }
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, [product]);
 
@@ -170,7 +173,7 @@ function ProductDetailsPage() {
     if (!product) return "#";
 
     const messageText = [
-      "Hello Tanish Electronics,",
+      `Hello ${settings.shopName},`,
       `I am interested in ${product.productName}.`,
       `Product ID: ${product.productId}`,
       `Listed price: ${formatPrice(product.price)}`,
@@ -220,8 +223,6 @@ function ProductDetailsPage() {
 
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] pb-24 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] lg:pb-0">
-      <title>{product.productName} | Tanish Electronics</title>
-
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
         {/* Breadcrumb */}
         <nav

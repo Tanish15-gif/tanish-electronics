@@ -15,11 +15,13 @@ import {
 } from "../../Services/publicAnnouncementService";
 
 import { startAnnouncementRealtime } from "../../Services/announcementRealtimeService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 const SLIDE_DURATION = 6000;
 const SWIPE_THRESHOLD = 55;
 
 function HomeAnnouncementStrip() {
+  const { settings } = useShopSettings();
   const [announcements, setAnnouncements] = useState<PublicAnnouncement[]>([]);
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -283,7 +285,7 @@ function HomeAnnouncementStrip() {
             </p>
 
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#1f1a12] dark:text-[#e8e3d8] sm:text-3xl">
-              News from Tanish Electronics
+              News from {settings.shopName}
             </h2>
 
             <p className="mt-2 hidden max-w-2xl text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093] sm:block">

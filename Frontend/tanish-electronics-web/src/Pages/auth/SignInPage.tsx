@@ -12,6 +12,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
 import GoogleSignInButton from "../GoogleSignInButton";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 type LocationState = {
   from?: string;
@@ -22,6 +23,7 @@ type StoredAuthUser = {
 };
 
 function SignInPage() {
+  const { settings } = useShopSettings();
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useCustomAuth();
@@ -39,7 +41,7 @@ function SignInPage() {
 
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = "Sign In | Tanish Electronics";
+    document.title = `Sign In | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;
@@ -132,7 +134,7 @@ function SignInPage() {
         <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
           <Link
             to="/"
-            aria-label="Go to Tanish Electronics home"
+            aria-label={`Go to ${settings.shopName} home`}
             className="flex min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/25"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] text-xs font-black text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f]">
@@ -141,7 +143,7 @@ function SignInPage() {
 
             <span className="min-w-0">
               <span className="block truncate text-sm font-bold sm:text-base">
-                Tanish Electronics
+                {settings.shopName}
               </span>
 
               <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
@@ -202,8 +204,9 @@ function SignInPage() {
                     <p className="text-sm font-bold">Protected access</p>
 
                     <p className="mt-1 text-xs font-medium leading-5 text-[#a8a093]">
-                      Google credentials are exchanged with the Tanish
-                      Electronics API before access is granted.
+                      Google credentials are exchanged with the{" "}
+                      {settings.shopName}
+                      API before access is granted.
                     </p>
                   </div>
                 </div>
@@ -374,7 +377,9 @@ function SignInPage() {
         </section>
 
         <footer className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-3 px-4 py-5 text-xs font-medium text-[#817867] dark:text-[#928a7d] sm:flex-row sm:px-6 lg:px-8">
-          <p>© {new Date().getFullYear()} Tanish Electronics</p>
+          <p>
+            © {new Date().getFullYear()} {settings.shopName}
+          </p>
 
           <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <Link

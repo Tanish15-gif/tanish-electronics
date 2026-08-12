@@ -19,9 +19,11 @@ import {
 } from "../../Services/adminEnquiryService";
 import type { LookUpItem } from "../../Services/serviceRequestService";
 import { exportEnquiries } from "../../Services/adminExportService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 function AdminEnquiriesPage() {
   const { getToken } = useApiAuth();
+  const { settings } = useShopSettings();
   const [searchParams] = useSearchParams();
 
   const selectedEnquiryId = Number(searchParams.get("enquiryId") || 0);
@@ -52,10 +54,11 @@ function AdminEnquiriesPage() {
   const endRecord = Math.min(pageNumber * pageSize, totalRecords);
 
   useEffect(() => {
-    document.title = "Product Enquiries | Tanish Electronics Admin";
+    const previousTitle = document.title;
+    document.title = `Product Enquiries | ${settings.shopName}`;
 
     return () => {
-      document.title = "Tanish Electronics";
+      document.title = previousTitle;
     };
   }, []);
 
