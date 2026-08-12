@@ -29,6 +29,7 @@
 - SQL Server (Database)
 - SignalR (real-time updates)
 - Custom JWT auth with server-side session revocation
+- BCrypt (password and OTP hashing)
 - RBAC (Role-Based Access Control) via policy-based authorization
 - Google Auth (OAuth sign-in)
 - Email Service via MailKit (notification, OTP)
