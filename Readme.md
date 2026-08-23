@@ -1,4 +1,6 @@
-# Tanish Electronics
+<p align="center">
+  <img src="screenshots/Title.png" alt="TanishElectronics" width="600">
+</p>
 
 > Tanish Electronics is a full-stack web platform for an electronics repair and sales shop. Customers can book repair requests for devices like TVs, Bluetooth speakers, home theatres, and remotes (with images), track their request status in real time, and select an in-shop visit or technician for home visit (for TVs). Admins can review, approve, and update repair requests, and manage sales of products like second-hand TVs and new remotes. Built with a C# (ASP.NET Core) backend using Entity Framework Core and SQL Server, SignalR for real-time updates, and a React + TypeScript frontend.
 

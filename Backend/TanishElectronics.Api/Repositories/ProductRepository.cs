@@ -64,9 +64,7 @@ public class ProductRepository : IProductRepository
             .FirstOrDefaultAsync();
     }
 
-    public async Task<PagedResultDto<AdminProductListItemDto>> GetAdminProductsAsync(
-    AdminProductQueryDto query
-)
+    public async Task<PagedResultDto<AdminProductListItemDto>> GetAdminProductsAsync(AdminProductQueryDto query)
     {
         query ??= new AdminProductQueryDto();
 
