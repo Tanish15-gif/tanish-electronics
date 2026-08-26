@@ -6,11 +6,13 @@ namespace TanishElectronics.Api.Interfaces.Services;
 
 public interface IProductService
 {
-    Task<List<ProductsListItemDto>> GetProductsAsync(
+    Task<List<ProductsListItemDto>> GetProductsAsync
+    (
         int? categoryId,
         int? conditionId,
         string? search,
-        bool featuredOnly);
+        bool featuredOnly
+    );
 
     Task<ProductDetailsDto> GetProductByIdAsync(int productId);
 

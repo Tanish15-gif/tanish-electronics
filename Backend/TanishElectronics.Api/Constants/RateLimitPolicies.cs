@@ -9,5 +9,5 @@ public static class RateLimitPolicies
     public const string AuthAttempt = "AuthAttempt";
     public const string OtpRequest = "OtpRequest";
     public const string OtpVerify = "OtpVerify";
-
+    public const string ChatMessage = "ChatMessage";
 }

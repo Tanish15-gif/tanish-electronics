@@ -287,6 +287,18 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             }
         ));
+    options.AddPolicy(RateLimitPolicies.ChatMessage, httpcontext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: RateLimitKeyHelper.GetUserOrIpKey(httpcontext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 15,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }
+        ));
 });
 
 builder.Services.AddHealthChecks()
@@ -355,6 +367,16 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.Configure<ShopSettings>(
     builder.Configuration.GetSection("ShopSettings"));
+
+
+builder.Services.Configure<GroqSettings>(
+    builder.Configuration.GetSection(GroqSettings.SectionName)
+);
+
+builder.Services.AddHttpClient<IChatbotService, ChatbotService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 builder.Services.AddScoped<ILookUpService, LookUpService>();
 
