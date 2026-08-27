@@ -2,7 +2,7 @@
   <img src="screenshots/Title.png" alt="TanishElectronics" width="600">
 </p>
 
-> Tanish Electronics is a full-stack web platform for an electronics repair and sales shop. Customers can book repair requests for devices like TVs, Bluetooth speakers, home theatres, and remotes (with images), track their request status in real time, and select an in-shop visit or technician for home visit (for TVs). Admins can review, approve, and update repair requests, and manage sales of products like second-hand TVs and new remotes. Built with a C# (ASP.NET Core) backend using Entity Framework Core and SQL Server, SignalR for real-time updates, and a React + TypeScript frontend.
+> Tanish Electronics is a full-stack web platform for an electronics repair and sales shop. Customers can book repair requests for devices like TVs, Bluetooth speakers, home theatres, and remotes (with images), track their request status in real time, and select an in-shop visit or technician for home visit (for TVs). Admins can review, approve, and update repair requests, and manage sales of products like second-hand TVs and new remotes. The platform also features an intelligent AI Assistant powered by Groq LLaMA that handles conversational repair bookings, live tracking, in-stock product searches with rich cards, and product-aware enquiries. Built with a C# (ASP.NET Core) backend using Entity Framework Core and SQL Server, SignalR for real-time updates, and a React + TypeScript frontend.
 
 ## Features
 
@@ -11,24 +11,39 @@
 - Book a repair request for a specific device (TV, Bluetooth speaker, home theatre, remote, etc.)
 - Upload images of the device/issue while booking the request
 - Choose between visiting the shop or requesting a home visit by a technician (home visit available for TVs only)
-- Track the live status of a submitted repair request
-- Browse and purchase products — second-hand TVs, new remotes, etc.
+- Track the live status of a submitted repair request with pricing and technician diagnosis notes
+- Browse and purchase products — second-hand TVs, new remotes, and accessories with category/condition filters
+- Submit product and callback enquiries directly from product pages or the contact section
+
+**AI Assistant**
+
+- **In-Chat Repair Booking**: Conversational step-by-step repair booking that directly registers service requests in the database and generates tracking numbers (`TE-2026-XXXXX`)
+- **Product-Aware Enquiries**: Automatically detects the active product page or discussed item and creates direct product-linked enquiries in the Admin Panel
+- **Real-Time Repair Tracking**: Instant status, price estimation, and diagnosis lookups via request number and phone number directly in chat
+- **Interactive Product Search**: Real-time inventory searches that render interactive product cards with photos, prices, category badges, and direct navigation links
+- **Live Knowledge Grounding**: Dynamically grounded in real-time shop hours, contact numbers, service areas, active announcements, and verified customer reviews
+- **Proactive Page Awareness**: Contextual prompt bubbles and guidance tailored to the user's active page (`/`, `/products`, `/products/:id`, `/book-repair`, `/track-request`)
+- **High-Speed SSE Streaming**: Real-time token streaming with bracket lookahead buffering to seamlessly suppress background system action tags
 
 **Admin**
 
-- View incoming repair requests
-- Approve/reject a customer's repair request
-- Call the customer to coordinate the repair after approval
+- View incoming repair requests with full customer details and issue images
+- Approve/reject a customer's repair request and manage repair work/diagnosis notes
+- Set estimated and final repair pricing
 - Update the status of a repair request (e.g. Pending → Approved → In Progress → Completed)
-- Manage product listings (second-hand TVs, remotes, etc.)
+- Manage product listings (second-hand TVs, remotes, etc.) with image uploads and stock management
+- Manage customer enquiries, internal notes, and announcement banners
+- View audit logs, website visit analytics, user management, and data exports (CSV/Excel)
 
 ## Tech Stack
 
 **Backend**
 
-- C# (.Net / ASP.NET Core, .NET 10.0)
+- C# (.NET / ASP.NET Core, .NET 10.0)
 - Entity Framework Core (ORM)
 - SQL Server (Database)
+- Groq API (LLaMA 3.3 70B / LLaMA 3.1 LLM for AI Assistant)
+- Server-Sent Events (SSE) streaming for real-time chat tokens
 - SignalR (real-time updates)
 - Custom JWT auth with server-side session revocation
 - BCrypt (hashing password and OTP codes)
@@ -43,12 +58,13 @@
 
 **Frontend**
 
-- React + Typescript
+- React + TypeScript (Vite)
 - React Router (routing)
 - React Hook Form (form handling)
 - Tailwind CSS (styling)
 - Lucide React (icons)
-- jsPDF + html2canvas (generating PDFs, e.g. reciepts)
+- Custom SSE streaming client with real-time token accumulation & tag suppression
+- jsPDF + html2canvas (generating PDFs, e.g. receipts)
 - @microsoft/signalr (real-time client)
 
 ## Project Structure
@@ -103,6 +119,7 @@ TanishElectronics\
 │       │   ├── Products/
 │       │   ├── Public/
 │       │   │   ├── Announcements/
+│       │   │   ├── ChatBot/       # Chatbot request, response & stream event DTOs
 │       │   │   └── Feedbacks/
 │       │   └── ServiceRequests/
 │       ├── Entities/
@@ -113,7 +130,7 @@ TanishElectronics\
 │       ├── Exceptions/
 │       ├── HealthChecks/
 │       ├── Helpers/
-│       ├── Hubs/           # SignalR hubs (real- time annoucements)
+│       ├── Hubs/           # SignalR hubs (real-time announcements)
 │       ├── Interfaces/
 │       │   ├── Common/
 │       │   ├── Events/
@@ -124,8 +141,8 @@ TanishElectronics\
 │       ├── Models/
 │       ├── Properties/
 │       ├── Repositories/
-│       ├── Services/
-│       ├── Settings/
+│       ├── Services/       # Business services & ChatbotService (Groq LLaMA)
+│       ├── Settings/       # AppSettings, GroqSettings, ShopSettings
 │       └── wwwroot/
 │           └── uploads/
 │               ├── announcements/
@@ -140,7 +157,7 @@ TanishElectronics\
             ├── App.tsx
             ├── components/
             │   ├── auth/
-            │   ├── common/
+            │   ├── common/     # ChatWidget AI Assistant & Shared UI
             │   ├── customer/
             │   ├── layout/
             │   ├── public/
@@ -360,6 +377,8 @@ Full route list generated from the live OpenAPI spec (`/openapi/v1.json`).
 
 | Method | Endpoint                      | Description                                                  |
 | ------ | ----------------------------- | ------------------------------------------------------------ |
+| POST   | `/public/chat`                | Send message to AI assistant (synchronous completion)        |
+| POST   | `/public/chat/stream`         | Stream AI assistant reply in real-time (Server-Sent Events)  |
 | GET    | `/Products`                   | Browse products with category, condition, and search filters |
 | GET    | `/Products/{id}`              | Get product details                                          |
 | GET    | `/public/announcements`       | Get public announcements                                     |
@@ -378,19 +397,23 @@ Full route list generated from the live OpenAPI spec (`/openapi/v1.json`).
 
 ## Screenshots
 
-### Home Page
+### Home Page (Dark Mode)
 
 ![Home Page](screenshots/home.png)
 
-### Book Repair Request
+### Book Repair Request (Light Mode)
 
 ![Book Repair Request](screenshots/repair-form.png)
 
-### Track Repair Status
+### Track Repair Status (Dark Mode)
 
 ![Track Repair Status](screenshots/track-status.png)
 
-### Admin Dashboard
+### AI Assistant & Live In-Chat Booking (Light Mode)
+
+![AI Assistant](screenshots/ai-assistant.png)
+
+### Admin Dashboard (Dark Mode)
 
 ![Admin Dashboard](screenshots/admin-dashboard.png)
 
@@ -406,5 +429,7 @@ GitHub: [@Tanish15-gif](https://github.com/Tanish15-gif)
 ## License
 
 All rights reserved. This project and its source code are proprietary to Tanish Electronics. No part of this repository may be copied, modified, or redistributed without explicit permission from the author.
+
+---
 
 #### — Made By Tanish Gupta

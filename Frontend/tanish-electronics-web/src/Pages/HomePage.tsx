@@ -167,7 +167,7 @@ function HomePage() {
           className="home-orb-delayed pointer-events-none absolute right-0 top-0 h-96 w-96 rounded-full bg-[#8a6624]/10 blur-3xl dark:bg-[#6f5a33]/15"
         />
 
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1.05fr)_430px] lg:items-center lg:px-8 lg:py-20">
+        <div className="relative mx-auto grid w-full max-w-[1720px] gap-10 px-4 py-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_440px] xl:grid-cols-[minmax(0,1.25fr)_460px] 2xl:grid-cols-[minmax(0,1.35fr)_480px] lg:items-center lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
           <Reveal>
             <div className="min-w-0">
               <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#d6b46a]/40 bg-[#fff8e7] px-4 py-2 text-xs font-black text-[#6f4e12] shadow-sm dark:border-[#d6b46a]/25 dark:bg-[#1a1712] dark:text-[#d6b46a] sm:text-sm">
@@ -236,7 +236,7 @@ function HomePage() {
 
       {/* Trust strip */}
       <section className="border-b border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-4 lg:px-8">
+        <div className="mx-auto grid w-full max-w-[1720px] grid-cols-2 px-4 sm:px-8 lg:grid-cols-4 lg:px-12 xl:px-16 2xl:px-20">
           {trustItems.map((item, index) => (
             <Reveal key={item.label} delay={index * 70} className="h-full">
               <TrustItem
@@ -251,7 +251,7 @@ function HomePage() {
       </section>
 
       {/* Services */}
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+      <section className="mx-auto w-full max-w-[1720px] px-4 py-14 sm:px-8 sm:py-16 lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
         <Reveal>
           <SectionHeading
             eyebrow="Repair services"
@@ -280,7 +280,7 @@ function HomePage() {
 
       {/* About and benefits */}
       <section className="border-y border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:px-8 lg:py-20">
+        <div className="mx-auto grid w-full max-w-[1720px] gap-6 px-4 py-14 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
           <Reveal>
             <article className="h-full rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-sm dark:border-[#302c24] dark:bg-[#11110f] sm:p-8">
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
@@ -379,7 +379,7 @@ function HomePage() {
       />
 
       {/* Process */}
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+      <section className="mx-auto w-full max-w-[1720px] px-4 py-14 sm:px-8 sm:py-16 lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
         <Reveal>
           <SectionHeading
             eyebrow="How it works"
@@ -410,7 +410,7 @@ function HomePage() {
 
       {/* Products */}
       <section className="border-y border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:px-8 lg:py-20">
+        <div className="mx-auto grid w-full max-w-[1720px] gap-10 px-4 py-14 sm:px-8 sm:py-16 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
           <Reveal>
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
@@ -452,7 +452,7 @@ function HomePage() {
       </section>
 
       {/* Location and contact */}
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+      <section className="mx-auto w-full max-w-[1720px] px-4 py-14 sm:px-8 sm:py-16 lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <Reveal>
             <div className="h-full rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-8">
@@ -524,9 +524,9 @@ function HomePage() {
       </section>
 
       {/* Final CTA */}
-      <section className="px-4 pb-14 sm:px-6 sm:pb-16 lg:px-8 lg:pb-20">
+      <section className="px-4 pb-14 sm:px-8 sm:pb-16 lg:px-12 xl:px-16 2xl:px-20 lg:pb-20">
         <Reveal>
-          <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[1.75rem] border border-[#302c24] bg-[#1f1a12] p-6 text-[#f7f5ef] shadow-2xl shadow-black/20 dark:bg-[#1a1712] sm:p-9 lg:p-12">
+          <div className="relative mx-auto w-full max-w-[1720px] overflow-hidden rounded-[1.75rem] border border-[#302c24] bg-[#1f1a12] p-6 text-[#f7f5ef] shadow-2xl shadow-black/20 dark:bg-[#1a1712] sm:p-9 lg:p-12">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-[#d6b46a]/15 blur-3xl"
@@ -1266,7 +1266,7 @@ function FounderSection({
 }) {
   return (
     <section className="border-y border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center lg:px-8 lg:py-20">
+      <div className="mx-auto grid w-full max-w-[1720px] gap-10 px-4 py-14 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
         <Reveal>
           <div className="relative">
             <div

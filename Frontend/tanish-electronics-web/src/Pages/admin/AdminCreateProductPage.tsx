@@ -461,7 +461,7 @@ function AdminCreateProductPage() {
 
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <section className="mx-auto w-full max-w-[1720px] px-4 py-6 sm:px-8 lg:px-12 xl:px-16 2xl:px-20 lg:py-10">
         <Link
           to="/admin/products"
           className="inline-flex items-center gap-2 text-sm font-black text-[#8a6624] transition hover:text-[#5e4315] dark:text-[#d6b46a]"
@@ -784,12 +784,12 @@ function AdminCreateProductPage() {
 
               <div className="mt-6 space-y-3">
                 <ActionButton
-                  type="button"
+                  type="submit"
                   loading={saving}
-                  loadingText=""
+                  loadingText="Adding Product..."
                   variant="dark"
                   fullWidth
-                  spinnerOnly
+                  spinnerOnly={false}
                   className="h-12 cursor-pointer rounded-xl"
                 >
                   Add Product

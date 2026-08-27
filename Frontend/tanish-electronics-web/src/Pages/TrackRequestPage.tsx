@@ -14,10 +14,30 @@ import {
 import { useShopSettings } from "../hooks/useShopSettings";
 
 const statusSteps = [
-  "Pending",
-  "Accepted",
-  "In Progress",
-  "Completed"
+  {
+    key: "Pending",
+    label: "Request Received",
+    shortLabel: "Received",
+    desc: "Logged in system"
+  },
+  {
+    key: "Accepted",
+    label: "Technician Accepted",
+    shortLabel: "Accepted",
+    desc: "Assigned & inspected"
+  },
+  {
+    key: "In Progress",
+    label: "Repair in Progress",
+    shortLabel: "In Progress",
+    desc: "Diagnostics & servicing"
+  },
+  {
+    key: "Completed",
+    label: "Ready / Completed",
+    shortLabel: "Completed",
+    desc: "Quality tested & ready"
+  }
 ] as const;
 
 type TrackFormErrors = {
@@ -142,7 +162,7 @@ function TrackRequestPage() {
     <main className="te-sheet-bg min-h-screen text-[#1f1a12] dark:text-[#e8e3d8]">
       {/* Compact page heading */}
       <section className="te-sheet-bg border-b border-[#d8cdb6] bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#11110f]">
-        <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-11 lg:px-8">
+        <div className="mx-auto w-full max-w-[1720px] px-4 py-9 sm:px-8 sm:py-11 lg:px-12 xl:px-16 2xl:px-20">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
@@ -180,7 +200,7 @@ function TrackRequestPage() {
       </section>
 
       {/* Tracking content */}
-      <section className="mx-auto grid max-w-7xl items-start gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[340px_minmax(0,1fr)] lg:px-8 lg:py-12">
+      <section className="mx-auto grid w-full max-w-[1720px] items-start gap-8 px-4 py-8 sm:px-8 sm:py-10 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)] lg:px-12 xl:px-16 2xl:px-20 lg:py-12">
         {/* Tracking form */}
         <aside className="min-w-0 lg:sticky lg:top-24">
           <div className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
@@ -574,12 +594,25 @@ function PriceItem({
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const normalized = status.toLowerCase();
+  const isActive =
+    normalized.includes("progress") ||
+    normalized.includes("repairing") ||
+    normalized.includes("accepted") ||
+    normalized.includes("pending");
+
   return (
     <span
-      className={`inline-flex w-fit items-center rounded-full border px-4 py-2 text-xs font-black ${getStatusStyles(
+      className={`inline-flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-xs font-black shadow-sm ${getStatusStyles(
         status
       )}`}
     >
+      {isActive && (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
+        </span>
+      )}
       {status}
     </span>
   );
@@ -595,19 +628,18 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
   if (isCancelled) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-400/20 dark:bg-red-400/10">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-red-600 dark:text-red-300">
+      <div className="rounded-2xl border border-red-200/80 bg-red-50/80 p-5 dark:border-red-400/20 dark:bg-red-400/10">
+        <div className="flex items-start gap-3.5">
+          <span className="mt-0.5 shrink-0 text-red-600 dark:text-red-400">
             <AlertIcon />
           </span>
-
           <div>
-            <p className="text-sm font-black text-red-700 dark:text-red-300">
+            <p className="text-base font-black text-red-700 dark:text-red-300">
               Request {currentStatus}
             </p>
-
             <p className="mt-1 text-xs font-semibold leading-5 text-red-700/80 dark:text-red-200/80">
-              Contact the shop for further assistance.
+              This service request is marked as {currentStatus.toLowerCase()}.
+              Please contact the shop via phone or WhatsApp for details.
             </p>
           </div>
         </div>
@@ -616,55 +648,110 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
   }
 
   const currentIndex = getCurrentStatusIndex(currentStatus);
+  const progressPercent = Math.min(
+    100,
+    Math.round((currentIndex / (statusSteps.length - 1)) * 100)
+  );
 
   return (
-    <section className="rounded-[1.25rem] border border-[#d8cdb6] bg-[#fff8e7] p-4 dark:border-[#302c24] dark:bg-[#11110f] sm:p-5">
-      <div className="flex items-center justify-between gap-4">
-        <h3 className="text-sm font-black">Repair progress</h3>
+    <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-7">
+      {/* Timeline Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8cdb6]/60 pb-4 dark:border-[#302c24]/80">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-2.5 w-2.5 rounded-full bg-[#d6b46a]"></span>
+          <h3 className="text-xs font-black uppercase tracking-[0.16em] text-[#5f574a] dark:text-[#b5ada0]">
+            Repair Lifecycle Progress
+          </h3>
+        </div>
 
-        <span className="text-xs font-semibold text-[#817867] dark:text-[#928a7d]">
-          Step {currentIndex + 1} of {statusSteps.length}
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#f2eadb] px-3.5 py-1 text-xs font-black text-[#8a6624] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a]">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8a6624] opacity-75 dark:bg-[#d6b46a]"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#8a6624] dark:bg-[#d6b46a]"></span>
+          </span>
+          Step {currentIndex + 1} of {statusSteps.length} &bull;{" "}
+          {statusSteps[currentIndex]?.label}
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {statusSteps.map((status, index) => {
-          const completed = index < currentIndex;
-          const current = index === currentIndex;
+      {/* Connected Stepper */}
+      <div className="relative mt-7">
+        {/* Continuous Connecting Line (Desktop) */}
+        <div className="absolute left-[12.5%] right-[12.5%] top-5 -translate-y-1/2 hidden sm:block">
+          <div className="h-1 w-full rounded-full bg-[#e8deca] dark:bg-[#28241b]" />
+          <div
+            className="absolute left-0 top-0 h-1 rounded-full bg-gradient-to-r from-emerald-500 via-[#d6b46a] to-emerald-500 transition-all duration-700 ease-out"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
 
-          return (
-            <div
-              key={status}
-              className={`relative rounded-xl border p-3 transition ${
-                current
-                  ? "border-[#d6b46a] bg-[#fff4cc] shadow-sm dark:border-[#d6b46a]/50 dark:bg-[#d6b46a]/10"
-                  : completed
-                    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-400/20 dark:bg-emerald-400/10"
-                    : "border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
-              }`}
-            >
-              <span
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-black ${
-                  current
-                    ? "bg-[#8a6624] text-white dark:bg-[#d6b46a] dark:text-[#11110f]"
-                    : completed
-                      ? "bg-emerald-600 text-white dark:bg-emerald-400 dark:text-[#11110f]"
-                      : "bg-[#e6dcc9] text-[#817867] dark:bg-[#302c24] dark:text-[#a8a093]"
-                }`}
+        {/* Step Nodes */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-4 sm:gap-3">
+          {statusSteps.map((step, index) => {
+            const completed = index < currentIndex;
+            const current = index === currentIndex;
+
+            return (
+              <div
+                key={step.key}
+                className="relative flex items-start gap-4 sm:flex-col sm:items-center sm:text-center"
               >
-                {completed ? "✓" : index + 1}
-              </span>
+                {/* Node Circle */}
+                <div
+                  className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-black transition-all duration-300 ${
+                    completed
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 dark:bg-emerald-500 dark:text-[#11110f]"
+                      : current
+                        ? "bg-[#1f1a12] text-[#f7f5ef] ring-4 ring-[#d6b46a]/40 shadow-lg shadow-[#d6b46a]/25 dark:bg-[#d6b46a] dark:text-[#11110f] dark:ring-[#d6b46a]/30"
+                        : "border-2 border-[#d8cdb6] bg-[#f7f5ef] text-[#817867] dark:border-[#302c24] dark:bg-[#15130f] dark:text-[#736c5f]"
+                  }`}
+                >
+                  {completed ? (
+                    <svg
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  ) : (
+                    <span className="font-black text-xs">{index + 1}</span>
+                  )}
+                </div>
 
-              <p className="mt-2 text-xs font-black">{status}</p>
+                {/* Step Text */}
+                <div className="min-w-0 flex-1 sm:mt-3">
+                  <div className="flex items-center gap-2 sm:justify-center">
+                    <p
+                      className={`text-sm font-black tracking-tight ${
+                        current
+                          ? "text-[#1f1a12] dark:text-[#f7f5ef]"
+                          : completed
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-[#817867] dark:text-[#736c5f]"
+                      }`}
+                    >
+                      {step.label}
+                    </p>
+                    {current && (
+                      <span className="inline-flex rounded-md bg-[#d6b46a]/20 px-1.5 py-0.5 text-[10px] font-black uppercase text-[#8a6624] dark:text-[#d6b46a] sm:hidden">
+                        Current
+                      </span>
+                    )}
+                  </div>
 
-              {current && (
-                <p className="mt-1 text-[10px] font-semibold text-[#8a6624] dark:text-[#d6b46a]">
-                  Current
-                </p>
-              )}
-            </div>
-          );
-        })}
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#817867] dark:text-[#928a7d]">
+                    {step.desc}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

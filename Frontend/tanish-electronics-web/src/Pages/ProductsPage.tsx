@@ -214,60 +214,9 @@ function ProductsPage() {
 
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-        {/* Premium page header */}
-        <header className="relative overflow-hidden rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] px-5 py-7 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:px-8 sm:py-9">
-          <div
-            className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#d6b46a]/10 blur-3xl dark:bg-[#d6b46a]/[0.07]"
-            aria-hidden="true"
-          />
-
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#d8cdb6] bg-[#fff8e7] px-3 py-1.5 dark:border-[#302c24] dark:bg-[#11110f]">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
-                  In-store catalog
-                </p>
-              </div>
-
-              <h1 className="font-display mt-4 text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-                Products available
-              </h1>
-
-              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-                Browse second-hand TVs, remotes and electronics accessories
-                currently listed by {settings.shopName}.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {!loading && (
-                <div className="rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] px-5 py-3 text-center dark:border-[#302c24] dark:bg-[#11110f]">
-                  <p className="text-2xl font-black tabular-nums leading-none">
-                    {products.length}
-                  </p>
-
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
-                    {products.length === 1 ? "Product" : "Products"}
-                  </p>
-                </div>
-              )}
-
-              <a
-                href="tel:8850973399"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#1f1a12] px-6 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#c9a85f]"
-              >
-                <PhoneIcon />
-                Call shop
-              </a>
-            </div>
-          </div>
-        </header>
-
+      <section className="mx-auto w-full max-w-[1720px] px-4 pt-24 pb-8 sm:px-8 sm:pt-28 sm:pb-10 lg:px-12 xl:px-16 2xl:px-20 lg:pb-12">
         {/* Search and sort */}
-        <section className="mt-5 rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-5">
+        <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-5">
           <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_220px_auto] lg:items-end">
             <div>
               <label htmlFor="product-search" className="sr-only">
@@ -352,7 +301,7 @@ function ProductsPage() {
         )}
 
         {!loading && !error && (
-          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)]">
             {/* Desktop filters */}
             <aside className="sticky top-24 hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] lg:block">
               <div className="flex items-center justify-between">
@@ -409,7 +358,7 @@ function ProductsPage() {
                   hasActiveFilters={hasActiveFilters}
                 />
               ) : (
-                <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+                <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
                   {visibleProducts.map((product) => (
                     <ProductCard
                       key={product.productId}
@@ -464,21 +413,23 @@ function ProductCard({
           </div>
         )}
 
-        <span className="absolute left-3 top-3 max-w-[65%] truncate rounded-full border border-[#d8cdb6] bg-[#fffdf7]/95 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.06em] text-[#725522] shadow-sm backdrop-blur dark:border-[#302c24] dark:bg-[#1a1712]/95 dark:text-[#d6b46a]">
-          {product.categoryName}
-        </span>
+        <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
+          <span className="min-w-0 max-w-[55%] truncate rounded-full border border-[#d8cdb6] bg-[#fffdf7]/95 px-3 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#725522] shadow-sm backdrop-blur dark:border-[#302c24] dark:bg-[#1a1712]/95 dark:text-[#d6b46a]">
+            {product.categoryName}
+          </span>
 
-        <span className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/95 px-2.5 py-1.5 text-[10px] font-black text-emerald-700 shadow-sm backdrop-blur dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          Available
-        </span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/95 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm backdrop-blur dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Available
+          </span>
+        </div>
       </div>
 
       {/* Product information */}
       <div className="flex flex-1 flex-col p-5 sm:p-6">
         <Badge>{product.conditionName}</Badge>
 
-        <h2 className="mt-3 line-clamp-2 text-2xl font-black leading-tight tracking-[-0.025em] transition group-hover:text-[#8a6624] dark:group-hover:text-[#d6b46a]">
+        <h2 className="mt-3 line-clamp-2 text-xl font-black leading-snug tracking-tight transition group-hover:text-[#8a6624] dark:group-hover:text-[#d6b46a] sm:text-2xl">
           {product.productName}
         </h2>
 
@@ -486,19 +437,19 @@ function ProductCard({
           {productDetails}
         </p>
 
-        <div className="mt-auto flex items-end justify-between gap-4 border-t border-[#e4dac5] pt-5 dark:border-[#302c24]">
+        <div className="mt-auto flex items-end justify-between gap-3 border-t border-[#e4dac5] pt-5 dark:border-[#302c24]">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#8a6624] dark:text-[#d6b46a]">
               Price
             </p>
 
-            <p className="mt-1 text-2xl font-black tabular-nums tracking-tight">
+            <p className="mt-1 text-xl font-black tabular-nums tracking-tight sm:text-2xl">
               {formatPrice(product.price)}
             </p>
           </div>
 
-          <span className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-4 text-xs font-black text-[#f7f5ef] transition group-hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:group-hover:bg-[#d6b46a]">
-            View details
+          <span className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#1f1a12] px-3.5 text-xs font-black text-[#f7f5ef] transition group-hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:group-hover:bg-[#d6b46a]">
+            View
             <ArrowRightIcon />
           </span>
         </div>
@@ -706,19 +657,6 @@ function ArrowRightIcon() {
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
-      <path
-        d="M6.6 10.8a15.5 15.5 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.5.56a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.5 21 3 13.5 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.2.2 2.4.56 3.5a1 1 0 0 1-.25 1L6.6 10.8Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
         strokeLinejoin="round"
       />
     </svg>

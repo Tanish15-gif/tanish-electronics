@@ -211,9 +211,9 @@ export default function ChatWidget() {
         msg = "Need help with features or price for this item?";
       } else if (path.startsWith("/products")) {
         msg = "Looking for a specific TV, remote or adapter?";
-      } else if (path.startsWith("/service-requests/new")) {
+      } else if (path.startsWith("/book-repair")) {
         msg = "Want me to book a repair for you right here?";
-      } else if (path.startsWith("/track")) {
+      } else if (path.startsWith("/track-request")) {
         msg = "Need help tracking your repair request?";
       }
       setProactivePrompt(msg);
@@ -484,22 +484,22 @@ export default function ChatWidget() {
       <style>{`
         body.chat-sidebar-open { overflow-x: hidden; }
         #root { transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1); width: 100%; }
-        header { transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+        header.fixed { transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
         
         @media (min-width: 640px) {
-          body.chat-sidebar-open #root, body.chat-sidebar-open header { width: calc(100vw - 350px) !important; }
+          body.chat-sidebar-open #root, body.chat-sidebar-open header.fixed { width: calc(100vw - 350px) !important; }
           body.chat-sidebar-open .floating-whatsapp { right: calc(350px + 1.5rem) !important; }
         }
         @media (min-width: 768px) {
-          body.chat-sidebar-open #root, body.chat-sidebar-open header { width: calc(100vw - 400px) !important; }
+          body.chat-sidebar-open #root, body.chat-sidebar-open header.fixed { width: calc(100vw - 400px) !important; }
           body.chat-sidebar-open .floating-whatsapp { right: calc(400px + 1.5rem) !important; }
         }
         @media (min-width: 1024px) {
-          body.chat-sidebar-open #root, body.chat-sidebar-open header { width: calc(100vw - 450px) !important; }
+          body.chat-sidebar-open #root, body.chat-sidebar-open header.fixed { width: calc(100vw - 450px) !important; }
           body.chat-sidebar-open .floating-whatsapp { right: calc(450px + 1.5rem) !important; }
         }
         @media (min-width: 1280px) {
-          body.chat-sidebar-open #root, body.chat-sidebar-open header { width: 72vw !important; }
+          body.chat-sidebar-open #root, body.chat-sidebar-open header.fixed { width: 72vw !important; }
           body.chat-sidebar-open .floating-whatsapp { right: calc(28vw + 1.5rem) !important; }
         }
 
@@ -657,10 +657,10 @@ export default function ChatWidget() {
                 >
                   {/* 1. TEXT BUBBLE */}
                   <div
-                    className={`rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
+                    className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
                       msg.role === "user"
-                        ? "rounded-br-sm bg-[#1f1a12] text-[#f7f5ef] font-medium dark:bg-[#d6b46a] dark:text-[#11110f]"
-                        : "w-fit max-w-[90%] rounded-bl-sm bg-slate-100 text-slate-900 border border-slate-200/50 dark:bg-[var(--warm-card-dark)] dark:text-[var(--warm-text-dark)] dark:border-[var(--warm-border-dark)]"
+                        ? "rounded-br-xs bg-[#1f1a12] text-[#f7f5ef] font-semibold dark:bg-[#d6b46a] dark:text-[#11110f]"
+                        : "w-fit max-w-[90%] rounded-bl-xs border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
                     }`}
                   >
                     <MessageBody content={msg.content} role={msg.role} />
@@ -674,7 +674,7 @@ export default function ChatWidget() {
                           key={i}
                           href={act.url}
                           onClick={(e) => handleActionClick(e, act.url)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-[12px] font-bold text-slate-800 shadow-sm transition-all hover:border-[#1f1a12] hover:bg-[#1f1a12] hover:text-white dark:border-[#3a352c] dark:bg-[#1c1914] dark:text-[#d6b46a] dark:hover:border-[#d6b46a] dark:hover:bg-[#d6b46a] dark:hover:text-[#11110f]"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-3.5 py-1.5 text-[12px] font-bold text-[#1f1a12] shadow-sm transition-all hover:border-[#1f1a12] hover:bg-[#1f1a12] hover:text-[#f7f5ef] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#d6b46a] dark:hover:border-[#d6b46a] dark:hover:bg-[#d6b46a] dark:hover:text-[#11110f]"
                         >
                           <ActionIcon name={act.icon} />
                           <span>{act.label}</span>
@@ -683,7 +683,7 @@ export default function ChatWidget() {
                     </div>
                   )}
 
-                  {/* 2. PRODUCT GRID (Moved OUTSIDE the text bubble so it expands!) */}
+                  {/* 2. PRODUCT GRID */}
                   {msg.products && msg.products.length > 0 && (
                     <div className="mt-3 grid w-full grid-cols-1 sm:grid-cols-2 gap-3 pb-1 overscroll-contain">
                       {msg.products.map((p) => (
@@ -693,32 +693,32 @@ export default function ChatWidget() {
                           onClick={(e) =>
                             handleActionClick(e, `/products/${p.productId}`)
                           }
-                          className="group relative flex w-full flex-col rounded-2xl border border-slate-200/80 bg-white p-2.5 text-left no-underline transition-all hover:border-slate-400 hover:shadow-md dark:border-[#302c24] dark:bg-[#161411] dark:hover:border-[#d6b46a]/50"
+                          className="group relative flex w-full flex-col rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-3 text-left no-underline shadow-sm transition-all hover:border-[#8a6624] hover:shadow-md dark:border-[#302c24] dark:bg-[#161411] dark:hover:border-[#d6b46a]/60"
                         >
                           {/* Category & Available Tag */}
                           <div className="mb-2.5 flex items-center justify-between gap-1">
-                            <span className="truncate rounded-full border border-slate-200 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600 dark:border-[#302c24] dark:text-[#d6b46a]">
+                            <span className="truncate rounded-full border border-[#d8cdb6] bg-[#f7f5ef] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#5f574a] dark:border-[#302c24] dark:bg-[#201c16] dark:text-[#d6b46a]">
                               {p.categoryName}
                             </span>
                             {p.isAvailable && (
-                              <span className="flex shrink-0 items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-emerald-700 dark:border-transparent dark:bg-[#0a2e1f] dark:text-[#00a86b]">
-                                <span className="h-1 w-1 rounded-full bg-emerald-500 dark:bg-[#00a86b]"></span>
+                              <span className="flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold tracking-wide text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
                                 Available
                               </span>
                             )}
                           </div>
 
                           {/* Image / Letter Fallback Container */}
-                          <div className="mb-2.5 flex h-[100px] w-full items-center justify-center overflow-hidden rounded-xl bg-slate-50 dark:bg-white/5">
+                          <div className="mb-2.5 flex h-[105px] w-full items-center justify-center overflow-hidden rounded-xl bg-[#f7f5ef] dark:bg-[#201c16]">
                             {p.primaryImageUrl ? (
                               <img
                                 src={p.primaryImageUrl}
                                 alt={p.productName}
-                                className="h-full w-full object-contain p-2 mix-blend-multiply dark:mix-blend-normal"
+                                className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
                               />
                             ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-200 dark:bg-[#26221c]">
-                                <span className="font-serif text-2xl font-bold text-slate-500 dark:text-[#d6b46a]">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#161411]">
+                                <span className="text-xl font-black text-[#8a6624] dark:text-[#d6b46a]">
                                   {p.productName.charAt(0).toUpperCase()}
                                 </span>
                               </div>
@@ -727,28 +727,28 @@ export default function ChatWidget() {
 
                           {/* Condition Tag & Title */}
                           <div className="flex flex-col">
-                            <span className="mb-1.5 w-fit rounded-full border border-slate-200 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:border-[#302c24] dark:text-slate-400">
+                            <span className="mb-1.5 w-fit rounded-full border border-[#d8cdb6] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#6f6758] dark:border-[#302c24] dark:text-[#a8a093]">
                               {p.conditionName}
                             </span>
-                            <p className="truncate font-serif text-[15px] font-bold text-slate-900 dark:text-[#f7f5ef]">
+                            <p className="truncate text-[14px] font-bold text-[#1f1a12] dark:text-[#f7f5ef]">
                               {p.productName}
                             </p>
-                            <p className="mt-0.5 truncate text-[10px] text-slate-500 dark:text-[#8a8375]">
+                            <p className="mt-0.5 truncate text-[11px] font-semibold text-[#817867] dark:text-[#928a7d]">
                               Details available
                             </p>
                           </div>
 
                           {/* Price Label, Amount, and Button Row */}
-                          <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-2.5 dark:border-[#2a261f]">
+                          <div className="mt-3 flex items-end justify-between border-t border-[#d8cdb6]/60 pt-2.5 dark:border-[#302c24]">
                             <div className="min-w-0 flex-1">
-                              <p className="mb-0.5 text-[8px] font-bold tracking-widest text-slate-400 dark:text-[#d6b46a]">
+                              <p className="mb-0.5 text-[8px] font-bold tracking-widest text-[#817867] dark:text-[#d6b46a]">
                                 PRICE
                               </p>
-                              <p className="truncate text-[16px] font-bold leading-none text-[#1f1a12] dark:text-[#f7f5ef]">
+                              <p className="truncate text-[16px] font-black leading-none text-[#1f1a12] dark:text-[#f7f5ef]">
                                 ₹{p.price.toLocaleString("en-IN")}
                               </p>
                             </div>
-                            <div className="flex h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-slate-100 px-2 text-[9px] font-bold text-slate-900 transition-colors group-hover:bg-[#1f1a12] group-hover:text-white dark:bg-[#d6b46a] dark:text-[#11110f] dark:group-hover:bg-[#e8cba5]">
+                            <div className="flex h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-[#1f1a12] px-2.5 text-[10px] font-bold text-[#f7f5ef] transition-colors group-hover:bg-[#3b3223] dark:bg-[#d6b46a] dark:text-[#11110f] dark:group-hover:bg-[#e8cba5]">
                               View details
                               <svg
                                 className="h-2.5 w-2.5"
@@ -875,9 +875,12 @@ export default function ChatWidget() {
       {!isOpen && (
         <>
           {showPrompt && proactivePrompt && (
-            <div className="fixed bottom-[7.5rem] right-5 sm:bottom-[8.5rem] sm:right-6 z-40 max-w-[280px] animate-chat-widget rounded-2xl border border-slate-200/90 bg-white/95 p-3.5 text-xs font-semibold text-slate-800 shadow-2xl backdrop-blur-md dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-card-dark)]/95 dark:text-[var(--warm-text-dark)]">
-              <div className="flex items-start gap-2.5">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1f1a12]/5 text-[#1f1a12] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a]">
+            <div className="fixed bottom-22 right-20 z-40 max-w-[270px] animate-chat-widget rounded-2xl border border-[#d8cdb6] bg-[#fffdf7]/95 p-3.5 text-xs font-semibold text-[#1f1a12] shadow-[0_12px_40px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-300 sm:bottom-24 sm:right-24 dark:border-[#3a3428] dark:bg-[#1a1712]/95 dark:text-[#e8e3d8] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
+              {/* Right-pointing speech bubble arrow */}
+              <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rotate-45 border-r border-t border-[#d8cdb6] bg-[#fffdf7] dark:border-[#3a3428] dark:bg-[#1a1712]" />
+
+              <div className="relative z-10 flex items-start gap-2.5">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1f1a12]/5 text-[#8a6624] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a]">
                   <Sparkles size={13} />
                 </div>
                 <button
@@ -885,14 +888,14 @@ export default function ChatWidget() {
                     setIsOpen(true);
                     setShowPrompt(false);
                   }}
-                  className="flex-1 text-left leading-snug hover:underline cursor-pointer"
+                  className="flex-1 text-left text-xs font-bold leading-snug transition hover:text-[#8a6624] dark:hover:text-[#d6b46a] cursor-pointer"
                 >
                   {proactivePrompt}
                 </button>
                 <button
                   onClick={() => setShowPrompt(false)}
-                  aria-label="Dismiss"
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer pt-0.5"
+                  aria-label="Dismiss AI suggestion"
+                  className="text-[#817867] hover:text-[#1f1a12] dark:text-[#928a7d] dark:hover:text-[#f7f5ef] cursor-pointer pt-0.5 transition"
                 >
                   <X size={14} />
                 </button>
@@ -905,10 +908,11 @@ export default function ChatWidget() {
             onClick={() => setIsOpen(true)}
             aria-expanded={isOpen}
             aria-label="Open AI Assistant"
-            className="cursor-pointer group fixed bottom-22 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-[0_8px_30px_rgba(0,0,0,0.15)] transition-transform duration-300 hover:scale-105 active:scale-95 focus-visible:outline-none sm:bottom-26 sm:right-6 sm:h-16 sm:w-16 dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-card-dark)] dark:text-[#d6b46a] dark:shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
+            title="Ask AI Assistant"
+            className="cursor-pointer group fixed bottom-22 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] shadow-[0_8px_30px_rgba(0,0,0,0.15)] transition-all duration-300 hover:scale-105 hover:border-[#d6b46a] active:scale-95 focus-visible:outline-none sm:bottom-24 sm:right-6 sm:h-15 sm:w-15 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#d6b46a] dark:hover:border-[#d6b46a]/60 dark:shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
           >
             <span
-              className="chat-ping-ring absolute inset-0 rounded-full border border-[#1f1a12]/30 dark:border-[#d6b46a]/40"
+              className="chat-ping-ring absolute inset-0 rounded-full border border-[#8a6624]/30 dark:border-[#d6b46a]/40"
               style={{
                 animation: prefersReducedMotion
                   ? undefined
@@ -916,14 +920,14 @@ export default function ChatWidget() {
               }}
             />
             {/* ----- THE CUSTOM CHAT BUBBLE SVG ----- */}
-            <span className="relative flex items-center justify-center">
+            <span className="relative flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
               <svg
                 width="26"
                 height="26"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.5"
+                strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >

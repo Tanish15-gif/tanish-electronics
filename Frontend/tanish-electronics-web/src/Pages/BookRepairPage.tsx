@@ -532,7 +532,7 @@ function BookRepairPage() {
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-clip bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
       <section className="te-sheet-bg border-b border-[#d8cdb6] bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#11110f]">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="mx-auto w-full max-w-[1720px] px-4 py-10 sm:px-8 sm:py-12 lg:px-12 xl:px-16 2xl:px-20">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
@@ -569,7 +569,7 @@ function BookRepairPage() {
       </section>
 
       {/* Form Section */}
-      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_390px] lg:px-8 lg:py-16">
+      <section className="mx-auto grid w-full max-w-[1720px] gap-8 px-4 py-12 sm:px-8 lg:grid-cols-[1fr_390px] xl:grid-cols-[1fr_420px] lg:px-12 xl:px-16 2xl:px-20 lg:py-16">
         <section className="min-w-0">
           <div className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
             <div className="border-b border-[#d8cdb6] pb-5 dark:border-[#302c24]">

@@ -198,7 +198,7 @@ function PublicNavbar() {
         {/* Mobile header */}
         <nav
           aria-label="Mobile navigation"
-          className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:hidden"
+          className="mx-auto flex h-16 w-full max-w-[1720px] items-center justify-between px-4 sm:px-8 lg:hidden"
         >
           <Brand onClick={closeMenu} compact />
 
@@ -232,7 +232,7 @@ function PublicNavbar() {
         {/* Desktop header */}
         <nav
           aria-label="Primary navigation"
-          className="mx-auto hidden h-[72px] max-w-7xl items-center px-4 sm:px-6 lg:flex lg:px-8"
+          className="mx-auto hidden h-[72px] w-full max-w-[1720px] items-center px-4 sm:px-8 lg:flex lg:px-12 xl:px-16 2xl:px-20"
         >
           <Brand />
 
@@ -354,7 +354,7 @@ function DesktopNavItem({ to, children }: { to: string; children: string }) {
       to={to}
       end={to === "/"}
       className={({ isActive }) =>
-        `relative inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-black transition ${
+        `relative inline-flex h-10 shrink-0 whitespace-nowrap items-center justify-center rounded-lg px-4 text-sm font-black transition ${
           isActive
             ? "bg-[#f2eadb] text-[#1f1a12] dark:bg-[#242016] dark:text-[#e8e3d8]"
             : "text-[#6f6758] hover:bg-[#f2eadb]/70 hover:text-[#1f1a12] dark:text-[#a8a093] dark:hover:bg-[#242016]/80 dark:hover:text-[#e8e3d8]"

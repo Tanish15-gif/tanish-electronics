@@ -57,7 +57,7 @@ function PublicFooter() {
 
   return (
     <footer className="border-t border-[#d8cdb6] bg-[#f7f5ef] text-[#1f1a12] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
+      <div className="mx-auto w-full max-w-[1720px] px-4 py-12 sm:px-8 sm:py-14 lg:px-12 xl:px-16 2xl:px-20 lg:py-16">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_0.7fr_0.85fr_1.05fr] lg:gap-12">
           {/* Brand */}
           <section className="sm:col-span-2 lg:col-span-1">
@@ -206,7 +206,7 @@ function PublicFooter() {
 
       {/* Bottom bar */}
       <div className="border-t border-[#d8cdb6] dark:border-[#302c24]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-5 text-center text-xs font-semibold text-[#6f6758] dark:text-[#8f8778] sm:flex-row sm:px-6 sm:text-left lg:px-8">
+        <div className="mx-auto flex w-full max-w-[1720px] flex-col items-center justify-between gap-2 px-4 py-5 text-center text-xs font-semibold text-[#6f6758] dark:text-[#8f8778] sm:flex-row sm:px-8 sm:text-left lg:px-12 xl:px-16 2xl:px-20">
           <p>
             © {currentYear} {settings.shopName}. All rights reserved.
           </p>

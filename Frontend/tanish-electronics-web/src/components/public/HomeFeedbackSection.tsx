@@ -26,10 +26,10 @@ function HomeFeedbackSection() {
   }
 
   return (
-    <section className="overflow-hidden bg-transparent px-4 py-20 text-[#1f1a12] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
+    <section className="overflow-hidden bg-transparent px-4 py-20 text-[#1f1a12] dark:text-[#e8e3d8] sm:px-8 lg:px-12 xl:px-16 2xl:px-20">
       <ReviewLoopStyles />
 
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto w-full max-w-[1720px]">
         <div className="flex flex-col justify-between gap-6 border-b border-[#d8cdb6] pb-8 dark:border-[#302c24] lg:flex-row lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.24em] text-[#8a6624] dark:text-[#d6b46a] sm:text-sm">

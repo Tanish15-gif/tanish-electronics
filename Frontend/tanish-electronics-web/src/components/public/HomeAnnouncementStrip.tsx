@@ -261,7 +261,7 @@ function HomeAnnouncementStrip() {
   }
 
   return (
-    <section className="bg-transparent px-4 py-9 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+    <section className="bg-transparent px-4 py-9 sm:px-8 sm:py-12 lg:px-12 xl:px-16 2xl:px-20 lg:py-16">
       <style>
         {`
           @keyframes homeAnnouncementProgress {
@@ -276,7 +276,7 @@ function HomeAnnouncementStrip() {
         `}
       </style>
 
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto w-full max-w-[1720px]">
         {/* Section title */}
         <div className="mb-5 flex items-end justify-between gap-4 sm:mb-6">
           <div>

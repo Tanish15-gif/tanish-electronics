@@ -223,7 +223,7 @@ function ProductDetailsPage() {
 
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] pb-24 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] lg:pb-0">
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <section className="mx-auto w-full max-w-[1720px] px-4 pt-24 pb-12 sm:px-8 sm:pt-28 sm:pb-16 lg:px-12 xl:px-16 2xl:px-20 lg:pt-32">
         {/* Breadcrumb */}
         <nav
           aria-label="Breadcrumb"
@@ -253,7 +253,7 @@ function ProductDetailsPage() {
         </nav>
 
         {/* Main product area */}
-        <div className="mt-6 grid items-start gap-7 lg:grid-cols-[minmax(0,1.05fr)_minmax(380px,0.95fr)]">
+        <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(400px,0.9fr)] xl:grid-cols-[minmax(0,1.2fr)_minmax(450px,0.8fr)]">
           <ProductImageGallery
             productName={product.productName}
             imageUrls={imageUrls}
@@ -349,7 +349,7 @@ function ProductDetailsPage() {
         </div>
 
         {/* Product details and enquiry */}
-        <div className="mt-10 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="mt-10 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
           <div className="space-y-6">
             <section className="rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-8">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
