@@ -16,6 +16,7 @@ import {
   markAllAdminNotificationsAsRead,
   type AdminNotification
 } from "../../Services/adminNotificationService";
+import { startAdminNotificationRealtime } from "../../Services/notificationRealtimeService";
 
 type PanelPosition = {
   top: number;
@@ -120,7 +121,8 @@ function AdminNotificationBell() {
   }, []);
 
   /*
-   * Initial loading and background polling.
+   * Load notifications initially, listen for real-time SignalR pushes,
+   * and refresh when the tab becomes active.
    */
   useEffect(() => {
     if (!isLoaded || !isSignedIn) {
@@ -129,12 +131,31 @@ function AdminNotificationBell() {
 
     void loadNotifications(false);
 
-    const intervalId = window.setInterval(() => {
-      void loadNotifications(false);
-    }, 15000);
+    const unsubscribe = startAdminNotificationRealtime((newNotification) => {
+      setNotifications((current) => {
+        if (
+          current.some(
+            (item) =>
+              item.adminNotificationId === newNotification.adminNotificationId
+          )
+        ) {
+          return current;
+        }
+        return [newNotification, ...current];
+      });
+    });
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void loadNotifications(false);
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearInterval(intervalId);
+      unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isLoaded, isSignedIn, loadNotifications]);
 

@@ -4,16 +4,22 @@ using TanishElectronics.Api.DTOs.Customer.Feedback;
 using TanishElectronics.Api.DTOs.Customer.Repairs;
 using TanishElectronics.Api.Entities;
 using TanishElectronics.Api.Interfaces.Repositories;
+using TanishElectronics.Api.Interfaces.Services;
 
 namespace TanishElectronics.Api.Repositories;
 
 public class CustomerRepairsRepository : ICustomerRepairsRepository
 {
     private readonly TanishElectronicsDbContext _context;
+    private readonly INotificationRealtimeNotifier _notificationNotifier;
 
-    public CustomerRepairsRepository(TanishElectronicsDbContext context)
+    public CustomerRepairsRepository(
+        TanishElectronicsDbContext context,
+        INotificationRealtimeNotifier notificationNotifier
+    )
     {
         _context = context;
+        _notificationNotifier = notificationNotifier;
     }
 
     public async Task<CustomerRepairFeedbackDto?> GetFeedbackAsync(int serviceRequestId, int customerId)
@@ -201,9 +207,10 @@ public class CustomerRepairsRepository : ICustomerRepairsRepository
         request.CustomerId == customerId &&
         request.DeletedAt == null);
 
+        AdminNotification? adminNotification = null;
         if (request != null && isNewFeedback)
         {
-            await _context.AdminNotifications.AddAsync(new AdminNotification
+            adminNotification = new AdminNotification
             {
                 ServiceRequestId = serviceRequestId,
                 Title = "New customer feedback",
@@ -211,10 +218,25 @@ public class CustomerRepairsRepository : ICustomerRepairsRepository
                 NotificationType = "Feedback",
                 IsRead = false,
                 CreatedAt = DateTime.Now
-            });
+            };
+            await _context.AdminNotifications.AddAsync(adminNotification);
         }
 
         await _context.SaveChangesAsync();
+
+        if (adminNotification != null)
+        {
+            await _notificationNotifier.NotifyAdminsAsync(new DTOs.Admin.Notifications.GetAdminNotificationDto
+            {
+                AdminNotificationId = adminNotification.AdminNotificationId,
+                ServiceRequestId = adminNotification.ServiceRequestId,
+                Title = adminNotification.Title,
+                Message = adminNotification.Message,
+                NotificationType = adminNotification.NotificationType,
+                IsRead = false,
+                CreatedAt = adminNotification.CreatedAt
+            });
+        }
 
         return new CustomerRepairFeedbackDto
         {

@@ -77,17 +77,32 @@ function ActionIcon({ name }: { name?: string }) {
   }
 }
 
+import {
+  getAccessToken,
+  getStoredAuthUser
+} from "../../Services/customAuthService";
+
 const API_BASE_URL = import.meta.env["VITE_API_BASE_URL"] ?? "";
 const REQUEST_TIMEOUT_MS = 20_000;
 const MAX_MESSAGE_LENGTH = 500;
 const HISTORY_WINDOW = 6;
 
 const GREETING =
-  "Hi! I'm your Tanish Electronics assistant. Ask me about repairs, products, current offers, reviews, or anything about our shop!";
+  "Hi! I'm your Tanish Electronics assistant. Ask me to book a repair, track a request, check products, or learn about our shop!";
+
+function getInitialGreeting(): string {
+  const authUser = getStoredAuthUser();
+  if (authUser?.fullName) {
+    const firstName = authUser.fullName.trim().split(" ")[0];
+    return `Hi ${firstName}! I'm your Tanish Electronics assistant. Ask me to book a repair, track your requests, check products, or current offers!`;
+  }
+  return GREETING;
+}
 
 const SUGGESTIONS = [
-  "What repairs do you offer?",
+  "Book a repair",
   "Track my repair",
+  "What repairs do you offer?",
   "Current offers & deals",
   "Do you visit my area?"
 ];
@@ -175,7 +190,12 @@ export default function ChatWidget() {
       }
     } catch {}
     return [
-      { id: uid(), role: "assistant", content: GREETING, at: Date.now() }
+      {
+        id: uid(),
+        role: "assistant",
+        content: getInitialGreeting(),
+        at: Date.now()
+      }
     ];
   });
 
@@ -361,9 +381,17 @@ export default function ChatWidget() {
       let hasAddedAssistantMsg = false;
 
       try {
+        const token = getAccessToken();
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json"
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
         const response = await fetch(`${API_BASE_URL}/public/chat/stream`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           signal: controller.signal,
           body: JSON.stringify({
             message: trimmed,
@@ -429,22 +457,50 @@ export default function ChatWidget() {
                   );
                 }
               } else if (evt.type === "metadata") {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantMsgId
-                      ? {
-                          ...m,
-                          products: evt.products ?? m.products,
-                          actions: evt.actions ?? m.actions
-                        }
-                      : m
-                  )
-                );
+                if (!hasAddedAssistantMsg) {
+                  hasAddedAssistantMsg = true;
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: assistantMsgId,
+                      role: "assistant",
+                      content: accumulatedReply,
+                      products: evt.products,
+                      actions: evt.actions,
+                      at: Date.now()
+                    }
+                  ]);
+                } else {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMsgId
+                        ? {
+                            ...m,
+                            products: evt.products ?? m.products,
+                            actions: evt.actions ?? m.actions
+                          }
+                        : m
+                    )
+                  );
+                }
               }
             } catch {
               // Ignore single SSE chunk parse issues
             }
           }
+        }
+
+        if (!hasAddedAssistantMsg && accumulatedReply.trim()) {
+          hasAddedAssistantMsg = true;
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: assistantMsgId,
+              role: "assistant",
+              content: accumulatedReply,
+              at: Date.now()
+            }
+          ]);
         }
       } catch (err) {
         const isAbort =
@@ -571,7 +627,7 @@ export default function ChatWidget() {
                       {
                         id: uid(),
                         role: "assistant",
-                        content: GREETING,
+                        content: getInitialGreeting(),
                         at: Date.now()
                       }
                     ];
@@ -656,15 +712,24 @@ export default function ChatWidget() {
                   }
                 >
                   {/* 1. TEXT BUBBLE */}
-                  <div
-                    className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
-                      msg.role === "user"
-                        ? "rounded-br-xs bg-[#1f1a12] text-[#f7f5ef] font-semibold dark:bg-[#d6b46a] dark:text-[#11110f]"
-                        : "w-fit max-w-[90%] rounded-bl-xs border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
-                    }`}
-                  >
-                    <MessageBody content={msg.content} role={msg.role} />
-                  </div>
+                  {(msg.content?.trim() ||
+                    (!msg.products?.length && !msg.actions?.length)) && (
+                    <div
+                      className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
+                        msg.role === "user"
+                          ? "rounded-br-xs bg-[#1f1a12] text-[#f7f5ef] font-semibold dark:bg-[#d6b46a] dark:text-[#11110f]"
+                          : "w-fit max-w-[90%] rounded-bl-xs border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
+                      }`}
+                    >
+                      <MessageBody
+                        content={
+                          msg.content?.trim() ||
+                          "Thank you! How else can I help you today?"
+                        }
+                        role={msg.role}
+                      />
+                    </div>
+                  )}
 
                   {/* Contextual Action Buttons */}
                   {msg.actions && msg.actions.length > 0 && (
@@ -876,7 +941,6 @@ export default function ChatWidget() {
         <>
           {showPrompt && proactivePrompt && (
             <div className="fixed bottom-22 right-20 z-40 max-w-[270px] animate-chat-widget rounded-2xl border border-[#d8cdb6] bg-[#fffdf7]/95 p-3.5 text-xs font-semibold text-[#1f1a12] shadow-[0_12px_40px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-300 sm:bottom-24 sm:right-24 dark:border-[#3a3428] dark:bg-[#1a1712]/95 dark:text-[#e8e3d8] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
-              {/* Right-pointing speech bubble arrow */}
               <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rotate-45 border-r border-t border-[#d8cdb6] bg-[#fffdf7] dark:border-[#3a3428] dark:bg-[#1a1712]" />
 
               <div className="relative z-10 flex items-start gap-2.5">

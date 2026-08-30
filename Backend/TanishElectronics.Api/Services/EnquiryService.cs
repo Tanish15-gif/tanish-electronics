@@ -14,11 +14,18 @@ public class EnquiryService : IEnquiryService
     private readonly IEnquiryRepository _repository;
     private readonly TanishElectronicsDbContext _dbContext;
     private readonly IAuditLogService _auditLogService;
-    public EnquiryService(IEnquiryRepository repository, TanishElectronicsDbContext dbContext, IAuditLogService auditLogService)
+    private readonly INotificationRealtimeNotifier _notificationNotifier;
+    public EnquiryService(
+        IEnquiryRepository repository,
+        TanishElectronicsDbContext dbContext,
+        IAuditLogService auditLogService,
+        INotificationRealtimeNotifier notificationNotifier
+    )
     {
         _repository = repository;
         _dbContext = dbContext;
         _auditLogService = auditLogService;
+        _notificationNotifier = notificationNotifier;
     }
 
     public async Task<EnquiryCreatedDto> CreateAsync(CreateEnquiryDto dto)
@@ -62,7 +69,7 @@ public class EnquiryService : IEnquiryService
         await _repository.AddEnquiryAsync(enquiry);
         await _repository.SaveChangesAsync();
 
-        await _dbContext.AdminNotifications.AddAsync(new AdminNotification
+        var adminNotification = new AdminNotification
         {
             EnquiryId = enquiry.EnquiryId,
             ProductId = enquiry.ProductId,
@@ -71,9 +78,21 @@ public class EnquiryService : IEnquiryService
             NotificationType = "Enquiry",
             IsRead = false,
             CreatedAt = DateTime.Now
-        });
-
+        };
+        await _dbContext.AdminNotifications.AddAsync(adminNotification);
         await _repository.SaveChangesAsync();
+
+        await _notificationNotifier.NotifyAdminsAsync(new DTOs.Admin.Notifications.GetAdminNotificationDto
+        {
+            AdminNotificationId = adminNotification.AdminNotificationId,
+            EnquiryId = adminNotification.EnquiryId,
+            ProductId = adminNotification.ProductId,
+            Title = adminNotification.Title,
+            Message = adminNotification.Message,
+            NotificationType = adminNotification.NotificationType,
+            IsRead = false,
+            CreatedAt = adminNotification.CreatedAt
+        });
 
         return new EnquiryCreatedDto
         {

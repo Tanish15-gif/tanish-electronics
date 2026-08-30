@@ -22,6 +22,7 @@ public class ProductService : IProductService
     private readonly IProductCreatedAnnouncementHandler _announcementHandler;
     private readonly IPublicOutputCacheInvalidator _outputCacheInvalidator;
     private readonly ILogger<ProductService> _logger;
+    private readonly INotificationRealtimeNotifier _notificationNotifier;
     public ProductService
     (
         IProductRepository repository,
@@ -29,7 +30,8 @@ public class ProductService : IProductService
         TanishElectronicsDbContext dbContext,
         IProductCreatedAnnouncementHandler announcementHandler,
         IPublicOutputCacheInvalidator outputCacheInvalidator,
-        ILogger<ProductService> logger
+        ILogger<ProductService> logger,
+        INotificationRealtimeNotifier notificationNotifier
     )
     {
         _repository = repository;
@@ -39,6 +41,7 @@ public class ProductService : IProductService
         ProductCreated += _announcementHandler.HandleAsync;
         _outputCacheInvalidator = outputCacheInvalidator;
         _logger = logger;
+        _notificationNotifier = notificationNotifier;
     }
 
     public async Task<ProductCreatedDto> CreateProductAsync(CreateProductDto dto)
@@ -486,7 +489,7 @@ public class ProductService : IProductService
             ? $"{product.ProductName} is out of stock."
             : $"{product.ProductName} has only {product.StockQuantity} item(s) left.";
 
-        await _dbContext.AdminNotifications.AddAsync(new AdminNotification
+        var adminNotification = new AdminNotification
         {
             ProductId = product.ProductId,
             Title = title,
@@ -494,6 +497,20 @@ public class ProductService : IProductService
             NotificationType = "LowStock",
             IsRead = false,
             CreatedAt = DateTime.Now
+        };
+
+        await _dbContext.AdminNotifications.AddAsync(adminNotification);
+        await _dbContext.SaveChangesAsync();
+
+        await _notificationNotifier.NotifyAdminsAsync(new DTOs.Admin.Notifications.GetAdminNotificationDto
+        {
+            AdminNotificationId = adminNotification.AdminNotificationId,
+            ProductId = adminNotification.ProductId,
+            Title = adminNotification.Title,
+            Message = adminNotification.Message,
+            NotificationType = adminNotification.NotificationType,
+            IsRead = false,
+            CreatedAt = adminNotification.CreatedAt
         });
     }
 }

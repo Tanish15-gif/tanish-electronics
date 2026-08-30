@@ -8,6 +8,7 @@ import {
   markCustomerNotificationAsRead,
   type CustomerNotification
 } from "../../Services/customerNotificationService";
+import { startCustomerNotificationRealtime } from "../../Services/notificationRealtimeService";
 
 function CustomerNotificationBell() {
   const { getToken, isLoaded, isSignedIn } = useApiAuth();
@@ -59,7 +60,8 @@ function CustomerNotificationBell() {
   }, []);
 
   /*
-   * Load notifications initially and refresh them every 15 seconds.
+   * Load notifications initially, listen for real-time SignalR pushes,
+   * and refresh when the tab becomes active.
    */
   useEffect(() => {
     if (!isLoaded || !isSignedIn) {
@@ -68,12 +70,32 @@ function CustomerNotificationBell() {
 
     loadNotifications(false);
 
-    const intervalId = window.setInterval(() => {
-      loadNotifications(false);
-    }, 15000);
+    const unsubscribe = startCustomerNotificationRealtime((newNotification) => {
+      setNotifications((current) => {
+        if (
+          current.some(
+            (item) =>
+              item.customerNotificationId ===
+              newNotification.customerNotificationId
+          )
+        ) {
+          return current;
+        }
+        return [newNotification, ...current];
+      });
+    });
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        loadNotifications(false);
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearInterval(intervalId);
+      unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isLoaded, isSignedIn, getToken]);
 

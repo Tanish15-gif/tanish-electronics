@@ -2,7 +2,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using TanishElectronics.Api.Data;
 using TanishElectronics.Api.DTOs.Enquiries;
 using TanishElectronics.Api.DTOs.Public.Announcements;
 using TanishElectronics.Api.DTOs.Public.ChatBot;
@@ -26,6 +28,7 @@ public class ChatbotService : IChatbotService
     private readonly IAnnouncementService _announcementService;
     private readonly IPublicRepairFeedbackService _feedbackService;
     private readonly IEnquiryService _enquiryService;
+    private readonly TanishElectronicsDbContext _dbContext;
     private readonly string GroqEndpoint = "https://api.groq.com/openai/v1/chat/completions";
 
     public ChatbotService
@@ -40,7 +43,8 @@ public class ChatbotService : IChatbotService
         IAppMemoryCacheService cacheService,
         IAnnouncementService announcementService,
         IPublicRepairFeedbackService feedbackService,
-        IEnquiryService enquiryService
+        IEnquiryService enquiryService,
+        TanishElectronicsDbContext dbContext
     )
     {
         _httpClient = httpClient;
@@ -54,6 +58,7 @@ public class ChatbotService : IChatbotService
         _announcementService = announcementService;
         _feedbackService = feedbackService;
         _enquiryService = enquiryService;
+        _dbContext = dbContext;
     }
 
     private static readonly Dictionary<string, string> Synonyms = new()
@@ -73,11 +78,11 @@ public class ChatbotService : IChatbotService
         { "rating", "feedback" },
     };
 
-    private static readonly Regex EnquiryTagPattern =
-        new(@"\[SUBMIT_ENQUIRY:\s*name=([^|]+)\s*\|\s*phone=([^|]+)\s*\|\s*message=([^\]|]+)(?:\s*\|\s*productid=([^\]|]+))?(?:\s*\|\s*product=([^\]]+))?\]", RegexOptions.IgnoreCase);
+    private static readonly Regex GenericEnquiryTagRegex =
+        new(@"\[SUBMIT_ENQUIRY:\s*(.*?)\]", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
-    private static readonly Regex BookingTagPattern =
-        new(@"\[SUBMIT_BOOKING:\s*name=([^|]+)\s*\|\s*phone=([^|]+)\s*\|\s*category=([^|]+)\s*\|\s*device=([^|]+)\s*\|\s*issue=([^|]+)\s*\|\s*servicetype=([^|]+)(?:\s*\|\s*address=([^\]]+))?\]", RegexOptions.IgnoreCase);
+    private static readonly Regex GenericBookingTagRegex =
+        new(@"\[SUBMIT_BOOKING:\s*(.*?)\]", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     private static readonly Regex RequestNumberPattern =
         new(@"\bTE-\d{4}-\d{3,6}\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
@@ -87,6 +92,21 @@ public class ChatbotService : IChatbotService
 
     private static readonly string[] TrackingKeywords =
         { "track", "status", "where's my", "where is my", "my repair", "my request" };
+
+    private static Dictionary<string, string> ParseTagKeyValues(string raw)
+    {
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var parts = raw.Split('|');
+        foreach (var part in parts)
+        {
+            var kv = part.Split('=', 2);
+            if (kv.Length == 2)
+            {
+                dict[kv[0].Trim()] = kv[1].Trim();
+            }
+        }
+        return dict;
+    }
 
     private static string NormalizeMessage(string message)
     {
@@ -98,55 +118,119 @@ public class ChatbotService : IChatbotService
         return normalized;
     }
     private static string BuildSystemPrompt(string groundingContext) => $"""
-        You are the customer support assistant for Tanish Electronics, a trusted TV and electronics repair and sales shop.
+        You are the friendly, expert customer support assistant for Tanish Electronics, a trusted electronics and TV repair & sales shop in Santacruz West, Mumbai.
+
+        Core Capabilities:
+            1. **Direct Chat-Based Repair Booking**: You can book repairs directly right here in the chat from start to finish!
+            2. **Instant Repair Tracking**: You can track repair status in real-time.
+            3. **Product Information & Recommendations**: You can guide customers on TVs, remotes, adapters, and accessories.
+            4. **Customer Enquiries & Callbacks**: You can take product enquiries and callback requests directly in chat.
 
         Rules:
-            - Only answer questions about repairs, products, shop info, announcements, reviews, service areas, or booking guidance.
-            - If asked something unrelated, politely redirect: "I can help with repairs, products, and shop info — what do you need?"
-            - Never invent prices, stock, repair statuses, reviews, or offers. Only state facts from "Shop Data" below.
-            - Keep responses short, clear, and warm — 1-3 sentences maximum. No filler words.
-            - If the customer is asking about features, specs, warranty, price, or details of a product (especially the one they are currently viewing on the page), answer their question directly, thoroughly, and concisely using the Product Details in Shop Data.
-            - If the customer is generally searching or looking to buy products (e.g., "show me TVs", "do you sell remotes?") and products are in stock, say "Here are some options we currently have:" and let the UI display the product cards.
-            - If the Shop Data says "No matching products currently in stock", tell the customer directly that you do not have it currently.
-            - If asked about warranty and it is not specifically noted, state that all pre-owned/refurbished electronics are fully tested and inspected by Tanish Electronics, and warranty/check details can be confirmed with the shop.
-            - If the customer describes a device issue and wants to book directly via chat, guide them to book or encourage them to click "Book a Repair".
-            - If the customer's message is completely ambiguous (e.g., they just type "tv") AND no products are listed in Shop Data, ask a short clarifying question (e.g. "Are you looking to buy one, or is your current one having an issue?").
-            - You already have all the information you need in "Shop Data" below — never say "let me check" or "please hold on". Answer directly.
-            - If asked about current offers, sales, notices, updates, or announcements:
-              Present the active announcements and shop notices smoothly and cleanly.
-              Format them naturally, for example:
-              "Yes! We have an active update:
-              **[Title]**
-              [Notice message]
-              *(Valid until [Date])*"
-              Never output rigid technical labels like "**Title:**", "**Notice:**", or "**Validity:**".
-              If there are no active announcements in Shop Data, say "We don't have any active announcements right now, but check back soon!"
-            - If asked about reviews, quality, or trustworthiness, cite the customer feedback data and average rating from Shop Data.
-            - If asked what repairs you offer, list the service categories from Shop Data.
-            - If asked about home visits or service areas, list the specific locations from Shop Data.
-            - If a customer wants to send an enquiry, buy/order an item, request a callback, or asks us to contact them:
-              1. If they provided their full name, 10-digit phone number, and their query/quantity:
-                 - If they are enquiring about a specific product (e.g. from the Currently Viewed Product in Shop Data, or mentioned in chat), say you have submitted their enquiry for that product and append `[SUBMIT_ENQUIRY:name=Customer Name|phone=9876543210|message=Their query|productid=19|product=Product Name]` at the very end of your response (replace 19 and Product Name with the actual product ID and name).
-                 - Otherwise, say you have submitted their general enquiry and append `[SUBMIT_ENQUIRY:name=Customer Name|phone=9876543210|message=Their query]` at the very end of your response.
-              2. If they provided only some info (e.g. name only or phone only), ask for the missing details so we can submit the enquiry for them.
-            - If a customer wants to book a repair directly in chat:
-              1. When you have: customer name, 10-digit phone, device name/type, issue description, service type (Home Visit or Shop Repair), and address (if Home Visit), confirm it warmly and append `[SUBMIT_BOOKING:name=Name|phone=9876543210|category=TV Repair|device=Samsung 55 LED|issue=No display|servicetype=Home Visit|address=Flat 402 Santacruz West]` at the end of your response.
-              2. Otherwise, guide them step-by-step to gather whatever is missing.
+            - Keep responses warm, helpful, and concise (1-3 sentences maximum). No robotic filler.
+            - Never invent prices, stock, repair statuses, reviews, or offers. Only state facts from "Dynamic Shop Data" below.
+
+            - **Chat-Based Repair Booking (Fully Supported & Automated)**:
+              - When a customer says "I want to book a repair", asks to fix a TV/device, or describes an issue:
+                1. **NEVER tell them to leave the chat or click an external button to book.** Always handle the entire booking directly in chat!
+                2. Prompt for the repair details in this clean, structured format:
+                   - **If Guest / Unsigned**:
+                     "I can book your repair request right here! Please provide:
+                     • **Name**:
+                     • **Phone Number**:
+                     • **Device & Brand**: *(e.g. Samsung 55\" 4K Smart TV)*
+                     • **Issue Description**: *(e.g. No display / sound working)*
+                     • **Service Type**: *Shop Repair (Drop-off)* OR *Home Visit*
+                     • **Visit Address**: *(only needed if Home Visit)*"
+                   - **If Signed In (Authenticated Customer Profile present)**:
+                     "I can book this repair request under your account:
+                     • **Name**: [Customer Name]
+                     • **Phone Number**: [Customer Phone]
+
+                     Please share:
+                     • **Device & Brand**: *(e.g. Samsung 55\" Smart TV)*
+                     • **Issue Description**: *(e.g. No display / power issue)*
+                     • **Service Type**: *Shop Repair* OR *Home Visit*
+                     • **Visit Address**: *(only if Home Visit)*"
+                3. **When Submitting a Booking**:
+                   Once you have the required details (Name, Phone, Device, Issue, Service Type):
+                   1. Say a brief confirmation:
+                      "Thank you [Name]! I'm creating your repair booking now."
+                   2. ALWAYS append this exact tag at the very end (WITHOUT backticks or quotes):
+                      [SUBMIT_BOOKING: name=Customer Name | phone=9876543210 | category=TV Repair | device=Samsung 55 LED | issue=No display | servicetype=Home Visit | address=Flat 402 Santacruz West]
+                      *(For Shop Repair, set servicetype=Shop Repair and omit address or set address=Shop Drop-off)*.
+                   3. Do NOT invent a fake tracking number or write a custom summary block yourself — the backend system automatically processes the booking in the database and renders the official verified Booking Summary and Tracking Number card immediately!
+
+            - **Currently Viewed Product Page Awareness**:
+              - If Dynamic Shop Data contains a **"Currently Viewed Product Page"**, the customer is currently looking at that exact product on their screen.
+              - When they say "this product", "this item", "i want to enquiry about this products", "i want this at 1000", or provide contact details, **they are referring to the Currently Viewed Product**.
+              - **DO NOT ask them "which product are you interested in?"**. You already know!
+              - State the price/details of the currently viewed product, acknowledge their offer/query, and ask for/confirm their details.
+
+            - **Product Enquiries & Sales**:
+              - When a customer asks about a specific product (or currently viewed product):
+                1. ALWAYS state the key details first (title, price, stock status, and condition) directly from Dynamic Shop Data.
+                2. If they want to enquire, buy, or negotiate:
+                   - **If Guest / Unsigned**: Prompt in this clean, structured format:
+                     "To submit your enquiry for **[Product Name]**, please provide:
+                     • **Name**:
+                     • **Phone Number**:
+                     • **Message / Offer** *(optional)*:"
+                   - **If Signed In (Authenticated Customer Profile present)**:
+                     "I can submit this enquiry under your account:
+                     • **Name**: [Customer Name]
+                     • **Phone Number**: [Customer Phone]
+                     • **Message / Offer** *(optional)*: [Ask if they want to add a note/offer or proceed directly]"
+              - If searching for products generally (e.g. "show me TVs", "do you have remotes?"), say "Here are some options we currently have in stock:" and let the UI display product cards.
+              - If Shop Data says "No matching products currently in stock", state that clearly and offer to take an enquiry.
+              - **When to Submit an Enquiry**:
+                When the customer provides their name and phone (or confirms to submit):
+                1. ALWAYS output a clean confirmation with a **Preview Summary**:
+                   **Enquiry Submitted Successfully!**
+
+                   **Enquiry Summary:**
+                   • **Product**: [Product Name]
+                   • **Customer**: [Customer Name]
+                   • **Phone**: [Customer Phone]
+                   • **Message**: [Customer's message or offer, or 'General Enquiry' if none]
+                   • **Status**: Received — Our team will contact you shortly."
+                2. ALWAYS append this exact tag at the very end (WITHOUT backticks or quotes):
+                   [SUBMIT_ENQUIRY: name=Customer Name | phone=9876543210 | message=Customer's Exact Message or Offer | productid=ACTUAL_ID | product=ACTUAL_PRODUCT_NAME]
+                *Rules for this tag:*
+                - `productid`: MUST be the actual numeric Product ID from Dynamic Shop Data (e.g. 13 or 21) or omit if general inquiry. NEVER use a placeholder or fake number.
+                - `product`: MUST be the exact name of the product being enquired about (e.g. LG MAGIC REMOTE).
+                - `message`: MUST be the customer's actual query, negotiation offer, or requirement (e.g. "i want this at 1000" or "i want this 5 sets"), NEVER your own assistant question!
+                - NEVER output incomplete or cut-off sentences like "I'm sorry,". Always write full, professional responses.
+
+            - **Repair Tracking**:
+              - If a customer gives a tracking number (e.g. TE-2026-0001) or is signed in, check the repair status from Dynamic Shop Data and state the current status, estimated price, and device details clearly.
+
+            - **Offers & Announcements**:
+              - If asked about current offers, sales, notices, updates, or announcements, present active announcements smoothly without rigid labels.
+
+            - **Customer Reviews & Feedback**:
+              - If asked about reviews, ratings, or shop reputation, cite the customer feedback data and average rating from Dynamic Shop Data.
+
+            - **Authenticated Customer Profile**:
+              - If an "Authenticated Customer Profile" is present in Dynamic Shop Data:
+                1. Greet or address the customer warmly by their first name when natural (e.g. "Hi Tanish!").
+                2. Auto-fill their Name and Phone for bookings/enquiries so they never have to re-type it.
+                3. If they ask "Where is my TV?" or "What's my repair status?", check their Recent & Active Repair Requests and answer immediately.
 
         Shop Knowledge Base (Treat these as absolute facts):
-            - Owner / Founder: Tanish (If they ask to speak to the owner, say Tanish is usually available at the shop or via phone).
-            - Experience: Backed by over 20 years of practical experience.
-            - Service Areas: Based in Santacruz West, supporting home visits in nearby locations.
-            - Specialties: Expert repair for LED, LCD, Smart TVs, and Box TVs.
-            - Offerings: We offer shop repairs, home visits, online tracking, and we sell remotes, adapters, and refurbished items.
+            - Owner / Founder: Subhash (available at the shop or via phone).
+            - Experience: Backed by over 20 years of practical electronics and TV repair experience.
+            - Service Areas: Based in Santacruz West, supporting home visits across nearby Mumbai locations (Khar, Bandra, Juhu, Vile Parle, Santacruz East/West, etc.).
+            - Specialties: Expert repair for LED, LCD, Smart TVs, QLED, OLED, Box TVs, sound systems, remotes, and adapters.
+            - Offerings: Shop repairs, home visits, real-time online tracking, refurbished electronics, and verified accessories.
 
         Dynamic Shop Data:
         {groundingContext}
     """;
 
-    public async Task<ChatResponseDto> GetReplyAsync(ChatRequestDto request)
+    public async Task<ChatResponseDto> GetReplyAsync(ChatRequestDto request, int? appUserId = null)
     {
-        var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath);
+        var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath, appUserId);
         var systemPrompt = BuildSystemPrompt(groundingContext);
         var messages = new List<object> { new { role = "system", content = systemPrompt } };
 
@@ -199,28 +283,63 @@ public class ChatbotService : IChatbotService
 
         reply = reply.Trim();
 
-        var enquiryMatch = EnquiryTagPattern.Match(reply);
+        var enquiryMatch = GenericEnquiryTagRegex.Match(reply);
         var enquirySubmitted = false;
 
         if (enquiryMatch.Success)
         {
-            var name = enquiryMatch.Groups[1].Value.Trim();
-            var phone = enquiryMatch.Groups[2].Value.Trim();
-            var msg = enquiryMatch.Groups[3].Value.Trim();
-            var tagProductIdStr = enquiryMatch.Groups.Count > 4 && enquiryMatch.Groups[4].Success ? enquiryMatch.Groups[4].Value.Trim() : null;
-            var tagProductName = enquiryMatch.Groups.Count > 5 && enquiryMatch.Groups[5].Success ? enquiryMatch.Groups[5].Value.Trim() : null;
+            var dict = ParseTagKeyValues(enquiryMatch.Groups[1].Value);
+            dict.TryGetValue("name", out var name);
+            dict.TryGetValue("phone", out var phone);
+            dict.TryGetValue("message", out var msg);
+            dict.TryGetValue("productid", out var tagProductIdStr);
+            dict.TryGetValue("product", out var tagProductName);
 
             int? resolvedProductId = null;
             if (!string.IsNullOrWhiteSpace(tagProductIdStr) && int.TryParse(tagProductIdStr, out var pid))
             {
                 resolvedProductId = pid;
             }
-            else if (!string.IsNullOrWhiteSpace(request.CurrentPath) && request.CurrentPath.StartsWith("/products/"))
+
+            if (!string.IsNullOrWhiteSpace(tagProductName))
             {
-                var segment = request.CurrentPath.Replace("/products/", "").Split('?')[0].Trim();
-                if (int.TryParse(segment, out var pathPid))
+                try
                 {
-                    resolvedProductId = pathPid;
+                    if (resolvedProductId.HasValue)
+                    {
+                        var p = await _productService.GetProductByIdAsync(resolvedProductId.Value);
+                        if (p == null || (!p.ProductName.Contains(tagProductName, StringComparison.OrdinalIgnoreCase) && !tagProductName.Contains(p.ProductName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            resolvedProductId = null;
+                        }
+                    }
+
+                    if (!resolvedProductId.HasValue)
+                    {
+                        var allProducts = await _productService.GetProductsAsync(null, null, null, false);
+                        var match = allProducts.FirstOrDefault(p =>
+                            p.ProductName.Equals(tagProductName, StringComparison.OrdinalIgnoreCase) ||
+                            tagProductName.Contains(p.ProductName, StringComparison.OrdinalIgnoreCase) ||
+                            p.ProductName.Contains(tagProductName, StringComparison.OrdinalIgnoreCase));
+                        if (match != null)
+                        {
+                            resolvedProductId = match.ProductId;
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            if (!resolvedProductId.HasValue && !string.IsNullOrWhiteSpace(request.CurrentPath))
+            {
+                var segments = request.CurrentPath.Trim().Trim('/').Split('/');
+                if (segments.Length >= 2 && segments[0].Equals("products", StringComparison.OrdinalIgnoreCase))
+                {
+                    var idPart = segments[1].Split('?')[0].Split('#')[0].Trim();
+                    if (int.TryParse(idPart, out var pathPid))
+                    {
+                        resolvedProductId = pathPid;
+                    }
                 }
             }
 
@@ -247,17 +366,23 @@ public class ChatbotService : IChatbotService
                     }
                 }
             }
+            else if (!string.IsNullOrWhiteSpace(tagProductName))
+            {
+                subject = $"Product Enquiry: {tagProductName}";
+            }
 
-            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone) && !string.IsNullOrWhiteSpace(msg))
+            var finalMessage = !string.IsNullOrWhiteSpace(msg) && !msg.EndsWith("?") ? msg.Trim() : request.Message.Trim();
+
+            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone) && !string.IsNullOrWhiteSpace(finalMessage))
             {
                 try
                 {
                     await _enquiryService.CreateAsync(new CreateEnquiryDto
                     {
                         ProductId = resolvedProductId,
-                        FullName = name,
-                        PhoneNumber = phone,
-                        Message = msg,
+                        FullName = name.Trim(),
+                        PhoneNumber = phone.Trim(),
+                        Message = finalMessage,
                         Subject = subject
                     });
                     enquirySubmitted = true;
@@ -268,22 +393,39 @@ public class ChatbotService : IChatbotService
                 }
             }
 
-            reply = EnquiryTagPattern.Replace(reply, "").Trim();
+            reply = GenericEnquiryTagRegex.Replace(reply, "").Trim().Trim('`', '\'', '"', '\n', '\r', ' ');
+
+            if (enquirySubmitted)
+            {
+                var pName = !string.IsNullOrWhiteSpace(tagProductName) ? tagProductName : "Electronics Enquiry";
+                if (!reply.Contains("Enquiry Summary", StringComparison.OrdinalIgnoreCase))
+                {
+                    reply += $"\n\n📋 **Enquiry Summary:**\n• **Product**: {pName}\n• **Customer**: {name}\n• **Phone**: {phone}\n• **Message**: {finalMessage}\n• **Status**: Received — Our team will contact you shortly.";
+                }
+            }
         }
 
-        var bookingMatch = BookingTagPattern.Match(reply);
+        var bookingMatch = GenericBookingTagRegex.Match(reply);
         var bookingSubmitted = false;
         string? bookedRequestNumber = null;
 
         if (bookingMatch.Success)
         {
-            var name = bookingMatch.Groups[1].Value.Trim();
-            var phone = bookingMatch.Groups[2].Value.Trim();
-            var categoryName = bookingMatch.Groups[3].Value.Trim();
-            var device = bookingMatch.Groups[4].Value.Trim();
-            var issue = bookingMatch.Groups[5].Value.Trim();
-            var serviceType = bookingMatch.Groups[6].Value.Trim();
-            var address = bookingMatch.Groups[7].Success ? bookingMatch.Groups[7].Value.Trim() : null;
+            var dict = ParseTagKeyValues(bookingMatch.Groups[1].Value);
+            dict.TryGetValue("name", out var name);
+            dict.TryGetValue("phone", out var phone);
+            dict.TryGetValue("device", out var device);
+            dict.TryGetValue("category", out var categoryName);
+            dict.TryGetValue("issue", out var issue);
+            dict.TryGetValue("servicetype", out var serviceType);
+            dict.TryGetValue("address", out var address);
+
+            name ??= "";
+            phone ??= "";
+            device ??= "";
+            categoryName ??= "TV Repair";
+            issue = string.IsNullOrWhiteSpace(issue) ? "Booked via AI Chatbot" : issue;
+            serviceType ??= "Shop Repair";
 
             if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone) && !string.IsNullOrWhiteSpace(device))
             {
@@ -303,33 +445,34 @@ public class ChatbotService : IChatbotService
 
                     var result = await _serviceRequestService.CreateAsync(new CreateServiceRequestDto
                     {
-                        CustomerName = name,
-                        PhoneNumber = phone,
+                        CustomerName = name.Trim(),
+                        PhoneNumber = phone.Trim(),
                         ServiceCategoryId = matchedCategory?.Id ?? 1,
                         ServiceLocationId = normalizedServiceType == "Home Visit" ? (matchedLocation?.Id ?? 1) : null,
-                        DeviceName = device,
-                        IssueDescription = !string.IsNullOrWhiteSpace(issue) ? issue : "Booked via AI Chatbot",
+                        DeviceName = device.Trim(),
+                        IssueDescription = issue.Trim(),
                         ServiceType = normalizedServiceType,
-                        VisitAddress = normalizedServiceType == "Home Visit" ? (!string.IsNullOrWhiteSpace(address) ? address : "Address to be confirmed by phone") : null
+                        VisitAddress = normalizedServiceType == "Home Visit" ? (!string.IsNullOrWhiteSpace(address) ? address.Trim() : "Address to be confirmed by phone") : null
                     });
 
                     bookingSubmitted = true;
                     bookedRequestNumber = result.RequestNumber;
-                    reply = BookingTagPattern.Replace(reply, "").Trim();
-                    if (!string.IsNullOrWhiteSpace(bookedRequestNumber) && !reply.Contains(bookedRequestNumber))
+                    reply = GenericBookingTagRegex.Replace(reply, "").Trim().Trim('`', '\'', '"', '\n', '\r', ' ');
+                    var addrLine = normalizedServiceType == "Home Visit" && !string.IsNullOrWhiteSpace(address) && address != "Shop Drop-off" ? $" — {address}" : "";
+                    if (!reply.Contains("Booking Summary", StringComparison.OrdinalIgnoreCase))
                     {
-                        reply += $"\n\n📋 Your tracking number is **{bookedRequestNumber}**.";
+                        reply += $"\n\n📋 **Booking Summary:**\n• **Tracking Number**: `{bookedRequestNumber}`\n• **Customer**: {name} ({phone})\n• **Device**: {device}\n• **Issue**: {issue}\n• **Service Type**: {normalizedServiceType}{addrLine}\n• **Status**: Received — Technician assigned shortly.";
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to create service request via chatbot.");
-                    reply = BookingTagPattern.Replace(reply, "").Trim();
+                    reply = GenericBookingTagRegex.Replace(reply, "").Trim().Trim('`', '\'', '"', '\n', '\r', ' ');
                 }
             }
             else
             {
-                reply = BookingTagPattern.Replace(reply, "").Trim();
+                reply = GenericBookingTagRegex.Replace(reply, "").Trim().Trim('`', '\'', '"', '\n', '\r', ' ');
             }
         }
 
@@ -362,19 +505,11 @@ public class ChatbotService : IChatbotService
         }
         else
         {
-            var repairKeywords = new[] { "repair", "fix", "broken", "issue", "problem", "not working", "service", "book" };
-            var isRepairRelated = repairKeywords.Any(k => lowerMsg.Contains(k) || lowerReply.Contains(k));
-
             var productKeywords = new[] { "product", "buy", "price", "stock", "tv", "remote", "speaker", "adapter", "available", "cost", "sale", "offer" };
             var isProductRelated = productKeywords.Any(k => lowerMsg.Contains(k) || lowerReply.Contains(k));
 
-            var trackKeywords = new[] { "track", "status", "request" };
+            var trackKeywords = new[] { "track", "status" };
             var isTrackRelated = trackKeywords.Any(k => lowerMsg.Contains(k) || lowerReply.Contains(k));
-
-            if (isRepairRelated)
-            {
-                actions.Add(new ChatActionDto { Label = "Book a Repair", Url = "/book-repair", Icon = "wrench" });
-            }
 
             if (isProductRelated || (matchedProducts != null && matchedProducts.Any()))
             {
@@ -400,9 +535,9 @@ public class ChatbotService : IChatbotService
         };
     }
 
-    public async IAsyncEnumerable<ChatStreamEventDto> StreamReplyAsync(ChatRequestDto request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<ChatStreamEventDto> StreamReplyAsync(ChatRequestDto request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default, int? appUserId = null)
     {
-        var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath);
+        var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath, appUserId);
         var systemPrompt = BuildSystemPrompt(groundingContext);
 
         var messages = new List<object> { new { role = "system", content = systemPrompt } };
@@ -450,6 +585,9 @@ public class ChatbotService : IChatbotService
         using var reader = new StreamReader(stream);
 
         var fullReplyBuilder = new StringBuilder();
+        var streamedVisibleTextBuilder = new StringBuilder();
+        var pendingBuffer = new StringBuilder();
+        bool insideTag = false;
         string? line;
 
         while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
@@ -461,7 +599,7 @@ public class ChatbotService : IChatbotService
                 var data = line.Substring("data: ".Length).Trim();
                 if (data == "[DONE]") break;
 
-                string? tokenToYield = null;
+                var tokensToEmit = new List<string>();
 
                 try
                 {
@@ -476,24 +614,71 @@ public class ChatbotService : IChatbotService
                             if (!string.IsNullOrEmpty(token))
                             {
                                 fullReplyBuilder.Append(token);
-                                var current = fullReplyBuilder.ToString();
-                                var openBracketIdx = current.LastIndexOf('[');
+                                pendingBuffer.Append(token);
 
-                                if (openBracketIdx != -1)
+                                while (pendingBuffer.Length > 0)
                                 {
-                                    var potentialTag = current.Substring(openBracketIdx);
-                                    var isTagPrefix = "[SUBMIT_BOOKING:".StartsWith(potentialTag, StringComparison.OrdinalIgnoreCase) ||
-                                                      "[SUBMIT_ENQUIRY:".StartsWith(potentialTag, StringComparison.OrdinalIgnoreCase) ||
-                                                      potentialTag.StartsWith("[SUBMIT_", StringComparison.OrdinalIgnoreCase);
+                                    var bufferStr = pendingBuffer.ToString();
 
-                                    if (!isTagPrefix && !current.Contains("[SUBMIT_"))
+                                    if (insideTag)
                                     {
-                                        tokenToYield = token;
+                                        var closeIdx = bufferStr.IndexOf(']');
+                                        if (closeIdx != -1)
+                                        {
+                                            insideTag = false;
+                                            pendingBuffer.Remove(0, closeIdx + 1);
+                                        }
+                                        else
+                                        {
+                                            break;
+                                        }
                                     }
-                                }
-                                else if (!current.Contains("[SUBMIT_"))
-                                {
-                                    tokenToYield = token;
+                                    else
+                                    {
+                                        var openIdx = bufferStr.IndexOf('[');
+                                        if (openIdx == -1)
+                                        {
+                                            var toEmit = bufferStr;
+                                            pendingBuffer.Clear();
+                                            streamedVisibleTextBuilder.Append(toEmit);
+                                            tokensToEmit.Add(toEmit);
+                                        }
+                                        else if (openIdx > 0)
+                                        {
+                                            var toEmit = bufferStr.Substring(0, openIdx);
+                                            pendingBuffer.Remove(0, openIdx);
+                                            streamedVisibleTextBuilder.Append(toEmit);
+                                            tokensToEmit.Add(toEmit);
+                                        }
+                                        else
+                                        {
+                                            if (bufferStr.StartsWith("[SUBMIT_", StringComparison.OrdinalIgnoreCase) ||
+                                                "[SUBMIT_BOOKING:".StartsWith(bufferStr, StringComparison.OrdinalIgnoreCase) ||
+                                                "[SUBMIT_ENQUIRY:".StartsWith(bufferStr, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                var closeIdx = bufferStr.IndexOf(']');
+                                                if (closeIdx != -1)
+                                                {
+                                                    pendingBuffer.Remove(0, closeIdx + 1);
+                                                }
+                                                else
+                                                {
+                                                    if (bufferStr.StartsWith("[SUBMIT_", StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        insideTag = true;
+                                                    }
+                                                    break;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                var toEmit = bufferStr.Substring(0, 1);
+                                                pendingBuffer.Remove(0, 1);
+                                                streamedVisibleTextBuilder.Append(toEmit);
+                                                tokensToEmit.Add(toEmit);
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -504,40 +689,100 @@ public class ChatbotService : IChatbotService
                     // Ignore SSE frame JSON glitches
                 }
 
-                if (!string.IsNullOrEmpty(tokenToYield))
+                foreach (var t in tokensToEmit)
                 {
                     yield return new ChatStreamEventDto
                     {
                         Type = "token",
-                        Content = tokenToYield
+                        Content = t
                     };
                 }
             }
         }
 
+        if (!insideTag && pendingBuffer.Length > 0)
+        {
+            var remainder = pendingBuffer.ToString().Trim('`', '\'', '"', '\n', '\r');
+            if (!string.IsNullOrWhiteSpace(remainder) && !remainder.StartsWith("[SUBMIT_", StringComparison.OrdinalIgnoreCase))
+            {
+                streamedVisibleTextBuilder.Append(remainder);
+                yield return new ChatStreamEventDto
+                {
+                    Type = "token",
+                    Content = remainder
+                };
+            }
+        }
+
         var fullReply = fullReplyBuilder.ToString();
-        var enquiryMatch = EnquiryTagPattern.Match(fullReply);
+        var enquiryMatch = GenericEnquiryTagRegex.Match(fullReply);
         var enquirySubmitted = false;
+        string? submittedEnquiryName = null;
+        string? submittedEnquiryPhone = null;
+        string? submittedEnquiryProduct = null;
+        string? submittedEnquiryMessage = null;
 
         if (enquiryMatch.Success)
         {
-            var name = enquiryMatch.Groups[1].Value.Trim();
-            var phone = enquiryMatch.Groups[2].Value.Trim();
-            var msg = enquiryMatch.Groups[3].Value.Trim();
-            var tagProductIdStr = enquiryMatch.Groups.Count > 4 && enquiryMatch.Groups[4].Success ? enquiryMatch.Groups[4].Value.Trim() : null;
-            var tagProductName = enquiryMatch.Groups.Count > 5 && enquiryMatch.Groups[5].Success ? enquiryMatch.Groups[5].Value.Trim() : null;
+            var dict = ParseTagKeyValues(enquiryMatch.Groups[1].Value);
+            dict.TryGetValue("name", out var name);
+            dict.TryGetValue("phone", out var phone);
+            dict.TryGetValue("message", out var msg);
+            dict.TryGetValue("productid", out var tagProductIdStr);
+            dict.TryGetValue("product", out var tagProductName);
+
+            var finalMessage = !string.IsNullOrWhiteSpace(msg) && !msg.EndsWith("?") ? msg.Trim() : request.Message.Trim();
+
+            submittedEnquiryName = name;
+            submittedEnquiryPhone = phone;
+            submittedEnquiryProduct = tagProductName;
+            submittedEnquiryMessage = finalMessage;
 
             int? resolvedProductId = null;
             if (!string.IsNullOrWhiteSpace(tagProductIdStr) && int.TryParse(tagProductIdStr, out var pid))
             {
                 resolvedProductId = pid;
             }
-            else if (!string.IsNullOrWhiteSpace(request.CurrentPath) && request.CurrentPath.StartsWith("/products/"))
+
+            if (!string.IsNullOrWhiteSpace(tagProductName))
             {
-                var segment = request.CurrentPath.Replace("/products/", "").Split('?')[0].Trim();
-                if (int.TryParse(segment, out var pathPid))
+                try
                 {
-                    resolvedProductId = pathPid;
+                    if (resolvedProductId.HasValue)
+                    {
+                        var p = await _productService.GetProductByIdAsync(resolvedProductId.Value);
+                        if (p == null || (!p.ProductName.Contains(tagProductName, StringComparison.OrdinalIgnoreCase) && !tagProductName.Contains(p.ProductName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            resolvedProductId = null;
+                        }
+                    }
+
+                    if (!resolvedProductId.HasValue)
+                    {
+                        var allProducts = await _productService.GetProductsAsync(null, null, null, false);
+                        var match = allProducts.FirstOrDefault(p =>
+                            p.ProductName.Equals(tagProductName, StringComparison.OrdinalIgnoreCase) ||
+                            tagProductName.Contains(p.ProductName, StringComparison.OrdinalIgnoreCase) ||
+                            p.ProductName.Contains(tagProductName, StringComparison.OrdinalIgnoreCase));
+                        if (match != null)
+                        {
+                            resolvedProductId = match.ProductId;
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            if (!resolvedProductId.HasValue && !string.IsNullOrWhiteSpace(request.CurrentPath))
+            {
+                var segments = request.CurrentPath.Trim().Trim('/').Split('/');
+                if (segments.Length >= 2 && segments[0].Equals("products", StringComparison.OrdinalIgnoreCase))
+                {
+                    var idPart = segments[1].Split('?')[0].Split('#')[0].Trim();
+                    if (int.TryParse(idPart, out var pathPid))
+                    {
+                        resolvedProductId = pathPid;
+                    }
                 }
             }
 
@@ -564,17 +809,21 @@ public class ChatbotService : IChatbotService
                     }
                 }
             }
+            else if (!string.IsNullOrWhiteSpace(tagProductName))
+            {
+                subject = $"Product Enquiry: {tagProductName}";
+            }
 
-            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone) && !string.IsNullOrWhiteSpace(msg))
+            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone) && !string.IsNullOrWhiteSpace(finalMessage))
             {
                 try
                 {
                     await _enquiryService.CreateAsync(new CreateEnquiryDto
                     {
                         ProductId = resolvedProductId,
-                        FullName = name,
-                        PhoneNumber = phone,
-                        Message = msg,
+                        FullName = name.Trim(),
+                        PhoneNumber = phone.Trim(),
+                        Message = finalMessage,
                         Subject = subject
                     });
                     enquirySubmitted = true;
@@ -586,19 +835,40 @@ public class ChatbotService : IChatbotService
             }
         }
 
-        var bookingMatch = BookingTagPattern.Match(fullReply);
+        var bookingMatch = GenericBookingTagRegex.Match(fullReply);
         var bookingSubmitted = false;
         string? bookingTrackingNumber = null;
+        string? submittedBookingName = null;
+        string? submittedBookingPhone = null;
+        string? submittedBookingDevice = null;
+        string? submittedBookingIssue = null;
+        string? submittedBookingServiceType = null;
+        string? submittedBookingAddress = null;
 
         if (bookingMatch.Success)
         {
-            var name = bookingMatch.Groups[1].Value.Trim();
-            var phone = bookingMatch.Groups[2].Value.Trim();
-            var categoryName = bookingMatch.Groups[3].Value.Trim();
-            var device = bookingMatch.Groups[4].Value.Trim();
-            var issue = bookingMatch.Groups[5].Value.Trim();
-            var serviceType = bookingMatch.Groups[6].Value.Trim();
-            var address = bookingMatch.Groups[7].Success ? bookingMatch.Groups[7].Value.Trim() : null;
+            var dict = ParseTagKeyValues(bookingMatch.Groups[1].Value);
+            dict.TryGetValue("name", out var name);
+            dict.TryGetValue("phone", out var phone);
+            dict.TryGetValue("device", out var device);
+            dict.TryGetValue("category", out var categoryName);
+            dict.TryGetValue("issue", out var issue);
+            dict.TryGetValue("servicetype", out var serviceType);
+            dict.TryGetValue("address", out var address);
+
+            name ??= "";
+            phone ??= "";
+            device ??= "";
+            categoryName ??= "TV Repair";
+            issue = string.IsNullOrWhiteSpace(issue) ? "Booked via AI Chatbot" : issue;
+            serviceType ??= "Shop Repair";
+
+            submittedBookingName = name;
+            submittedBookingPhone = phone;
+            submittedBookingDevice = device;
+            submittedBookingIssue = issue;
+            submittedBookingAddress = address;
+            submittedBookingServiceType = serviceType.Contains("home", StringComparison.OrdinalIgnoreCase) ? "Home Visit" : "Shop Drop-off";
 
             if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone) && !string.IsNullOrWhiteSpace(device))
             {
@@ -618,14 +888,14 @@ public class ChatbotService : IChatbotService
 
                     var result = await _serviceRequestService.CreateAsync(new CreateServiceRequestDto
                     {
-                        CustomerName = name,
-                        PhoneNumber = phone,
+                        CustomerName = name.Trim(),
+                        PhoneNumber = phone.Trim(),
                         ServiceCategoryId = matchedCategory?.Id ?? 1,
                         ServiceLocationId = normalizedServiceType == "Home Visit" ? (matchedLocation?.Id ?? 1) : null,
-                        DeviceName = device,
-                        IssueDescription = !string.IsNullOrWhiteSpace(issue) ? issue : "Booked via AI Chatbot",
+                        DeviceName = device.Trim(),
+                        IssueDescription = issue.Trim(),
                         ServiceType = normalizedServiceType,
-                        VisitAddress = normalizedServiceType == "Home Visit" ? (!string.IsNullOrWhiteSpace(address) ? address : "Address to be confirmed by phone") : null
+                        VisitAddress = normalizedServiceType == "Home Visit" ? (!string.IsNullOrWhiteSpace(address) ? address.Trim() : "Address to be confirmed by phone") : null
                     });
 
                     bookingSubmitted = true;
@@ -638,16 +908,62 @@ public class ChatbotService : IChatbotService
                 {
                     _logger.LogWarning(ex, "Failed to create service request via chatbot.");
                 }
-
-                if (!string.IsNullOrWhiteSpace(bookingTrackingNumber))
-                {
-                    yield return new ChatStreamEventDto
-                    {
-                        Type = "token",
-                        Content = $"\n\n📋 Your tracking number is **{bookingTrackingNumber}**."
-                    };
-                }
             }
+        }
+
+        var visibleText = streamedVisibleTextBuilder.ToString().Trim();
+
+        if (enquirySubmitted)
+        {
+            var pName = !string.IsNullOrWhiteSpace(submittedEnquiryProduct) ? submittedEnquiryProduct : "Electronics Enquiry";
+            var summaryCard = $"\n\n📋 **Enquiry Summary:**\n• **Product**: {pName}\n• **Customer**: {submittedEnquiryName}\n• **Phone**: {submittedEnquiryPhone}\n• **Message**: {submittedEnquiryMessage ?? "General Enquiry"}\n• **Status**: Received — Our team will contact you shortly.";
+
+            if (string.IsNullOrWhiteSpace(visibleText))
+            {
+                yield return new ChatStreamEventDto
+                {
+                    Type = "token",
+                    Content = $"✅ **Enquiry Submitted Successfully!**{summaryCard}"
+                };
+            }
+            else if (!visibleText.Contains("Enquiry Summary", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return new ChatStreamEventDto
+                {
+                    Type = "token",
+                    Content = summaryCard
+                };
+            }
+        }
+        else if (bookingSubmitted)
+        {
+            var addrLine = submittedBookingServiceType == "Home Visit" && !string.IsNullOrWhiteSpace(submittedBookingAddress) && submittedBookingAddress != "Shop Drop-off" ? $" — {submittedBookingAddress}" : "";
+            var bookingCard = $"\n\n✅ **Repair Request Booked Successfully!**\n\n📋 **Booking Summary:**\n• **Tracking Number**: `{bookingTrackingNumber}`\n• **Customer**: {submittedBookingName} ({submittedBookingPhone})\n• **Device**: {submittedBookingDevice}\n• **Issue**: {submittedBookingIssue ?? "Repairs required"}\n• **Service Type**: {submittedBookingServiceType}{addrLine}\n• **Status**: Received — Technician assigned shortly.";
+
+            if (string.IsNullOrWhiteSpace(visibleText) || !visibleText.Contains("Booking Summary", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return new ChatStreamEventDto
+                {
+                    Type = "token",
+                    Content = bookingCard
+                };
+            }
+            else if (!visibleText.Contains(bookingTrackingNumber ?? ""))
+            {
+                yield return new ChatStreamEventDto
+                {
+                    Type = "token",
+                    Content = $"\n\n📋 **Official Tracking Number**: `{bookingTrackingNumber}`"
+                };
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(visibleText))
+        {
+            yield return new ChatStreamEventDto
+            {
+                Type = "token",
+                Content = "I've noted that! How else can I assist you with our electronics or repair services today?"
+            };
         }
 
         var shopSettings = await _cacheService.GetOrCreateAsync(
@@ -679,19 +995,11 @@ public class ChatbotService : IChatbotService
         }
         else
         {
-            var repairKeywords = new[] { "repair", "fix", "broken", "issue", "problem", "not working", "service", "book" };
-            var isRepairRelated = repairKeywords.Any(k => lowerMsg.Contains(k) || lowerReply.Contains(k));
-
             var productKeywords = new[] { "product", "buy", "price", "stock", "tv", "remote", "speaker", "adapter", "available", "cost", "sale", "offer" };
             var isProductRelated = productKeywords.Any(k => lowerMsg.Contains(k) || lowerReply.Contains(k));
 
-            var trackKeywords = new[] { "track", "status", "request" };
+            var trackKeywords = new[] { "track", "status" };
             var isTrackRelated = trackKeywords.Any(k => lowerMsg.Contains(k) || lowerReply.Contains(k));
-
-            if (isRepairRelated)
-            {
-                actions.Add(new ChatActionDto { Label = "Book a Repair", Url = "/book-repair", Icon = "wrench" });
-            }
 
             if (isProductRelated || (matchedProducts != null && matchedProducts.Any()))
             {
@@ -719,7 +1027,7 @@ public class ChatbotService : IChatbotService
         yield return new ChatStreamEventDto { Type = "done" };
     }
 
-    private async Task<(string Context, List<ChatProductCardDto> Products)> BuildGroundingContextAsync(string message, string? currentPath = null)
+    private async Task<(string Context, List<ChatProductCardDto> Products)> BuildGroundingContextAsync(string message, string? currentPath = null, int? appUserId = null)
     {
         var sb = new StringBuilder();
         var productCards = new List<ChatProductCardDto>();
@@ -740,42 +1048,122 @@ public class ChatbotService : IChatbotService
             sb.AppendLine($"- Booking notice: {shopSettings.BookingNotice}");
             sb.AppendLine($"- Local service radius: {shopSettings.LocalServiceRadiusKm} km");
         }
+        if (appUserId.HasValue)
+        {
+            try
+            {
+                var customer = await _dbContext.Customers
+                    .AsNoTracking()
+                    .Where(c => c.AppUserId == appUserId.Value && c.DeletedAt == null && c.IsActive)
+                    .Select(c => new
+                    {
+                        c.CustomerId,
+                        c.FullName,
+                        c.PhoneNumber,
+                        c.Email,
+                        Repairs = c.ServiceRequests
+                            .Where(r => r.DeletedAt == null)
+                            .OrderByDescending(r => r.CreatedAt)
+                            .Take(3)
+                            .Select(r => new
+                            {
+                                r.RequestNumber,
+                                r.DeviceName,
+                                Status = r.CurrentStatus.StatusName,
+                                r.CreatedAt
+                            })
+                            .ToList()
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (customer != null)
+                {
+                    sb.AppendLine("- Authenticated Customer Profile (Active Signed-In User):");
+                    sb.AppendLine($"  - Name: {customer.FullName}");
+                    sb.AppendLine($"  - Phone: {customer.PhoneNumber}");
+                    if (!string.IsNullOrWhiteSpace(customer.Email))
+                    {
+                        sb.AppendLine($"  - Email: {customer.Email}");
+                    }
+
+                    if (customer.Repairs.Any())
+                    {
+                        sb.AppendLine("  - Customer's Recent & Active Repair Requests:");
+                        foreach (var rep in customer.Repairs)
+                        {
+                            sb.AppendLine($"    * #{rep.RequestNumber} - {rep.DeviceName} (Status: {rep.Status}, Created: {rep.CreatedAt:dd MMM yyyy})");
+                        }
+                    }
+                }
+                else
+                {
+                    var appUser = await _dbContext.AppUsers
+                        .AsNoTracking()
+                        .Where(u => u.AppUserId == appUserId.Value && u.DeletedAt == null && u.IsActive)
+                        .Select(u => new { u.FullName, u.PhoneNumber, u.Email })
+                        .FirstOrDefaultAsync();
+
+                    if (appUser != null)
+                    {
+                        sb.AppendLine("- Authenticated Customer Profile (Active Signed-In User):");
+                        sb.AppendLine($"  - Name: {appUser.FullName}");
+                        if (!string.IsNullOrWhiteSpace(appUser.PhoneNumber))
+                        {
+                            sb.AppendLine($"  - Phone: {appUser.PhoneNumber}");
+                        }
+                        if (!string.IsNullOrWhiteSpace(appUser.Email))
+                        {
+                            sb.AppendLine($"  - Email: {appUser.Email}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load authenticated user profile in chatbot grounding.");
+            }
+        }
 
         int viewingProductId = 0;
 
-        // --- Current Page Context ---
         if (!string.IsNullOrWhiteSpace(currentPath))
         {
-            if (currentPath.StartsWith("/products/") && int.TryParse(currentPath.Replace("/products/", "").Split('?')[0].Trim(), out viewingProductId))
+            var cleanPath = currentPath.Trim().Trim('/');
+            var segments = cleanPath.Split('/');
+            if (segments.Length >= 2 && segments[0].Equals("products", StringComparison.OrdinalIgnoreCase))
             {
-                try
+                var idPart = segments[1].Split('?')[0].Split('#')[0].Trim();
+                if (int.TryParse(idPart, out viewingProductId))
                 {
-                    var product = await _productService.GetProductByIdAsync(viewingProductId);
-                    if (product != null)
+                    try
                     {
-                        sb.AppendLine($"- Currently Viewed Product Page (Product #{product.ProductId}):");
-                        sb.AppendLine($"  - Title: {product.ProductName}");
-                        sb.AppendLine($"  - Brand: {product.Brand ?? "N/A"} | Model: {product.ModelName ?? "N/A"}");
-                        sb.AppendLine($"  - Category: {product.CategoryName} | Condition: {product.ConditionName}");
-                        sb.AppendLine($"  - Price: ₹{product.Price:N0}");
-                        sb.AppendLine($"  - Stock Status: {(product.IsAvailable ? "In Stock" : "Out of Stock")} ({product.StockQuantity} available)");
-                        sb.AppendLine($"  - Features & Description: {(string.IsNullOrWhiteSpace(product.Description) ? "Tested and certified by Tanish Electronics." : product.Description)}");
+                        var product = await _productService.GetProductByIdAsync(viewingProductId);
+                        if (product != null)
+                        {
+                            sb.AppendLine($"- Currently Viewed Product Page (Product #{product.ProductId}):");
+                            sb.AppendLine($"  - Title: {product.ProductName}");
+                            sb.AppendLine($"  - Brand: {product.Brand ?? "N/A"} | Model: {product.ModelName ?? "N/A"}");
+                            sb.AppendLine($"  - Category: {product.CategoryName} | Condition: {product.ConditionName}");
+                            sb.AppendLine($"  - Price: ₹{product.Price:N0}");
+                            sb.AppendLine($"  - Stock Status: {(product.IsAvailable ? "In Stock" : "Out of Stock")} ({product.StockQuantity} available)");
+                            sb.AppendLine($"  - Features & Description: {(string.IsNullOrWhiteSpace(product.Description) ? "Tested and certified by Tanish Electronics." : product.Description)}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to load viewed product details for Product #{ProductId}", viewingProductId);
                     }
                 }
-                catch
-                {
-                    // Ignore page fetch error
-                }
             }
-            else if (currentPath.Equals("/book-repair", StringComparison.OrdinalIgnoreCase))
+            else if (cleanPath.Equals("book-repair", StringComparison.OrdinalIgnoreCase))
             {
                 sb.AppendLine("- User is currently on the Book a Repair page.");
             }
-            else if (currentPath.Equals("/products", StringComparison.OrdinalIgnoreCase))
+            else if (cleanPath.Equals("products", StringComparison.OrdinalIgnoreCase))
             {
                 sb.AppendLine("- User is currently browsing the Products catalog page.");
             }
-            else if (currentPath.Equals("/track-request", StringComparison.OrdinalIgnoreCase))
+            else if (cleanPath.Equals("track-request", StringComparison.OrdinalIgnoreCase))
             {
                 sb.AppendLine("- User is currently on the Track Repair page.");
             }
@@ -868,10 +1256,35 @@ public class ChatbotService : IChatbotService
 
         if (isProductQuery)
         {
+            var brands = new[] { "lg", "samsung", "sony", "vu", "mi", "xiaomi", "oneplus", "tcl", "panasonic", "philips", "nxt" };
+            var matchedBrand = brands.FirstOrDefault(b => lowerMessage.Contains(b));
+
+            string? searchKeyword = null;
+            if (!string.IsNullOrEmpty(matchedBrand) && !string.IsNullOrEmpty(specificItem))
+            {
+                searchKeyword = $"{matchedBrand} {specificItem}";
+            }
+            else if (!string.IsNullOrEmpty(matchedBrand))
+            {
+                searchKeyword = matchedBrand;
+            }
+            else
+            {
+                searchKeyword = specificItem;
+            }
+
             var products = await _productService.GetProductsAsync
             (
-                categoryId: null, conditionId: null, search: specificItem, featuredOnly: false
+                categoryId: null, conditionId: null, search: searchKeyword, featuredOnly: false
             );
+
+            if (!products.Any() && !string.IsNullOrEmpty(specificItem) && searchKeyword != specificItem)
+            {
+                products = await _productService.GetProductsAsync
+                (
+                    categoryId: null, conditionId: null, search: specificItem, featuredOnly: false
+                );
+            }
 
             var topMatches = products.Where(p => p.IsAvailable && p.StockQuantity > 0).Take(5).ToList();
             if (topMatches.Any())
@@ -880,7 +1293,7 @@ public class ChatbotService : IChatbotService
                 foreach (var p in topMatches)
                 {
                     var brandInfo = string.IsNullOrWhiteSpace(p.Brand) ? "" : $" ({p.Brand})";
-                    sb.AppendLine($"  - {p.ProductName}{brandInfo} — ₹{p.Price}, {p.StockQuantity} in stock, condition: {p.ConditionName}");
+                    sb.AppendLine($"  - [Product #{p.ProductId}] {p.ProductName}{brandInfo} — ₹{p.Price:N0}, {p.StockQuantity} in stock, condition: {p.ConditionName}");
                     productCards.Add(new ChatProductCardDto
                     {
                         ProductId = p.ProductId,

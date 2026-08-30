@@ -18,18 +18,21 @@ public class ServiceRequestService : IServiceRequestService
     private readonly TanishElectronicsDbContext _dbContext;
     private readonly IWebHostEnvironment _environment;
     private readonly ICustomerAccountResolver _customerAccountResolver;
+    private readonly INotificationRealtimeNotifier _notificationNotifier;
     public ServiceRequestService
     (
         IServiceRequestRepository repository,
         IWebHostEnvironment environment,
         ICustomerAccountResolver customerAccountResolver,
-        TanishElectronicsDbContext dbContext
+        TanishElectronicsDbContext dbContext,
+        INotificationRealtimeNotifier notificationNotifier
     )
     {
         _repository = repository;
         _environment = environment;
         _customerAccountResolver = customerAccountResolver;
         _dbContext = dbContext;
+        _notificationNotifier = notificationNotifier;
     }
 
     public async Task<ServiceRequestCreatedDto> CreateAsync(CreateServiceRequestDto dto)
@@ -154,7 +157,7 @@ public class ServiceRequestService : IServiceRequestService
         };
         await _repository.AddStatusHistoryAsync(history);
 
-        await _dbContext.AdminNotifications.AddAsync(new AdminNotification
+        var adminNotification = new AdminNotification
         {
             ServiceRequestId = serviceRequest.ServiceRequestId,
             Title = "New repair Request",
@@ -162,8 +165,20 @@ public class ServiceRequestService : IServiceRequestService
             NotificationType = "Repair",
             IsRead = false,
             CreatedAt = DateTime.Now
-        });
+        };
+        await _dbContext.AdminNotifications.AddAsync(adminNotification);
         await _repository.SaveChangesAsync();
+
+        await _notificationNotifier.NotifyAdminsAsync(new DTOs.Admin.Notifications.GetAdminNotificationDto
+        {
+            AdminNotificationId = adminNotification.AdminNotificationId,
+            ServiceRequestId = adminNotification.ServiceRequestId,
+            Title = adminNotification.Title,
+            Message = adminNotification.Message,
+            NotificationType = adminNotification.NotificationType,
+            IsRead = false,
+            CreatedAt = adminNotification.CreatedAt
+        });
 
         return new ServiceRequestCreatedDto
         {
@@ -357,6 +372,32 @@ public class ServiceRequestService : IServiceRequestService
 
         await _repository.AddStatusHistoryAsync(history);
         await _repository.SaveChangesAsync();
+
+        if (request.CustomerId != null)
+        {
+            var savedNotification = await _dbContext.CustomerNotifications
+                .Where(n => n.CustomerId == request.CustomerId.Value &&
+                            n.ServiceRequestId == request.ServiceRequestId)
+                .OrderByDescending(n => n.CreatedAt)
+                .Select(n => new DTOs.Customer.Notifications.GetCustomerNotificatonDto
+                {
+                    CustomerNotificationId = n.CustomerNotificationId,
+                    ServiceRequestId = n.ServiceRequestId,
+                    Title = n.Title,
+                    Message = n.Message,
+                    IsRead = n.IsRead,
+                    CreatedAt = n.CreatedAt
+                })
+                .FirstOrDefaultAsync();
+
+            if (savedNotification != null)
+            {
+                await _notificationNotifier.NotifyCustomerAsync(
+                    request.CustomerId.Value,
+                    savedNotification
+                );
+            }
+        }
     }
 
     public async Task UpdateServiceRequestPricingAsync(
@@ -420,6 +461,19 @@ public class ServiceRequestService : IServiceRequestService
 
             await _dbContext.CustomerNotifications.AddAsync(notification);
             await _dbContext.SaveChangesAsync();
+
+            await _notificationNotifier.NotifyCustomerAsync(
+                request.CustomerId.Value,
+                new DTOs.Customer.Notifications.GetCustomerNotificatonDto
+                {
+                    CustomerNotificationId = notification.CustomerNotificationId,
+                    ServiceRequestId = notification.ServiceRequestId,
+                    Title = notification.Title,
+                    Message = notification.Message,
+                    IsRead = false,
+                    CreatedAt = notification.CreatedAt
+                }
+            );
         }
     }
 

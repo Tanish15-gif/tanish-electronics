@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TanishElectronics.Api.Constants;
@@ -25,7 +26,8 @@ public class ChatbotController : ControllerBase
 
         if (request.Message.Length > 500) return BadRequest(new { message = "Message is too long." });
 
-        var reply = await _chatbotService.GetReplyAsync(request);
+        var appUserId = GetCurrentAppUserId();
+        var reply = await _chatbotService.GetReplyAsync(request, appUserId);
         return Ok(reply);
     }
 
@@ -55,11 +57,18 @@ public class ChatbotController : ControllerBase
             PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
         };
 
-        await foreach (var evt in _chatbotService.StreamReplyAsync(request, cancellationToken))
+        var appUserId = GetCurrentAppUserId();
+        await foreach (var evt in _chatbotService.StreamReplyAsync(request, cancellationToken, appUserId))
         {
             var json = System.Text.Json.JsonSerializer.Serialize(evt, jsonOptions);
             await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
+    }
+
+    private int? GetCurrentAppUserId()
+    {
+        var claimValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claimValue, out var appUserId) ? appUserId : null;
     }
 }
