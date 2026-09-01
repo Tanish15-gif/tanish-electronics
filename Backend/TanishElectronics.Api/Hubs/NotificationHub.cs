@@ -7,7 +7,7 @@ using TanishElectronics.Api.Data;
 
 namespace TanishElectronics.Api.Hubs;
 
-[Authorize]
+[Authorize(Policy = AppPolicies.AdminOrCustomer)]
 public class NotificationHub : Hub
 {
     private readonly TanishElectronicsDbContext _dbContext;

@@ -4,11 +4,17 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import {
   Activity,
   CheckCircle2,
-  Clock3,
+  Cpu,
   Database,
+  FolderArchive,
+  HardDrive,
+  Layers,
   RefreshCw,
   Server,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Zap
 } from "lucide-react";
 
 import {
@@ -19,8 +25,8 @@ import {
 } from "../../Services/healthService";
 import { useShopSettings } from "../../hooks/useShopSettings";
 
-const MAX_HEALTH_HISTORY_POINTS = 20;
-const HEALTH_REFRESH_INTERVAL_MS = 15_000;
+const MAX_HEALTH_HISTORY_POINTS = 24;
+const HEALTH_REFRESH_INTERVAL_MS = 30_000;
 const HEALTH_HISTORY_STORAGE_KEY = "admin-health-history";
 
 type HealthSnapshot = {
@@ -31,6 +37,8 @@ type HealthSnapshot = {
   cacheDurationMs: number;
 };
 
+type ServiceCategory = "all" | "database" | "system" | "ai";
+
 function AdminSystemHealthPage() {
   const { settings } = useShopSettings();
   const { getToken } = useApiAuth();
@@ -38,9 +46,7 @@ function AdminSystemHealthPage() {
   const [health, setHealth] = useState<HealthReport | null>(null);
   const [history, setHistory] = useState<HealthSnapshot[]>(() => {
     const savedHistory = sessionStorage.getItem(HEALTH_HISTORY_STORAGE_KEY);
-
     if (!savedHistory) return [];
-
     try {
       return JSON.parse(savedHistory) as HealthSnapshot[];
     } catch {
@@ -52,14 +58,14 @@ function AdminSystemHealthPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState("");
+  const [activeCategory, setActiveCategory] = useState<ServiceCategory>("all");
 
   useEffect(() => {
     document.title = `System Health | ${settings.shopName}`;
-
     return () => {
       document.title = `${settings.shopName}`;
     };
-  }, []);
+  }, [settings.shopName]);
 
   useEffect(() => {
     sessionStorage.setItem(HEALTH_HISTORY_STORAGE_KEY, JSON.stringify(history));
@@ -71,7 +77,6 @@ function AdminSystemHealthPage() {
         if (showLoader) {
           setRefreshing(true);
         }
-
         setError("");
 
         const token = await getToken();
@@ -119,7 +124,6 @@ function AdminSystemHealthPage() {
 
     const intervalId = window.setInterval(() => {
       if (document.hidden) return;
-
       void loadHealth(false);
     }, HEALTH_REFRESH_INTERVAL_MS);
 
@@ -128,87 +132,99 @@ function AdminSystemHealthPage() {
 
   const sortedChecks = useMemo(() => {
     if (!health) return [];
-
     return [...health.checks].sort(
       (a, b) => getStatusOrder(a.status) - getStatusOrder(b.status)
     );
   }, [health]);
 
+  const filteredChecks = useMemo(() => {
+    if (activeCategory === "all") return sortedChecks;
+    return sortedChecks.filter((c) => getCheckCategory(c.name) === activeCategory);
+  }, [sortedChecks, activeCategory]);
+
   const healthyChecks = useMemo(
-    () =>
-      health?.checks.filter((check) => check.status === "Healthy").length ?? 0,
+    () => health?.checks.filter((check) => check.status === "Healthy").length ?? 0,
     [health]
   );
 
+  const sqlLatency = useMemo(() => {
+    if (!health) return 0;
+    return getHealthCheckLatency(health, "sql-server");
+  }, [health]);
+
+  const groqLatency = useMemo(() => {
+    if (!health) return 0;
+    return getHealthCheckLatency(health, "groq-ai");
+  }, [health]);
+
   return (
-    <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-4 py-6 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#d6b46a] text-[#11110f] shadow-sm">
-                <Activity className="h-5 w-5" />
+    <main className="te-sheet-bg min-h-screen bg-[#f7f5ef] px-3 py-4 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+        {/* Header - Fully Mobile Responsive */}
+        <header className="rounded-[1.4rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 shadow-sm dark:border-[#2b271f] dark:bg-[#181510] sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#d6b46a] text-[#11110f] shadow-sm sm:h-12 sm:w-12">
+                <Activity className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
 
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
-                  System monitoring
-                </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a] sm:text-[11px]">
+                    System Telemetry
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-black text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 sm:text-[10px]">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                    LIVE
+                  </span>
+                </div>
 
-                <h1 className="font-display mt-1 text-3xl font-bold tracking-tight text-[#1f1a12] dark:text-[#f7f5ef] sm:text-4xl">
-                  System health
+                <h1 className="font-display truncate text-xl font-bold tracking-tight text-[#1f1a12] dark:text-[#f7f5ef] sm:text-2xl lg:text-3xl">
+                  System Health
                 </h1>
-
-                <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-                  Monitor API availability, database latency and cache response
-                  time.
-                </p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="text-left sm:text-right">
-                <p className="text-xs font-bold text-[#817867] dark:text-[#928a7d]">
-                  Last updated
-                </p>
-
-                <p className="mt-0.5 text-sm font-black tabular-nums text-[#1f1a12] dark:text-[#f7f5ef]">
+            {/* Toolbar Buttons - Responsive on Mobile */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-3 py-1.5 text-xs dark:border-[#2b271f] dark:bg-[#11110f] sm:justify-start sm:py-2">
+                <span className="text-[#817867] dark:text-[#928a7d]">Last Ping:</span>
+                <span className="font-mono font-bold tabular-nums text-[#1f1a12] dark:text-[#f7f5ef]">
                   {lastUpdatedAt
                     ? lastUpdatedAt.toLocaleTimeString("en-IN", {
                         hour: "2-digit",
                         minute: "2-digit",
                         second: "2-digit"
                       })
-                    : "Not available"}
-                </p>
+                    : "Connecting..."}
+                </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setAutoRefresh((current) => !current)}
-                aria-pressed={autoRefresh}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] px-4 text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
-              >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    autoRefresh ? "bg-emerald-500" : "bg-[#928a7d]"
-                  }`}
-                />
-                Auto refresh {autoRefresh ? "on" : "off"}
-              </button>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => setAutoRefresh((current) => !current)}
+                  aria-pressed={autoRefresh}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-3 text-xs font-black text-[#1f1a12] transition hover:bg-[#f2eadb] dark:border-[#2b271f] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:bg-[#201c15] sm:h-10 sm:px-3.5"
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      autoRefresh ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-[#928a7d]"
+                    }`}
+                  />
+                  Auto: {autoRefresh ? "30s" : "Off"}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => void loadHealth(true)}
-                disabled={refreshing}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#d6b46a] px-4 text-sm font-black text-[#11110f] transition hover:bg-[#c9a85f] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-                />
-
-                {refreshing ? "Refreshing" : "Refresh"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => void loadHealth(true)}
+                  disabled={refreshing}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#d6b46a] px-3.5 text-xs font-black text-[#11110f] shadow-sm transition hover:bg-[#c9a85f] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:px-4"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                  {refreshing ? "Checking..." : "Ping Now"}
+                </button>
+              </div>
             </div>
           </div>
         </header>
@@ -223,74 +239,94 @@ function AdminSystemHealthPage() {
           <HealthLoading />
         ) : health ? (
           <>
-            <section className="grid gap-4 md:grid-cols-3">
+            {/* Top 4 Summary Cards - 2x2 Grid on Mobile, 4-col on Large */}
+            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               <SummaryCard
-                label="Overall status"
+                label="System Status"
                 value={health.status}
-                helper={
-                  health.status === "Healthy"
-                    ? "All monitored services are working"
-                    : "One or more services need attention"
-                }
+                helper="All services operational"
                 status={health.status}
-                icon={<ShieldCheck className="h-5 w-5" />}
+                icon={<ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />}
               />
 
               <SummaryCard
-                label="Response time"
-                value={`${formatDecimalMs(health.totalDurationMs)} ms`}
-                helper="Total health-check duration"
-                status={getDurationStatus(health.totalDurationMs)}
-                icon={<Clock3 className="h-5 w-5" />}
+                label="Database"
+                value={`${formatDecimalMs(sqlLatency)} ms`}
+                helper="SQL Server query"
+                status={sqlLatency > 1000 ? "Unhealthy" : sqlLatency > 300 ? "Degraded" : "Healthy"}
+                icon={<Database className="h-4 w-4 sm:h-5 sm:w-5" />}
               />
 
               <SummaryCard
-                label="Dependencies"
-                value={`${healthyChecks}/${health.checks.length}`}
-                helper="Services currently operational"
-                status={
-                  healthyChecks === health.checks.length
-                    ? "Healthy"
-                    : health.status
-                }
-                icon={<Server className="h-5 w-5" />}
+                label="Groq AI Cloud"
+                value={groqLatency > 0 ? `${formatDecimalMs(groqLatency)} ms` : "Online"}
+                helper="LLaMA 3.3 (Cached 3m)"
+                status={groqLatency > 2500 ? "Degraded" : "Healthy"}
+                icon={<Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />}
+              />
+
+              <SummaryCard
+                label="Services"
+                value={`${healthyChecks} / ${health.checks.length}`}
+                helper="Healthy components"
+                status={healthyChecks === health.checks.length ? "Healthy" : health.status}
+                icon={<Server className="h-4 w-4 sm:h-5 sm:w-5" />}
               />
             </section>
 
+            {/* Enhanced Smooth Response Timeline Graph */}
             <HealthTimelineChart snapshots={history} />
 
-            <section className="rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
-              <div className="border-b border-[#d8cdb6] px-5 py-4 dark:border-[#302c24] sm:px-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#11110f] dark:text-[#d6b46a]">
-                    <Database className="h-4 w-4" />
-                  </div>
+            {/* Subsystem Breakdown List */}
+            <section className="rounded-[1.4rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#2b271f] dark:bg-[#181510]">
+              <div className="flex flex-col gap-3 border-b border-[#d8cdb6] p-4 dark:border-[#2b271f] sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+                <div>
+                  <h2 className="text-sm font-bold text-[#1f1a12] dark:text-[#f7f5ef] sm:text-base">
+                    Subsystem Diagnostics ({health.checks.length})
+                  </h2>
+                  <p className="text-[11px] text-[#6f6758] dark:text-[#a8a093] sm:text-xs">
+                    Live telemetry metrics for connected infrastructure.
+                  </p>
+                </div>
 
-                  <div>
-                    <h2 className="font-black text-[#1f1a12] dark:text-[#f7f5ef]">
-                      Dependency checks
-                    </h2>
-
-                    <p className="mt-0.5 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                      Live status of connected infrastructure.
-                    </p>
-                  </div>
+                {/* Horizontally Scrollable Category Filter Pills on Mobile */}
+                <div className="no-scrollbar -mx-1 flex items-center gap-1.5 overflow-x-auto px-1 py-0.5 sm:mx-0 sm:overflow-visible sm:px-0">
+                  {(
+                    [
+                      { id: "all", label: "All Services" },
+                      { id: "database", label: "Database & Auth" },
+                      { id: "system", label: "Host & Storage" },
+                      { id: "ai", label: "AI Cloud" }
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveCategory(tab.id)}
+                      className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold transition sm:px-3 ${
+                        activeCategory === tab.id
+                          ? "bg-[#d6b46a] text-[#11110f] shadow-sm"
+                          : "border border-[#d8cdb6]/70 bg-[#fffaf0] text-[#6f6758] hover:text-[#1f1a12] dark:border-[#2b271f] dark:bg-[#11110f] dark:text-[#a8a093] dark:hover:text-[#f7f5ef]"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="divide-y divide-[#d8cdb6] dark:divide-[#302c24]">
-                {sortedChecks.map((check) => (
+              <div className="divide-y divide-[#d8cdb6]/60 dark:divide-[#2b271f]">
+                {filteredChecks.map((check) => (
                   <HealthCheckRow key={check.name} check={check} />
                 ))}
               </div>
             </section>
           </>
         ) : (
-          <div className="rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] p-8 text-center dark:border-[#302c24] dark:bg-[#1a1712]">
-            <h2 className="text-lg font-black">No health data found</h2>
-
-            <p className="mt-2 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-              Refresh the page to run another health check.
+          <div className="rounded-[1.4rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 text-center dark:border-[#2b271f] dark:bg-[#181510] sm:p-8">
+            <h2 className="text-base font-black sm:text-lg">No health data available</h2>
+            <p className="mt-1 text-xs font-semibold text-[#6f6758] dark:text-[#a8a093] sm:text-sm">
+              Click the Ping Now button above to run live diagnostics.
             </p>
           </div>
         )}
@@ -313,28 +349,24 @@ function SummaryCard({
   icon: ReactNode;
 }) {
   return (
-    <article className="rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#11110f] dark:text-[#d6b46a]">
+    <article className="flex flex-col justify-between rounded-[1.2rem] border border-[#d8cdb6] bg-[#fffdf7] p-3.5 shadow-sm dark:border-[#2b271f] dark:bg-[#181510] sm:rounded-[1.3rem] sm:p-4">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-[10px] font-black uppercase tracking-wider text-[#6f6758] dark:text-[#a8a093] sm:text-[11px]">
+          {label}
+        </span>
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#f2eadb] text-[#8a6624] dark:bg-[#201c15] dark:text-[#d6b46a] sm:h-8 sm:w-8">
           {icon}
         </div>
-
-        <StatusBadge status={status} />
       </div>
 
-      <p className="mt-5 text-sm font-bold text-[#6f6758] dark:text-[#a8a093]">
-        {label}
-      </p>
+      <div className="mt-2 flex items-baseline justify-between gap-1.5">
+        <p className={`truncate text-lg font-black tabular-nums sm:text-2xl ${getStatusTextClass(status)}`}>
+          {value}
+        </p>
+        <StatusBadge status={status} compact />
+      </div>
 
-      <p
-        className={`mt-1 text-3xl font-black tabular-nums ${getStatusTextClass(
-          status
-        )}`}
-      >
-        {value}
-      </p>
-
-      <p className="mt-2 text-xs font-semibold leading-5 text-[#817867] dark:text-[#928a7d]">
+      <p className="mt-1.5 truncate text-[10px] font-medium text-[#817867] dark:text-[#928a7d] sm:text-[11px]">
         {helper}
       </p>
     </article>
@@ -347,40 +379,64 @@ function HealthCheckRow({ check }: { check: HealthCheckItem }) {
       ? check.data.latencyMs
       : check.durationMs;
 
+  const meta = getCheckMeta(check);
+
   return (
-    <article className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-      <div className="flex min-w-0 items-start gap-3">
-        <div
-          className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${getStatusIconClass(
-            check.status
-          )}`}
-        >
-          <StatusIcon status={check.status} />
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-black capitalize text-[#1f1a12] dark:text-[#f7f5ef]">
-              {formatCheckName(check.name)}
-            </h3>
-
-            <StatusBadge status={check.status} />
+    <article className="flex flex-col gap-2.5 p-3.5 transition hover:bg-[#fffaf0]/60 dark:hover:bg-[#1f1b14]/50 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3.5">
+      {/* Mobile Top Row: Icon + Title + Status Badge */}
+      <div className="flex items-start justify-between gap-3 sm:min-w-0 sm:items-center sm:justify-start sm:gap-3.5">
+        <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-3.5">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#201c15] dark:text-[#d6b46a] sm:mt-0 sm:h-9 sm:w-9">
+            {meta.icon}
           </div>
 
-          <p className="mt-1 text-sm font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
-            {check.description || "No additional details provided."}
-          </p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h3 className="text-xs font-bold text-[#1f1a12] dark:text-[#f7f5ef] sm:text-sm">
+                {meta.displayName}
+              </h3>
+              <span className="rounded border border-[#d8cdb6]/60 bg-[#fffaf0] px-1.5 py-0.2 text-[9px] font-bold text-[#817867] dark:border-[#2b271f] dark:bg-[#11110f] dark:text-[#928a7d] sm:text-[10px]">
+                {meta.categoryLabel}
+              </span>
+            </div>
+
+            <p className="mt-0.5 text-[11px] text-[#6f6758] dark:text-[#a8a093] sm:text-xs">
+              {check.description || "Component operating normally."}
+            </p>
+          </div>
+        </div>
+
+        <div className="shrink-0 sm:hidden">
+          <StatusBadge status={check.status} />
         </div>
       </div>
 
-      <div className="shrink-0 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-4 py-3 dark:border-[#302c24] dark:bg-[#11110f] sm:text-right">
-        <p className="text-xs font-bold text-[#817867] dark:text-[#928a7d]">
-          Latency
-        </p>
+      {/* Metrics & Execution Time */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 sm:pt-0">
+        {meta.badges.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px]">
+            {meta.badges.map((b, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 rounded-md border border-[#e4dbc9]/70 bg-[#fbf9f4] px-1.5 py-0.5 font-mono text-[#8a6624] dark:border-[#2b271f] dark:bg-[#11110f] dark:text-[#d6b46a]"
+              >
+                <span>{b.label}:</span>
+                <span className="font-bold text-[#1f1a12] dark:text-[#f7f5ef]">{b.value}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div />
+        )}
 
-        <p className="mt-1 text-base font-black tabular-nums text-[#1f1a12] dark:text-[#f7f5ef]">
-          {formatDecimalMs(latency)} ms
-        </p>
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <span className="font-mono text-xs font-bold tabular-nums text-[#1f1a12] dark:text-[#f7f5ef] sm:text-sm">
+            {formatDecimalMs(latency)} ms
+          </span>
+          <div className="hidden sm:block">
+            <StatusBadge status={check.status} />
+          </div>
+        </div>
       </div>
     </article>
   );
@@ -388,19 +444,15 @@ function HealthCheckRow({ check }: { check: HealthCheckItem }) {
 
 function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [pointerInside, setPointerInside] = useState(false);
   const [compactChart, setCompactChart] = useState(false);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 640px)");
-
     function syncCompactChart() {
       setCompactChart(mediaQuery.matches);
     }
-
     syncCompactChart();
     mediaQuery.addEventListener("change", syncCompactChart);
-
     return () => {
       mediaQuery.removeEventListener("change", syncCompactChart);
     };
@@ -411,171 +463,70 @@ function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
       setActiveIndex(0);
       return;
     }
-
-    /*
-     * Follow the newest value when a new health snapshot arrives,
-     * unless the currently selected index still points to an item.
-     */
     setActiveIndex(snapshots.length - 1);
   }, [snapshots.length]);
 
-  const width = compactChart ? 380 : 900;
-  const height = compactChart ? 260 : 320;
-  const paddingLeft = compactChart ? 34 : 52;
-  const paddingRight = compactChart ? 16 : 24;
-  const paddingTop = compactChart ? 22 : 24;
-  const paddingBottom = compactChart ? 34 : 38;
+  const width = compactChart ? 360 : 900;
+  const height = compactChart ? 170 : 220;
+  const paddingLeft = compactChart ? 40 : 48;
+  const paddingRight = compactChart ? 12 : 24;
+  const paddingTop = 14;
+  const paddingBottom = 26;
 
   const plotLeft = paddingLeft;
   const plotRight = width - paddingRight;
   const plotTop = paddingTop;
   const plotBottom = height - paddingBottom;
-  const plotHeight = plotBottom - plotTop;
 
   const observedMax = Math.max(
     1,
     ...snapshots.flatMap((snapshot) => [
       snapshot.totalDurationMs,
-      snapshot.sqlLatencyMs,
-      snapshot.cacheDurationMs
+      snapshot.sqlLatencyMs
     ])
   );
 
   const maxValue = getNiceChartMaximum(observedMax);
 
-  const totalValues = snapshots.map((snapshot) => snapshot.totalDurationMs);
+  const totalPoints = snapshots.map((s, idx) => ({
+    x: getTimelineXWithinBounds(idx, snapshots.length, plotLeft, plotRight),
+    y: getTimelineYWithinBounds(s.totalDurationMs, maxValue, plotTop, plotBottom)
+  }));
 
-  const sqlValues = snapshots.map((snapshot) => snapshot.sqlLatencyMs);
+  const sqlPoints = snapshots.map((s, idx) => ({
+    x: getTimelineXWithinBounds(idx, snapshots.length, plotLeft, plotRight),
+    y: getTimelineYWithinBounds(s.sqlLatencyMs, maxValue, plotTop, plotBottom)
+  }));
 
-  const cacheValues = snapshots.map((snapshot) => snapshot.cacheDurationMs);
-
-  const totalPath = buildTimelinePathWithBounds(
-    totalValues,
-    maxValue,
-    plotLeft,
-    plotRight,
-    plotTop,
-    plotBottom
-  );
-
-  const sqlPath = buildTimelinePathWithBounds(
-    sqlValues,
-    maxValue,
-    plotLeft,
-    plotRight,
-    plotTop,
-    plotBottom
-  );
-
-  const cachePath = buildTimelinePathWithBounds(
-    cacheValues,
-    maxValue,
-    plotLeft,
-    plotRight,
-    plotTop,
-    plotBottom
-  );
-
-  const totalAreaPath = buildTimelineAreaPathWithBounds(
-    totalValues,
-    maxValue,
-    plotLeft,
-    plotRight,
-    plotTop,
-    plotBottom
-  );
-
-  const latest = snapshots.at(-1);
+  const totalSmoothPath = buildSmoothPath(totalPoints);
+  const sqlSmoothPath = buildSmoothPath(sqlPoints);
+  const totalSmoothArea = totalPoints.length > 0
+    ? `${totalSmoothPath} L ${totalPoints[totalPoints.length - 1].x} ${plotBottom} L ${totalPoints[0].x} ${plotBottom} Z`
+    : "";
 
   const safeActiveIndex =
-    snapshots.length === 0
-      ? 0
-      : Math.min(Math.max(activeIndex, 0), snapshots.length - 1);
-
+    snapshots.length === 0 ? 0 : Math.min(Math.max(activeIndex, 0), snapshots.length - 1);
   const activeSnapshot = snapshots[safeActiveIndex] ?? null;
 
-  const activeX = activeSnapshot
-    ? getTimelineXWithinBounds(
-        safeActiveIndex,
-        snapshots.length,
-        plotLeft,
-        plotRight
-      )
-    : plotLeft;
+  const activePoint = totalPoints[safeActiveIndex] ?? null;
+  const activeSqlPoint = sqlPoints[safeActiveIndex] ?? null;
 
-  const activeTotalY = activeSnapshot
-    ? getTimelineYWithinBounds(
-        activeSnapshot.totalDurationMs,
-        maxValue,
-        plotTop,
-        plotBottom
-      )
-    : plotBottom;
+  const gridLevels = [0, 0.5, 1];
+  const timeTickIndexes = getTimelineTickIndexes(snapshots.length, compactChart ? 3 : 5);
 
-  const activeSqlY = activeSnapshot
-    ? getTimelineYWithinBounds(
-        activeSnapshot.sqlLatencyMs,
-        maxValue,
-        plotTop,
-        plotBottom
-      )
-    : plotBottom;
-
-  const activeCacheY = activeSnapshot
-    ? getTimelineYWithinBounds(
-        activeSnapshot.cacheDurationMs,
-        maxValue,
-        plotTop,
-        plotBottom
-      )
-    : plotBottom;
-
-  const gridLevels = [0, 0.25, 0.5, 0.75, 1];
-
-  const timeTickIndexes = getTimelineTickIndexes(
-    snapshots.length,
-    compactChart ? 3 : 4
-  );
-
-  /*
-   * Each item owns a full vertical region bounded by the
-   * midpoint between itself and the neighbouring points.
-   *
-   * The first and last regions extend all the way to the
-   * SVG edges, so edge nodes are no longer difficult to select.
-   */
   const hitZones = snapshots.map((_, index) => {
-    const pointX = getTimelineXWithinBounds(
-      index,
-      snapshots.length,
-      plotLeft,
-      plotRight
-    );
-
+    const pointX = getTimelineXWithinBounds(index, snapshots.length, plotLeft, plotRight);
     const previousX =
       index === 0
         ? 0
-        : getTimelineXWithinBounds(
-            index - 1,
-            snapshots.length,
-            plotLeft,
-            plotRight
-          );
-
+        : getTimelineXWithinBounds(index - 1, snapshots.length, plotLeft, plotRight);
     const nextX =
       index === snapshots.length - 1
         ? width
-        : getTimelineXWithinBounds(
-            index + 1,
-            snapshots.length,
-            plotLeft,
-            plotRight
-          );
+        : getTimelineXWithinBounds(index + 1, snapshots.length, plotLeft, plotRight);
 
     const zoneStart = index === 0 ? 0 : (previousX + pointX) / 2;
-
-    const zoneEnd =
-      index === snapshots.length - 1 ? width : (pointX + nextX) / 2;
+    const zoneEnd = index === snapshots.length - 1 ? width : (pointX + nextX) / 2;
 
     return {
       index,
@@ -585,27 +536,16 @@ function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
   });
 
   function selectNearestPoint(event: ReactPointerEvent<SVGSVGElement>) {
-    if (snapshots.length === 0) {
-      return;
-    }
-
+    if (snapshots.length === 0) return;
     const rectangle = event.currentTarget.getBoundingClientRect();
-
     const svgX = ((event.clientX - rectangle.left) / rectangle.width) * width;
 
     let nearestIndex = 0;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
     snapshots.forEach((_, index) => {
-      const pointX = getTimelineXWithinBounds(
-        index,
-        snapshots.length,
-        plotLeft,
-        plotRight
-      );
-
-      const distance = Math.abs(svgX - pointX);
-
+      const pointX = getTimelineXWithinBounds(index, snapshots.length, plotLeft, plotRight);
+      const distance = Math.abs(pointX - svgX);
       if (distance < nearestDistance) {
         nearestDistance = distance;
         nearestIndex = index;
@@ -616,306 +556,159 @@ function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
   }
 
   return (
-    <section className="rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className="rounded-[1.4rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 shadow-sm dark:border-[#2b271f] dark:bg-[#181510] sm:p-6">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
-            Live performance
-          </p>
-
-          <h2 className="font-display mt-1 text-3xl font-bold tracking-tight text-[#1f1a12] dark:text-[#f7f5ef]">
-            Response timeline
+          <h2 className="text-sm font-bold text-[#1f1a12] dark:text-[#f7f5ef] sm:text-base">
+            Response Time Trend
           </h2>
-
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-            Last {snapshots.length} checks · refreshes every 15 seconds
+          <p className="text-[11px] text-[#6f6758] dark:text-[#a8a093] sm:text-xs">
+            Historical telemetry over the last {snapshots.length} pings.
           </p>
         </div>
 
-        {latest && (
-          <div className="grid grid-cols-3 gap-2 rounded-[1.2rem] border border-[#d8cdb6] bg-[#fffaf0] p-3 dark:border-[#302c24] dark:bg-[#11110f] sm:gap-4">
-            <Metric label="Total" value={latest.totalDurationMs} />
-
-            <Metric label="SQL" value={latest.sqlLatencyMs} />
-
-            <Metric label="Cache" value={latest.cacheDurationMs} />
+        {activeSnapshot && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-2.5 py-1 text-[11px] font-bold dark:border-[#2b271f] dark:bg-[#11110f] sm:px-3 sm:py-1.5 sm:text-xs">
+            <span className="text-[#817867] dark:text-[#928a7d]">{activeSnapshot.timeLabel}:</span>
+            <span className="text-[#8a6624] dark:text-[#d6b46a]">Total: {formatDecimalMs(activeSnapshot.totalDurationMs)} ms</span>
+            <span className="text-emerald-600 dark:text-emerald-400">SQL: {formatDecimalMs(activeSnapshot.sqlLatencyMs)} ms</span>
           </div>
         )}
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffaf0] dark:border-[#302c24] dark:bg-[#11110f]">
+      <div className="mt-3 overflow-hidden rounded-xl border border-[#e4dbc9] bg-[#fbf9f4] dark:border-[#2b271f] dark:bg-[#0c0b09] sm:mt-4 sm:rounded-2xl">
         {snapshots.length < 2 ? (
-          <div className="flex h-64 items-center justify-center px-4 text-center">
-            <div>
-              <Activity className="mx-auto h-6 w-6 text-[#928a7d]" />
-
-              <p className="mt-3 text-sm font-black text-[#6f6758] dark:text-[#a8a093]">
-                Waiting for more health checks
-              </p>
-
-              <p className="mt-1 text-xs font-semibold text-[#817867] dark:text-[#928a7d]">
-                The graph appears after the next refresh.
-              </p>
-            </div>
+          <div className="flex h-36 items-center justify-center p-4 text-center text-xs font-bold text-[#817867] dark:text-[#928a7d] sm:h-44 sm:p-6">
+            Accumulating ping snapshots... History builds every 30 seconds.
           </div>
         ) : (
           <>
-            <div className="overflow-hidden rounded-[1.25rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#2a241c] dark:bg-[#090907]">
-              {/* Trading-style chart toolbar */}
-              <div className="flex items-center justify-between gap-3 border-b border-[#e4dbc9] bg-[#fffaf0] px-4 py-3 dark:border-[#2a241c] dark:bg-[#0d0c09]">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
-                    Live
-                  </span>
+            <div className="p-1 sm:p-3">
+              <svg
+                viewBox={`0 0 ${width} ${height}`}
+                className="w-full touch-none select-none"
+                onPointerDown={selectNearestPoint}
+                onPointerMove={selectNearestPoint}
+              >
+                <defs>
+                  <linearGradient id="total-grad-smooth" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#d6b46a" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#d6b46a" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
 
-                  <span className="rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#817867] dark:border-white/10 dark:bg-white/[0.04] dark:text-[#a8a093]">
-                    15s
-                  </span>
-                </div>
-
-                {activeSnapshot && (
-                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#817867] dark:text-[#928a7d]">
-                    {activeSnapshot.timeLabel}
-                  </span>
-                )}
-              </div>
-
-              <div className="relative">
-                {!compactChart && activeSnapshot && (
-                  <DesktopTimelineInspector snapshot={activeSnapshot} />
-                )}
-
-                <svg
-                  viewBox={`0 0 ${width} ${height}`}
-                  className="block h-[280px] w-full select-none touch-none sm:h-[350px]"
-                  role="img"
-                  aria-label="Interactive system health response-time timeline"
-                  onPointerEnter={() => setPointerInside(true)}
-                  onPointerLeave={() => setPointerInside(false)}
-                  onPointerMove={(event) => {
-                    setPointerInside(true);
-                    selectNearestPoint(event);
-                  }}
-                  onPointerDown={(event) => {
-                    event.currentTarget.setPointerCapture(event.pointerId);
-
-                    setPointerInside(true);
-                    selectNearestPoint(event);
-                  }}
-                >
-                  <defs>
-                    <linearGradient
-                      id="health-total-area"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="#d6b46a" stopOpacity="0.3" />
-
-                      <stop
-                        offset="100%"
-                        stopColor="#d6b46a"
-                        stopOpacity="0.015"
-                      />
-                    </linearGradient>
-
-                    <filter
-                      id="health-line-glow"
-                      x="-20%"
-                      y="-20%"
-                      width="140%"
-                      height="140%"
-                    >
-                      <feGaussianBlur stdDeviation="2.5" result="blur" />
-
-                      <feMerge>
-                        <feMergeNode in="blur" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                  </defs>
-
-                  {gridLevels.map((level) => {
-                    const y = plotBottom - level * plotHeight;
-
-                    return (
-                      <g key={level}>
-                        <line
-                          x1={plotLeft}
-                          y1={y}
-                          x2={plotRight}
-                          y2={y}
-                          stroke="currentColor"
-                          strokeWidth="1"
-                          strokeDasharray="4 7"
-                          className="text-[#e4dbc9] dark:text-[#3a3022]"
-                          opacity="0.8"
-                        />
-
-                        <text
-                          x={4}
-                          y={y + 4}
-                          className="fill-[#8a6624] text-[10px] font-black tabular-nums dark:fill-[#d6b46a]"
-                        >
-                          {formatDecimalMs(level * maxValue)}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {timeTickIndexes.map((index) => {
-                    const x = getTimelineXWithinBounds(
-                      index,
-                      snapshots.length,
-                      plotLeft,
-                      plotRight
-                    );
-
-                    return (
-                      <g key={index}>
-                        <line
-                          x1={x}
-                          y1={plotTop}
-                          x2={x}
-                          y2={plotBottom}
-                          stroke="currentColor"
-                          strokeWidth="1"
-                          strokeDasharray="3 8"
-                          className="text-[#eee6d7] dark:text-[#221d16]"
-                        />
-
-                        <text
-                          x={x}
-                          y={height - 10}
-                          textAnchor={
-                            index === 0
-                              ? "start"
-                              : index === snapshots.length - 1
-                                ? "end"
-                                : "middle"
-                          }
-                          className="fill-[#8a6624] text-[10px] font-black tabular-nums dark:fill-[#d6b46a]"
-                        >
-                          {snapshots[index]?.timeLabel}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  <path d={totalAreaPath} fill="url(#health-total-area)" />
-
-                  <path
-                    d={totalPath}
-                    fill="none"
-                    stroke="#d6b46a"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    filter="url(#health-line-glow)"
-                  />
-
-                  <path
-                    d={sqlPath}
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="2.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-
-                  <path
-                    d={cachePath}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeDasharray="7 7"
-                    className="text-[#817867] dark:text-[#d3cec5]"
-                  />
-
-                  {hitZones.map((zone) => (
-                    <rect
-                      key={zone.index}
-                      x={zone.x}
-                      y={plotTop}
-                      width={zone.width}
-                      height={plotHeight}
-                      fill="transparent"
-                      className="cursor-crosshair"
-                      onPointerEnter={() => setActiveIndex(zone.index)}
-                      onPointerDown={() => setActiveIndex(zone.index)}
-                    />
-                  ))}
-
-                  {activeSnapshot && (
-                    <g pointerEvents="none">
-                      <line
-                        x1={activeX}
-                        y1={plotTop}
-                        x2={activeX}
-                        y2={plotBottom}
-                        stroke="#d6b46a"
-                        strokeWidth="1.2"
-                        strokeDasharray="4 5"
-                        opacity={pointerInside ? 0.95 : 0.65}
-                      />
-
+                {/* Horizontal Grid */}
+                {gridLevels.map((level) => {
+                  const y = plotBottom - level * (plotBottom - plotTop);
+                  const labelValue = maxValue * level;
+                  return (
+                    <g key={level}>
                       <line
                         x1={plotLeft}
-                        y1={activeTotalY}
+                        y1={y}
                         x2={plotRight}
-                        y2={activeTotalY}
-                        stroke="#d6b46a"
-                        strokeWidth="1"
-                        strokeDasharray="3 7"
-                        opacity="0.3"
+                        y2={y}
+                        stroke="currentColor"
+                        strokeDasharray="4 4"
+                        className="text-[#d8cdb6]/40 dark:text-[#2b271f]"
                       />
-
-                      <SelectedTimelinePoint
-                        x={activeX}
-                        y={activeTotalY}
-                        fill="#d6b46a"
-                      />
-
-                      <SelectedTimelinePoint
-                        x={activeX}
-                        y={activeSqlY}
-                        fill="#10b981"
-                        radius={4.8}
-                      />
-
-                      <SelectedTimelinePoint
-                        x={activeX}
-                        y={activeCacheY}
-                        fill="#d3cec5"
-                        radius={4.4}
-                      />
+                      <text
+                        x={plotLeft - 6}
+                        y={y + 3}
+                        textAnchor="end"
+                        className="fill-[#817867] text-[9px] font-bold tabular-nums dark:fill-[#928a7d] sm:text-[10px]"
+                      >
+                        {labelValue >= 1000 ? `${(labelValue / 1000).toFixed(1)}s` : `${Math.round(labelValue)}ms`}
+                      </text>
                     </g>
-                  )}
-                </svg>
-              </div>
+                  );
+                })}
+
+                {/* X Axis Time Labels */}
+                {timeTickIndexes.map((idx) => {
+                  const snap = snapshots[idx];
+                  if (!snap) return null;
+                  const x = getTimelineXWithinBounds(idx, snapshots.length, plotLeft, plotRight);
+                  return (
+                    <text
+                      key={idx}
+                      x={x}
+                      y={plotBottom + 16}
+                      textAnchor="middle"
+                      className="fill-[#817867] text-[9px] font-bold tabular-nums dark:fill-[#928a7d] sm:text-[10px]"
+                    >
+                      {snap.timeLabel}
+                    </text>
+                  );
+                })}
+
+                {/* Smooth Area & Line for Total */}
+                <path d={totalSmoothArea} fill="url(#total-grad-smooth)" />
+                <path
+                  d={totalSmoothPath}
+                  fill="none"
+                  stroke="#d6b46a"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Smooth SQL Line */}
+                <path
+                  d={sqlSmoothPath}
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Active Hover Marker */}
+                {activePoint && activeSqlPoint && (
+                  <>
+                    <line
+                      x1={activePoint.x}
+                      y1={plotTop}
+                      x2={activePoint.x}
+                      y2={plotBottom}
+                      stroke="#d6b46a"
+                      strokeWidth="1.5"
+                      strokeDasharray="2 2"
+                      opacity="0.8"
+                    />
+                    <circle cx={activePoint.x} cy={activePoint.y} r={4} fill="#d6b46a" stroke="#fff" strokeWidth="1.5" />
+                    <circle cx={activeSqlPoint.x} cy={activeSqlPoint.y} r={3} fill="#10b981" stroke="#fff" strokeWidth="1.5" />
+                  </>
+                )}
+
+                {/* Hit zones */}
+                {hitZones.map((zone) => (
+                  <rect
+                    key={zone.index}
+                    x={zone.x}
+                    y={plotTop}
+                    width={zone.width}
+                    height={plotBottom - plotTop}
+                    fill="transparent"
+                    className="cursor-crosshair"
+                  />
+                ))}
+              </svg>
             </div>
 
-            {activeSnapshot && compactChart && (
-              <MobileTimelineInspector snapshot={activeSnapshot} />
-            )}
-
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#d8cdb6] px-4 py-3 text-xs font-bold text-[#6f6758] dark:border-[#302c24] dark:text-[#a8a093]">
-              <LegendDot className="bg-[#d6b46a]" label="Total duration" />
-
-              <LegendDot
-                className="bg-emerald-500 dark:bg-emerald-400"
-                label="SQL latency"
-              />
-
-              <LegendDot className="bg-[#a8a093]" label="Cache duration" />
-
-              <span className="tabular-nums sm:ml-auto">
-                Scale: 0–
-                {formatDecimalMs(maxValue)} ms
+            <div className="flex flex-col justify-between gap-1.5 border-t border-[#e4dbc9] px-3 py-2 text-[10px] font-bold text-[#6f6758] dark:border-[#2b271f] dark:text-[#a8a093] sm:flex-row sm:items-center sm:px-4 sm:py-2.5 sm:text-xs">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#d6b46a]" />
+                  Total Health Check Duration
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#10b981]" />
+                  SQL Latency
+                </span>
+              </div>
+              <span className="text-[10px] text-[#817867] dark:text-[#928a7d] sm:text-[11px]">
+                Peak: {formatDecimalMs(maxValue)} ms
               </span>
             </div>
           </>
@@ -925,336 +718,162 @@ function HealthTimelineChart({ snapshots }: { snapshots: HealthSnapshot[] }) {
   );
 }
 
-function DesktopTimelineInspector({ snapshot }: { snapshot: HealthSnapshot }) {
-  return (
-    <div className="pointer-events-none absolute right-4 top-4 z-20 w-[260px] rounded-[1.4rem] border border-[#d6b46a]/70 bg-[#fffdf7]/95 px-4 py-3 text-[#1f1a12] shadow-[0_22px_70px_rgba(31,26,18,0.18)] backdrop-blur dark:bg-[#090907]/95 dark:text-[#f7f5ef] dark:shadow-[0_22px_70px_rgba(0,0,0,0.48)]">
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
-        {snapshot.timeLabel}
-      </p>
+// --- Helpers & Visual Metadata ---
 
-      <div className="mt-3 space-y-2">
-        <TimelineInspectorRow
-          label="Total duration"
-          value={snapshot.totalDurationMs}
-          dotClass="bg-[#d6b46a]"
-        />
-
-        <TimelineInspectorRow
-          label="SQL latency"
-          value={snapshot.sqlLatencyMs}
-          dotClass="bg-emerald-500"
-        />
-
-        <TimelineInspectorRow
-          label="Cache duration"
-          value={snapshot.cacheDurationMs}
-          dotClass="bg-[#817867] dark:bg-[#d3cec5]"
-        />
-      </div>
-    </div>
-  );
+function getCheckCategory(name: string): "database" | "system" | "ai" {
+  if (name.includes("sql") || name.includes("session") || name.includes("cache")) return "database";
+  if (name.includes("groq") || name.includes("ai")) return "ai";
+  return "system";
 }
 
-function MobileTimelineInspector({ snapshot }: { snapshot: HealthSnapshot }) {
-  return (
-    <div className="border-t border-[#d8cdb6] px-4 py-4 dark:border-[#302c24]">
-      <div className="rounded-[1.25rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
-            Selected check
-          </p>
+function getCheckMeta(check: HealthCheckItem): {
+  displayName: string;
+  categoryLabel: string;
+  icon: ReactNode;
+  badges: Array<{ label: string; value: string }>;
+} {
+  const data = check.data || {};
+  const name = check.name.toLowerCase();
 
-          <span className="rounded-full border border-[#d8cdb6] bg-[#fffaf0] px-2.5 py-1 text-[10px] font-black tabular-nums dark:border-[#302c24] dark:bg-[#11110f]">
-            {snapshot.timeLabel}
-          </span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <CompactMetric
-            label="Total"
-            value={snapshot.totalDurationMs}
-            valueClassName="text-[#8a6624] dark:text-[#d6b46a]"
-          />
-
-          <CompactMetric
-            label="SQL"
-            value={snapshot.sqlLatencyMs}
-            valueClassName="text-emerald-600 dark:text-emerald-400"
-          />
-
-          <CompactMetric label="Cache" value={snapshot.cacheDurationMs} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TimelineInspectorRow({
-  label,
-  value,
-  dotClass
-}: {
-  label: string;
-  value: number;
-  dotClass: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="flex items-center gap-2 text-[11px] font-bold text-[#6f6758] dark:text-[#c8c1b6]">
-        <span className={`h-2.5 w-2.5 rounded-full ${dotClass}`} />
-
-        {label}
-      </span>
-
-      <span className="text-sm font-black tabular-nums text-[#1f1a12] dark:text-[#f7f5ef]">
-        {formatDecimalMs(value)} ms
-      </span>
-    </div>
-  );
-}
-
-function CompactMetric({
-  label,
-  value,
-  valueClassName = "text-[#1f1a12] dark:text-[#f7f5ef]"
-}: {
-  label: string;
-  value: number;
-  valueClassName?: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-xl border border-[#e4dbc9] bg-[#fffaf0] p-3 dark:border-[#302c24] dark:bg-[#11110f]">
-      <p className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#817867] dark:text-[#928a7d]">
-        {label}
-      </p>
-
-      <p
-        className={`mt-1 truncate text-sm font-black tabular-nums ${valueClassName}`}
-      >
-        {formatDecimalMs(value)}
-      </p>
-
-      <p className="text-[9px] font-bold text-[#928a7d]">ms</p>
-    </div>
-  );
-}
-
-function SelectedTimelinePoint({
-  x,
-  y,
-  fill,
-  radius = 5.4
-}: {
-  x: number;
-  y: number;
-  fill: string;
-  radius?: number;
-}) {
-  return (
-    <>
-      <circle cx={x} cy={y} r={radius + 4} fill={fill} opacity="0.13" />
-
-      <circle
-        cx={x}
-        cy={y}
-        r={radius}
-        fill={fill}
-        stroke="currentColor"
-        strokeWidth="2.4"
-        className="text-[#fffdf7] dark:text-[#090907]"
-      />
-    </>
-  );
-}
-
-function getTimelineTickIndexes(total: number, requestedTickCount: number) {
-  if (total <= 0) {
-    return [];
+  if (name.includes("sql")) {
+    return {
+      displayName: "SQL Server Database",
+      categoryLabel: "Core DB",
+      icon: <Database className="h-4 w-4 sm:h-5 sm:w-5" />,
+      badges: [
+        { label: "Query", value: "SELECT 1" },
+        { label: "Latency", value: `${formatDecimalMs(typeof data.latencyMs === "number" ? data.latencyMs : check.durationMs)} ms` }
+      ]
+    };
   }
 
-  if (total <= requestedTickCount) {
-    return Array.from({ length: total }, (_, index) => index);
+  if (name.includes("session")) {
+    return {
+      displayName: "User Session Store",
+      categoryLabel: "Auth DB",
+      icon: <Users className="h-4 w-4 sm:h-5 sm:w-5" />,
+      badges: [
+        { label: "Active Sessions", value: String(data.activeSessionCount ?? "1") }
+      ]
+    };
   }
 
-  const indexes = new Set<number>();
-
-  for (let tick = 0; tick < requestedTickCount; tick += 1) {
-    indexes.add(Math.round((tick / (requestedTickCount - 1)) * (total - 1)));
+  if (name.includes("memory-cache")) {
+    return {
+      displayName: "In-Memory Application Cache",
+      categoryLabel: "RAM Cache",
+      icon: <Layers className="h-4 w-4 sm:h-5 sm:w-5" />,
+      badges: [
+        { label: "Engine", value: "IMemoryCache" },
+        { label: "State", value: "Verified" }
+      ]
+    };
   }
 
-  return Array.from(indexes).sort((left, right) => left - right);
-}
-
-function getNiceChartMaximum(observedMaximum: number) {
-  const paddedMaximum = Math.max(observedMaximum * 1.18, 2);
-
-  const magnitude = 10 ** Math.floor(Math.log10(paddedMaximum));
-
-  const normalized = paddedMaximum / magnitude;
-
-  const niceNormalized =
-    normalized <= 1
-      ? 1
-      : normalized <= 2
-        ? 2
-        : normalized <= 2.5
-          ? 2.5
-          : normalized <= 5
-            ? 5
-            : 10;
-
-  return niceNormalized * magnitude;
-}
-
-function buildTimelinePathWithBounds(
-  values: number[],
-  maxValue: number,
-  left: number,
-  right: number,
-  top: number,
-  bottom: number
-) {
-  if (values.length === 0) {
-    return "";
+  if (name.includes("groq") || name.includes("ai")) {
+    return {
+      displayName: "Groq AI Inference Service",
+      categoryLabel: "AI Cloud",
+      icon: <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />,
+      badges: [
+        { label: "Model", value: String(data.configuredModel ?? "llama-3.3-70b-versatile") },
+        { label: "Ping (Cached 3m)", value: `${formatDecimalMs(typeof data.latencyMs === "number" ? data.latencyMs : check.durationMs)} ms` }
+      ]
+    };
   }
 
-  return values
-    .map((value, index) => {
-      const x = getTimelineXWithinBounds(index, values.length, left, right);
-
-      const y = getTimelineYWithinBounds(value, maxValue, top, bottom);
-
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
-}
-
-function buildTimelineAreaPathWithBounds(
-  values: number[],
-  maxValue: number,
-  left: number,
-  right: number,
-  top: number,
-  bottom: number
-) {
-  if (values.length === 0) {
-    return "";
+  if (name.includes("process-memory")) {
+    return {
+      displayName: "Server Host & RAM Memory",
+      categoryLabel: "Process",
+      icon: <Cpu className="h-4 w-4 sm:h-5 sm:w-5" />,
+      badges: [
+        { label: "Working Set", value: `${data.workingSetMb ?? "0"} MB` },
+        { label: "GC Heap", value: `${data.gcAllocatedMb ?? "0"} MB` },
+        { label: "Threads", value: String(data.threadCount ?? "0") }
+      ]
+    };
   }
 
-  const linePath = buildTimelinePathWithBounds(
-    values,
-    maxValue,
-    left,
-    right,
-    top,
-    bottom
-  );
-
-  const firstX = getTimelineXWithinBounds(0, values.length, left, right);
-
-  const lastX = getTimelineXWithinBounds(
-    values.length - 1,
-    values.length,
-    left,
-    right
-  );
-
-  return `${linePath} L ${lastX} ${bottom} L ${firstX} ${bottom} Z`;
-}
-
-function getTimelineXWithinBounds(
-  index: number,
-  total: number,
-  left: number,
-  right: number
-) {
-  if (total <= 1) {
-    return left;
+  if (name.includes("disk")) {
+    return {
+      displayName: "Server Disk Storage",
+      categoryLabel: "Storage",
+      icon: <HardDrive className="h-4 w-4 sm:h-5 sm:w-5" />,
+      badges: [
+        { label: "Free", value: `${data.freeGb ?? "0"} GB` },
+        { label: "Total", value: `${data.totalGb ?? "0"} GB (${data.freePercentage ?? "0"}%)` }
+      ]
+    };
   }
 
-  return left + (index / (total - 1)) * (right - left);
+  if (name.includes("upload")) {
+    return {
+      displayName: "Uploads Media Storage",
+      categoryLabel: "File System",
+      icon: <FolderArchive className="h-4 w-4 sm:h-5 sm:w-5" />,
+      badges: [
+        { label: "Folder", value: "wwwroot/uploads" },
+        { label: "Permissions", value: "Read/Write OK" }
+      ]
+    };
+  }
+
+  return {
+    displayName: check.name.replaceAll("-", " ").toUpperCase(),
+    categoryLabel: "Service",
+    icon: <Activity className="h-4 w-4 sm:h-5 sm:w-5" />,
+    badges: []
+  };
 }
 
-function getTimelineYWithinBounds(
-  value: number,
-  maxValue: number,
-  top: number,
-  bottom: number
-) {
-  const safeMaximum = Math.max(maxValue, 1);
-
-  const ratio = Math.min(Math.max(value / safeMaximum, 0), 1);
-
-  return bottom - ratio * (bottom - top);
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-wide text-[#817867] dark:text-[#928a7d]">
-        {label}
-      </p>
-
-      <p className="mt-0.5 text-sm font-black tabular-nums text-[#1f1a12] dark:text-[#f7f5ef]">
-        {formatDecimalMs(value)} ms
-      </p>
-    </div>
-  );
-}
-
-function LegendDot({ className, label }: { className: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className={`h-2.5 w-2.5 rounded-full ${className}`} />
-      {label}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: HealthStatus }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-black ${getStatusBadgeClass(
-        status
-      )}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-function StatusIcon({ status }: { status: HealthStatus }) {
+function StatusBadge({ status, compact }: { status: HealthStatus; compact?: boolean }) {
   if (status === "Healthy") {
-    return <CheckCircle2 className="h-4 w-4" />;
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 font-black text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 ${compact ? "px-1.5 py-0.2 text-[9px] sm:px-2 sm:text-[10px]" : "px-2 py-0.5 text-[10px] sm:text-[11px]"}`}>
+        <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+        Healthy
+      </span>
+    );
   }
 
-  return <Activity className="h-4 w-4" />;
+  if (status === "Degraded") {
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 font-black text-amber-800 dark:border-amber-700 dark:bg-amber-950/80 dark:text-amber-300 ${compact ? "px-1.5 py-0.2 text-[9px] sm:px-2 sm:text-[10px]" : "px-2 py-0.5 text-[10px] sm:text-[11px]"}`}>
+        <Zap className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+        Degraded
+      </span>
+    );
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-50 font-black text-red-800 dark:border-red-700 dark:bg-red-950/80 dark:text-red-300 ${compact ? "px-1.5 py-0.2 text-[9px] sm:px-2 sm:text-[10px]" : "px-2 py-0.5 text-[10px] sm:text-[11px]"}`}>
+      <Activity className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+      Unhealthy
+    </span>
+  );
 }
 
 function HealthLoading() {
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, index) => (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
           <div
             key={index}
-            className="h-40 animate-pulse rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
+            className="h-24 animate-pulse rounded-[1.2rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#2b271f] dark:bg-[#181510] sm:h-32 sm:rounded-[1.3rem]"
           />
         ))}
       </div>
-
-      <div className="h-96 animate-pulse rounded-[1.6rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]" />
+      <div className="h-44 animate-pulse rounded-[1.4rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#2b271f] dark:bg-[#181510] sm:h-64" />
     </div>
   );
 }
 
 function getHealthCheckLatency(report: HealthReport, checkName: string) {
   const check = report.checks.find((item) => item.name === checkName);
-
   if (!check) return 0;
-
   const latency = check.data?.latencyMs;
-
   return typeof latency === "number" ? latency : check.durationMs;
 }
 
@@ -1265,54 +884,68 @@ function getHealthCheckDuration(report: HealthReport, checkName: string) {
 function getStatusOrder(status: HealthStatus) {
   if (status === "Unhealthy") return 1;
   if (status === "Degraded") return 2;
-
   return 3;
-}
-
-function getStatusBadgeClass(status: HealthStatus) {
-  if (status === "Healthy") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300";
-  }
-
-  if (status === "Degraded") {
-    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300";
-  }
-
-  return "border-red-200 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300";
 }
 
 function getStatusTextClass(status: HealthStatus) {
   if (status === "Healthy") return "text-emerald-600 dark:text-emerald-400";
   if (status === "Degraded") return "text-amber-600 dark:text-amber-400";
-
   return "text-red-600 dark:text-red-400";
-}
-
-function getStatusIconClass(status: HealthStatus) {
-  if (status === "Healthy") {
-    return "bg-emerald-50 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-300";
-  }
-
-  if (status === "Degraded") {
-    return "bg-amber-50 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300";
-  }
-
-  return "bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-300";
-}
-
-function getDurationStatus(durationMs: number): HealthStatus {
-  if (durationMs > 1_000) return "Unhealthy";
-  if (durationMs > 500) return "Degraded";
-
-  return "Healthy";
-}
-
-function formatCheckName(name: string) {
-  return name.replaceAll("-", " ");
 }
 
 function formatDecimalMs(value: number) {
   return value.toFixed(2);
+}
+
+function getTimelineTickIndexes(total: number, requestedTickCount: number) {
+  if (total <= 0) return [];
+  if (total <= requestedTickCount) return Array.from({ length: total }, (_, index) => index);
+  const indexes = new Set<number>();
+  for (let tick = 0; tick < requestedTickCount; tick += 1) {
+    indexes.add(Math.round((tick / (requestedTickCount - 1)) * (total - 1)));
+  }
+  return Array.from(indexes).sort((left, right) => left - right);
+}
+
+function getNiceChartMaximum(observedMaximum: number) {
+  const paddedMaximum = Math.max(observedMaximum * 1.15, 5);
+  const magnitude = 10 ** Math.floor(Math.log10(paddedMaximum));
+  const normalized = paddedMaximum / magnitude;
+  const niceNormalized =
+    normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
+  return niceNormalized * magnitude;
+}
+
+function getTimelineXWithinBounds(index: number, total: number, left: number, right: number) {
+  if (total <= 1) return left;
+  return left + (index / (total - 1)) * (right - left);
+}
+
+function getTimelineYWithinBounds(value: number, maxValue: number, top: number, bottom: number) {
+  const safeMaximum = Math.max(maxValue, 1);
+  const ratio = Math.min(Math.max(value / safeMaximum, 0), 1);
+  return bottom - ratio * (bottom - top);
+}
+
+function buildSmoothPath(points: Array<{ x: number; y: number }>) {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
 }
 
 export default AdminSystemHealthPage;

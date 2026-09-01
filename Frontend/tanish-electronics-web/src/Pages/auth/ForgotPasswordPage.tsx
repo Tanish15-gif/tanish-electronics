@@ -168,10 +168,13 @@ function ForgotPasswordPage() {
       clearResetSession();
 
       setInformation(response.message);
-      setRequestSubmitted(true);
+      setStep("otp");
       setResendSeconds(RESEND_SECONDS);
+
+      window.requestAnimationFrame(() => {
+        otpInputRefs.current[0]?.focus();
+      });
     } catch (caughtError) {
-      setRequestSubmitted(false);
       setInformation("");
       setError(
         caughtError instanceof Error

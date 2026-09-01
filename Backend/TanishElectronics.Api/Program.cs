@@ -314,6 +314,11 @@ builder.Services.AddRateLimiter(options =>
         ));
 });
 
+builder.Services.AddHttpClient<GroqAiHealthCheck>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
 builder.Services.AddHealthChecks()
     .AddCheck<SqlServerLatencyHealthCheck>(
         "sql-server",
@@ -334,6 +339,21 @@ builder.Services.AddHealthChecks()
         "session-store",
         failureStatus: HealthStatus.Unhealthy,
         tags: new[] { "ready", "database" }
+    )
+    .AddCheck<GroqAiHealthCheck>(
+        "groq-ai",
+        failureStatus: HealthStatus.Degraded,
+        tags: new[] { "ready", "ai", "external" }
+    )
+    .AddCheck<ProcessMemoryHealthCheck>(
+        "process-memory",
+        failureStatus: HealthStatus.Degraded,
+        tags: new[] { "ready", "system" }
+    )
+    .AddCheck<DiskSpaceHealthCheck>(
+        "disk-space",
+        failureStatus: HealthStatus.Degraded,
+        tags: new[] { "ready", "storage" }
     );
 
 builder.Services.AddOutputCache(options =>

@@ -359,7 +359,7 @@ function AdminSettingsPage() {
                   />
                 </FormField>
 
-                <div className="grid gap-5 md:grid-cols-3">
+                <div className="grid gap-5 md:grid-cols-2">
                   <FormField label="City" required>
                     <input
                       value={form.city}
@@ -379,22 +379,6 @@ function AdminSettingsPage() {
                       }
                       className="admin-input"
                       placeholder="Santacruz West"
-                    />
-                  </FormField>
-
-                  <FormField label="Service radius km" required>
-                    <input
-                      value={form.localServiceRadiusKm}
-                      onChange={(event) =>
-                        updateField("localServiceRadiusKm", event.target.value)
-                      }
-                      className="admin-input"
-                      type="number"
-                      min="1"
-                      max="100"
-                      step="1"
-                      inputMode="numeric"
-                      placeholder="8"
                     />
                   </FormField>
                 </div>
@@ -708,12 +692,6 @@ function validateForm(form: SettingsForm) {
 
   if (!form.homeVisitMessage.trim()) {
     return "Home visit message is required.";
-  }
-
-  const radius = Number(form.localServiceRadiusKm);
-
-  if (!Number.isInteger(radius) || radius <= 0 || radius > 100) {
-    return "Service radius must be between 1 and 100 km.";
   }
 
   return "";
