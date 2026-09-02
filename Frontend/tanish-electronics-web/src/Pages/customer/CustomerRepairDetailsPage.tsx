@@ -1,5 +1,5 @@
 import { useApiAuth } from "../../hooks/useApiAuth";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   getCustomerRepairDetails,
@@ -12,6 +12,7 @@ import { generateRepairReceiptPdf } from "../../utils/generateRepairReceiptPdf";
 import ActionButton from "../../components/UI/ActionButton";
 import { useShopSettings } from "../../hooks/useShopSettings";
 import { getCachedShopSettings } from "../../Services/publicShopSettingsService";
+import { useRepairTrackingSignalR } from "../../hooks/useRepairTrackingSignalR";
 
 function CustomerRepairDetailsPage() {
   const { settings } = useShopSettings();
@@ -25,6 +26,15 @@ function CustomerRepairDetailsPage() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [savingFeedback, setSavingFeedback] = useState(false);
+
+  const handleLiveTrackingUpdate = useCallback(() => {
+    void loadRepairDetails();
+  }, [id]);
+
+  const { isLiveConnected } = useRepairTrackingSignalR(
+    repair?.requestNumber,
+    handleLiveTrackingUpdate
+  );
 
   useEffect(() => {
     loadRepairDetails();
@@ -226,9 +236,17 @@ function CustomerRepairDetailsPage() {
           </div>
 
           <div className="rounded-[2rem] border border-[#d8cdb6] bg-[#fff8e7] p-5 dark:border-[#302c24] dark:bg-[#11110f]">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
-              Current Status
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
+                Current Status
+              </p>
+              {isLiveConnected && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+                  LIVE
+                </span>
+              )}
+            </div>
 
             <div className="mt-4">
               <StatusBadge status={repair.currentStatus} />

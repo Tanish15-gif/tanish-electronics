@@ -205,17 +205,38 @@ function PublicNavbar() {
           <div className="ml-3 flex shrink-0 items-center gap-2">
             <ThemeToggle />
 
-            {isSignedIn ?? (
-              <UserAccountMenu
-                displayName={displayName}
-                email={displayEmail}
-                imageUrl={profileImageUrl}
-                manageAccountTo="/customer/profile"
-                securityTo="/customer/security"
-                accountLabel="Customer account"
-                onLogout={handleLogout}
-              />
+            {isLoaded && isSignedIn && (
+              <>
+                <Link
+                  to={dashboardPath}
+                  aria-label={dashboardLabel}
+                  title={dashboardLabel}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] shadow-sm transition hover:border-[#c7b98e] hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:border-[#50483b] dark:hover:bg-[#242016]"
+                >
+                  <DashboardIcon />
+                </Link>
+
+                <UserAccountMenu
+                  displayName={displayName}
+                  email={displayEmail}
+                  imageUrl={profileImageUrl}
+                  manageAccountTo="/customer/profile"
+                  securityTo="/customer/security"
+                  accountLabel="Customer account"
+                  onLogout={handleLogout}
+                />
+              </>
             )}
+
+            {isLoaded && !isSignedIn && (
+              <Link
+                to="/sign-in"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-3.5 text-xs font-black transition hover:border-[#c7b98e] hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:bg-[#242016]"
+              >
+                Sign In
+              </Link>
+            )}
+
             <button
               type="button"
               aria-label="Open navigation menu"

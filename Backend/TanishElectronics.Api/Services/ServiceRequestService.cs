@@ -19,13 +19,18 @@ public class ServiceRequestService : IServiceRequestService
     private readonly IWebHostEnvironment _environment;
     private readonly ICustomerAccountResolver _customerAccountResolver;
     private readonly INotificationRealtimeNotifier _notificationNotifier;
+    private readonly IRepairTrackingRealtimeNotifier _trackingNotifier;
+    private readonly ILogger<ServiceRequestService> _logger;
+
     public ServiceRequestService
     (
         IServiceRequestRepository repository,
         IWebHostEnvironment environment,
         ICustomerAccountResolver customerAccountResolver,
         TanishElectronicsDbContext dbContext,
-        INotificationRealtimeNotifier notificationNotifier
+        INotificationRealtimeNotifier notificationNotifier,
+        IRepairTrackingRealtimeNotifier trackingNotifier,
+        ILogger<ServiceRequestService> logger
     )
     {
         _repository = repository;
@@ -33,6 +38,8 @@ public class ServiceRequestService : IServiceRequestService
         _customerAccountResolver = customerAccountResolver;
         _dbContext = dbContext;
         _notificationNotifier = notificationNotifier;
+        _trackingNotifier = trackingNotifier;
+        _logger = logger;
     }
 
     public async Task<ServiceRequestCreatedDto> CreateAsync(CreateServiceRequestDto dto)
@@ -398,6 +405,8 @@ public class ServiceRequestService : IServiceRequestService
                 );
             }
         }
+
+        await BroadcastRepairTrackingUpdateAsync(request.RequestNumber, request.PhoneNumber);
     }
 
     public async Task UpdateServiceRequestPricingAsync(
@@ -430,50 +439,55 @@ public class ServiceRequestService : IServiceRequestService
 
         var request = await _repository.GetServiceRequestEntityByIdAsync(id);
 
-        if (request != null && request.CustomerId != null)
+        if (request != null)
         {
-            var title = "Repair pricing updated";
-            var message = $"Pricing has been updated for repair {request.RequestNumber}.";
-
-            if (dto.PaymentStatus == "Paid")
+            if (request.CustomerId != null)
             {
-                title = "Payment marked as paid";
-                message = $"Payment has been marked as paid for repair {request.RequestNumber}.";
-            }
-            else if (dto.FinalPrice.HasValue)
-            {
-                message = $"Final price updated for repair {request.RequestNumber}: ₹{dto.FinalPrice.Value}.";
-            }
-            else if (dto.EstimatedPrice.HasValue)
-            {
-                message = $"Estimated price updated for repair {request.RequestNumber}: ₹{dto.EstimatedPrice.Value}.";
-            }
+                var title = "Repair pricing updated";
+                var message = $"Pricing has been updated for repair {request.RequestNumber}.";
 
-            var notification = new CustomerNotification
-            {
-                CustomerId = request.CustomerId.Value,
-                ServiceRequestId = request.ServiceRequestId,
-                Title = title,
-                Message = message,
-                IsRead = false,
-                CreatedAt = DateTime.Now
-            };
-
-            await _dbContext.CustomerNotifications.AddAsync(notification);
-            await _dbContext.SaveChangesAsync();
-
-            await _notificationNotifier.NotifyCustomerAsync(
-                request.CustomerId.Value,
-                new DTOs.Customer.Notifications.GetCustomerNotificatonDto
+                if (dto.PaymentStatus == "Paid")
                 {
-                    CustomerNotificationId = notification.CustomerNotificationId,
-                    ServiceRequestId = notification.ServiceRequestId,
-                    Title = notification.Title,
-                    Message = notification.Message,
-                    IsRead = false,
-                    CreatedAt = notification.CreatedAt
+                    title = "Payment marked as paid";
+                    message = $"Payment has been marked as paid for repair {request.RequestNumber}.";
                 }
-            );
+                else if (dto.FinalPrice.HasValue)
+                {
+                    message = $"Final price updated for repair {request.RequestNumber}: ₹{dto.FinalPrice.Value}.";
+                }
+                else if (dto.EstimatedPrice.HasValue)
+                {
+                    message = $"Estimated price updated for repair {request.RequestNumber}: ₹{dto.EstimatedPrice.Value}.";
+                }
+
+                var notification = new CustomerNotification
+                {
+                    CustomerId = request.CustomerId.Value,
+                    ServiceRequestId = request.ServiceRequestId,
+                    Title = title,
+                    Message = message,
+                    IsRead = false,
+                    CreatedAt = DateTime.Now
+                };
+
+                await _dbContext.CustomerNotifications.AddAsync(notification);
+                await _dbContext.SaveChangesAsync();
+
+                await _notificationNotifier.NotifyCustomerAsync(
+                    request.CustomerId.Value,
+                    new DTOs.Customer.Notifications.GetCustomerNotificatonDto
+                    {
+                        CustomerNotificationId = notification.CustomerNotificationId,
+                        ServiceRequestId = notification.ServiceRequestId,
+                        Title = notification.Title,
+                        Message = notification.Message,
+                        IsRead = false,
+                        CreatedAt = notification.CreatedAt
+                    }
+                );
+            }
+
+            await BroadcastRepairTrackingUpdateAsync(request.RequestNumber, request.PhoneNumber);
         }
     }
 
@@ -489,54 +503,36 @@ public class ServiceRequestService : IServiceRequestService
         {
             throw new InvalidOperationException("No images uploaded.");
         }
-
-        if (images.Count > 5)
+        var imageCount = await _dbContext.ServiceRequestImages.CountAsync(img => img.ServiceRequestId == serviceRequestId);
+        if (imageCount + images.Count > 5)
         {
             throw new InvalidOperationException("Maximum 5 images are allowed.");
         }
-        string[] allowedContentTypes =
-        {
-            "image/jpeg",
-        "image/png",
-        "image/webp"
-        };
-        const long maxFileSize = 5 * 1024 * 1024;
-        var webRootPath = _environment.WebRootPath;
-        if (string.IsNullOrWhiteSpace(webRootPath))
-        {
-            webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-        }
-        var uploadfolder = Path.Combine(
-            webRootPath,
-            "uploads",
-            "service-requests",
-            serviceRequestId.ToString()
-        );
-        Directory.CreateDirectory(uploadfolder);
-
         var imageUrls = new List<string>();
-
         var serviceRequestImage = new List<ServiceRequestImage>();
+
+        var uploadfolder = Path.Combine(_environment.WebRootPath, "uploads", "service-requests", serviceRequestId.ToString());
+
+        if (!Directory.Exists(uploadfolder))
+        {
+            Directory.CreateDirectory(uploadfolder);
+        }
 
         foreach (var image in images)
         {
-            if (image.Length == 0)
+            if (image.Length > 5 * 1024 * 1024)
             {
-                continue;
+                throw new InvalidOperationException("Max image size is 5MB");
+            }
+            var ext = Path.GetExtension(image.FileName).ToLowerInvariant();
+            var allowExtension = new[] { ".jpg", ".png", ".webp", ".jpeg" };
+
+            if (!allowExtension.Contains(ext))
+            {
+                throw new InvalidOperationException("Only JPG, JPEG, PNG and WEBP formats are allowed.");
             }
 
-            if (image.Length > maxFileSize)
-            {
-                throw new InvalidOperationException("Each image must be less than 5MB.");
-            }
-
-            if (!allowedContentTypes.Contains(image.ContentType))
-            {
-                throw new InvalidOperationException("Only JPG, PNG and WEBP images are allowed.");
-            }
-            var extension = Path.GetExtension(image.FileName).ToLowerInvariant();
-
-            var safeFileName = $"{Guid.NewGuid()}{extension}";
+            var safeFileName = $"{Guid.NewGuid():N}{ext}";
 
             var filePath = Path.Combine(uploadfolder, safeFileName);
 
@@ -588,5 +584,27 @@ public class ServiceRequestService : IServiceRequestService
         );
 
         if (!updated) throw new KeyNotFoundException("Service request not found");
+
+        var request = await _repository.GetServiceRequestEntityByIdAsync(id);
+        if (request != null)
+        {
+            await BroadcastRepairTrackingUpdateAsync(request.RequestNumber, request.PhoneNumber);
+        }
+    }
+
+    private async Task BroadcastRepairTrackingUpdateAsync(string requestNumber, string phoneNumber)
+    {
+        try
+        {
+            var trackingDetails = await _repository.GetTrackingDetailsAsync(requestNumber.Trim(), phoneNumber.Trim());
+            if (trackingDetails != null)
+            {
+                await _trackingNotifier.NotifyRepairUpdatedAsync(requestNumber, trackingDetails);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast real-time repair tracking update for request {RequestNumber}", requestNumber);
+        }
     }
 }

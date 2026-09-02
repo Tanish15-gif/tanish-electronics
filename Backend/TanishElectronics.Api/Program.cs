@@ -482,6 +482,7 @@ builder.Services.AddScoped<IProductCreatedAnnouncementHandler, ProductCreatedAnn
 builder.Services.AddScoped<IAnnouncementRealtimeNotifier, AnnouncementRealtimeNotifier>();
 
 builder.Services.AddScoped<INotificationRealtimeNotifier, NotificationRealtimeNotifier>();
+builder.Services.AddScoped<IRepairTrackingRealtimeNotifier, RepairTrackingRealtimeNotifier>();
 
 builder.Services.AddSingleton<IUserAgentParser, UserAgentParser>();
 builder.Services.AddSingleton<IAppMemoryCacheService, AppMemoryCacheService>();
@@ -531,6 +532,7 @@ app.UseOutputCache();
 app.MapControllers();
 app.MapHub<AnnouncementHub>("/hubs/announcements");
 app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapHub<RepairTrackingHub>("/hubs/repair-tracking");
 
 
 app.MapHealthChecks("/health");

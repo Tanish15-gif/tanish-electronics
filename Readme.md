@@ -10,29 +10,36 @@
 
 - Book a repair request for a specific device (TV, Bluetooth speaker, home theatre, remote, etc.)
 - Upload images of the device/issue while booking the request
-- Choose between visiting the shop or requesting a home visit by a technician (home visit available for TVs only)
-- Track the live status of a submitted repair request with pricing and technician diagnosis notes
+- Choose between visiting the shop or requesting a home visit by a technician (with flexible shop-configured home visit policies)
+- **SignalR Real-Time Live Repair Tracking**: Instant live push updates on `/track-request` and `/account/repairs/:id` whenever a technician or admin updates status, pricing, or diagnosis notes (with glowing `LIVE` indicator and real-time alert banners)
+- **Interactive 4-Stage Repair Lifecycle Stepper**: Clear visual progress across _Request Received → Technician Accepted → Repair in Progress → Ready / Completed_ (with 100% checkmark resolution on completion and dedicated cancelled state)
+- **Mobile Navigation with User Avatar & Dashboard Quick Actions**: Header contains theme switcher, direct Dashboard link, and interactive `UserAccountMenu` avatar widget on mobile view
 - Browse and purchase products — second-hand TVs, new remotes, and accessories with category/condition filters
 - Submit product and callback enquiries directly from product pages or the contact section
+- Real-time notification bell with SignalR live pushes for repair progress updates
 
-**AI Assistant**
+**AI Assistant (Groq Cloud LLM)**
 
 - **In-Chat Repair Booking**: Conversational step-by-step repair booking that directly registers service requests in the database and generates tracking numbers (`TE-2026-XXXXX`)
+- **Fault-Aware Intent Separation**: Distinguishes hardware fault symptoms (horizontal lines, flickering, no sound) from buying requests, ensuring customers are guided straight to repair booking
 - **Product-Aware Enquiries**: Automatically detects the active product page or discussed item and creates direct product-linked enquiries in the Admin Panel
 - **Real-Time Repair Tracking**: Instant status, price estimation, and diagnosis lookups via request number and phone number directly in chat
 - **Interactive Product Search**: Real-time inventory searches that render interactive product cards with photos, prices, category badges, and direct navigation links
 - **Live Knowledge Grounding**: Dynamically grounded in real-time shop hours, contact numbers, service areas, active announcements, and verified customer reviews
 - **Proactive Page Awareness**: Contextual prompt bubbles and guidance tailored to the user's active page (`/`, `/products`, `/products/:id`, `/book-repair`, `/track-request`)
-- **High-Speed SSE Streaming**: Real-time token streaming with bracket lookahead buffering to seamlessly suppress background system action tags
+- **High-Speed SSE Streaming**: Real-time token streaming with tag-suppression token buffering to seamlessly hide background system action tags
+- **Modular Partial Class Architecture**: Clean separation into `Grounding`, `Prompt`, `Handlers`, `Reply`, `Stream`, and `Core` partial files
 
-**Admin**
+**Admin & Observability**
 
 - View incoming repair requests with full customer details and issue images
-- Approve/reject a customer's repair request and manage repair work/diagnosis notes
+- Approve/reject a customer's repair request and manage repair work/diagnosis notes with instant SignalR customer broadcast
 - Set estimated and final repair pricing
 - Update the status of a repair request (e.g. Pending → Approved → In Progress → Completed)
 - Manage product listings (second-hand TVs, remotes, etc.) with image uploads and stock management
 - Manage customer enquiries, internal notes, and announcement banners
+- **Enterprise System Health & Telemetry**: Live 7-point health check suite monitoring SQL Server, User Sessions, In-Memory Cache, Server Host RAM / GC Heap, Server Storage, Media Uploads, and Groq Cloud AI with 3-minute in-memory caching to eliminate rate limit spam
+- **Responsive Telemetry Dashboard**: Real-time admin monitoring dashboard with smooth Catmull-Rom Bézier response trend curves, mobile 2x2 grid, and category filter tabs
 - View audit logs, website visit analytics, user management, and data exports (CSV/Excel)
 
 ## Tech Stack
@@ -41,18 +48,16 @@
 
 - C# (.NET / ASP.NET Core, .NET 10.0)
 - Entity Framework Core (ORM)
-- SQL Server (Database)
-- Groq API (LLaMA 3.3 70B / LLaMA 3.1 LLM for AI Assistant)
-- Server-Sent Events (SSE) streaming for real-time chat tokens
-- SignalR (real-time updates)
+- Groq API (High-performance Groq Cloud LLM for real-time conversational reasoning & tag extraction)
+- SignalR (`RepairTrackingHub`, `AnnouncementHub`, `NotificationHub` for real-time tracking, announcements, and notification pushes)
 - Custom JWT auth with server-side session revocation
 - BCrypt (hashing password and OTP codes)
 - RBAC (Role-Based Access Control) via policy-based authorization
 - Google Auth (OAuth sign-in)
-- Email Service via MailKit (notification, OTP)
+- Email Service via MailKit (notification, OTP verification with Google App Password)
 - OTP verification (expiry, resend cooldown, max attempts)
 - Rate limiting (per-endpoint policies: login, OTP, uploads, admin actions)
-- Health checks (SQL Server, cache, storage, sessions)
+- Advanced Health Checks (SQL Server, Cache, Host RAM, Disk Storage, Media Uploads, Groq AI)
 - Output caching (public/products endpoints)
 - Audit logging
 
@@ -65,7 +70,7 @@
 - Lucide React (icons)
 - Custom SSE streaming client with real-time token accumulation & tag suppression
 - jsPDF + html2canvas (generating PDFs, e.g. receipts)
-- @microsoft/signalr (real-time client)
+- @microsoft/signalr (real-time repair tracking and notification clients)
 
 ## Project Structure
 
@@ -130,7 +135,7 @@ TanishElectronics\
 │       ├── Exceptions/
 │       ├── HealthChecks/
 │       ├── Helpers/
-│       ├── Hubs/           # SignalR hubs (real-time announcements)
+│       ├── Hubs/           # SignalR hubs (live repair tracking, notifications & announcements)
 │       ├── Interfaces/
 │       │   ├── Common/
 │       │   ├── Events/
@@ -142,12 +147,13 @@ TanishElectronics\
 │       ├── Properties/
 │       ├── Repositories/
 │       ├── Services/       # Business services & ChatbotService (Groq LLaMA)
-│       ├── Settings/       # AppSettings, GroqSettings, ShopSettings
+│           └── ChatBotService/  # Separated files of chatbot services
+|       ├── Settings/       # AppSettings, GroqSettings, ShopSettings
 │       └── wwwroot/
 │           └── uploads/
-│               ├── announcements/
-│               ├── products/
-│               └── service-requests/
+│               ├── announcements/        # Announcement Images
+│               ├── products/             # Products Display Images
+│               └── service-requests/     # Customer Side Service Request Images
 │
 └── Frontend/
     └── tanish-electronics-web/

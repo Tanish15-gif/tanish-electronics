@@ -6,7 +6,7 @@ public class GroqSettings
 
     public string ApiKey { get; set; } = string.Empty;
 
-    public string Model { get; set; } = "";
+    public string Model { get; set; } = "openai/gpt-oss-20b";
 
     public int MaxTokens { get; set; } = 400;
 }

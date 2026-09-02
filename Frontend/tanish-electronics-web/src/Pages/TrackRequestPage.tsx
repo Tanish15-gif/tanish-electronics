@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -12,33 +13,7 @@ import {
   type TrackServiceRequestResult
 } from "../Services/serviceRequestService";
 import { useShopSettings } from "../hooks/useShopSettings";
-
-const statusSteps = [
-  {
-    key: "Pending",
-    label: "Request Received",
-    shortLabel: "Received",
-    desc: "Logged in system"
-  },
-  {
-    key: "Accepted",
-    label: "Technician Accepted",
-    shortLabel: "Accepted",
-    desc: "Assigned & inspected"
-  },
-  {
-    key: "In Progress",
-    label: "Repair in Progress",
-    shortLabel: "In Progress",
-    desc: "Diagnostics & servicing"
-  },
-  {
-    key: "Completed",
-    label: "Ready / Completed",
-    shortLabel: "Completed",
-    desc: "Quality tested & ready"
-  }
-] as const;
+import { useRepairTrackingSignalR } from "../hooks/useRepairTrackingSignalR";
 
 type TrackFormErrors = {
   requestNumber?: string;
@@ -66,6 +41,40 @@ function TrackRequestPage() {
   const [apiError, setApiError] = useState("");
 
   const [result, setResult] = useState<TrackServiceRequestResult | null>(null);
+  const [liveToast, setLiveToast] = useState<string | null>(null);
+
+  const handleLiveUpdate = useCallback((updated: TrackServiceRequestResult) => {
+    setResult((prev) => {
+      if (!prev) return updated;
+      const statusChanged = prev.currentStatus !== updated.currentStatus;
+      const priceChanged =
+        prev.estimatedPrice !== updated.estimatedPrice ||
+        prev.finalPrice !== updated.finalPrice;
+
+      if (statusChanged) {
+        setLiveToast(`Status updated to: ${updated.currentStatus}`);
+      } else if (priceChanged) {
+        setLiveToast("Repair pricing was updated.");
+      } else {
+        setLiveToast("Repair details updated live.");
+      }
+
+      return updated;
+    });
+  }, []);
+
+  const { isLiveConnected } = useRepairTrackingSignalR(
+    result?.requestNumber,
+    handleLiveUpdate
+  );
+
+  useEffect(() => {
+    if (!liveToast) return;
+    const timer = window.setTimeout(() => {
+      setLiveToast(null);
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [liveToast]);
 
   const resultSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -350,7 +359,15 @@ function TrackRequestPage() {
 
         {/* Result */}
         <section ref={resultSectionRef} className="min-w-0 scroll-mt-24">
-          {!result ? <EmptyState /> : <TrackedRequestResult result={result} />}
+          {!result ? (
+            <EmptyState />
+          ) : (
+            <TrackedRequestResult
+              result={result}
+              isLiveConnected={isLiveConnected}
+              liveToast={liveToast}
+            />
+          )}
         </section>
       </section>
     </main>
@@ -358,21 +375,49 @@ function TrackRequestPage() {
 }
 
 function TrackedRequestResult({
-  result
+  result,
+  isLiveConnected,
+  liveToast
 }: {
   result: TrackServiceRequestResult;
+  isLiveConnected?: boolean;
+  liveToast?: string | null;
 }) {
   return (
     <article
       aria-live="polite"
       className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-6"
     >
+      {/* Live Real-time Alert Toast */}
+      {liveToast && (
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-emerald-300/80 bg-emerald-50/90 px-4 py-3 text-xs font-bold text-emerald-900 shadow-sm transition-all duration-300 dark:border-emerald-700/60 dark:bg-emerald-950/80 dark:text-emerald-200">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span>⚡ {liveToast}</span>
+          </div>
+          <span className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            Live Update
+          </span>
+        </div>
+      )}
+
       {/* Request header */}
       <div className="flex flex-col gap-4 border-b border-[#d8cdb6] pb-5 dark:border-[#302c24] sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
-            Request number
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
+              Request number
+            </p>
+            {isLiveConnected && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+                LIVE
+              </span>
+            )}
+          </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <h2 className="break-all text-2xl font-black sm:text-3xl">
@@ -618,6 +663,29 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const repairLifecycleSteps = [
+  {
+    key: "Pending",
+    label: "Request Received",
+    desc: "Logged in system"
+  },
+  {
+    key: "Accepted",
+    label: "Technician Accepted",
+    desc: "Assigned & inspected"
+  },
+  {
+    key: "In Progress",
+    label: "Repair in Progress",
+    desc: "Diagnostics & servicing"
+  },
+  {
+    key: "Completed",
+    label: "Ready / Completed",
+    desc: "Quality tested & ready"
+  }
+] as const;
+
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
   const normalizedStatus = currentStatus.toLowerCase();
 
@@ -628,30 +696,65 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
   if (isCancelled) {
     return (
-      <div className="rounded-2xl border border-red-200/80 bg-red-50/80 p-5 dark:border-red-400/20 dark:bg-red-400/10">
-        <div className="flex items-start gap-3.5">
-          <span className="mt-0.5 shrink-0 text-red-600 dark:text-red-400">
-            <AlertIcon />
-          </span>
-          <div>
-            <p className="text-base font-black text-red-700 dark:text-red-300">
-              Request {currentStatus}
-            </p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-red-700/80 dark:text-red-200/80">
-              This service request is marked as {currentStatus.toLowerCase()}.
-              Please contact the shop via phone or WhatsApp for details.
-            </p>
+      <div className="rounded-[1.5rem] border border-red-300/40 bg-[#fffaf0] p-5 dark:border-red-500/20 dark:bg-[#11110f] sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400">
+              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-base font-black text-red-700 dark:text-red-300">
+                Request {currentStatus}
+              </h3>
+              <p className="mt-0.5 text-xs font-semibold text-[#817867] dark:text-[#928a7d]">
+                This repair request has been marked as{" "}
+                {currentStatus.toLowerCase()}. Contact our shop for details or
+                assistance.
+              </p>
+            </div>
           </div>
+          <a
+            href="tel:8850973399"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-4 text-xs font-bold text-[#1f1a12] transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
+          >
+            <PhoneIcon />
+            Call Shop
+          </a>
         </div>
       </div>
     );
   }
 
-  const currentIndex = getCurrentStatusIndex(currentStatus);
-  const progressPercent = Math.min(
-    100,
-    Math.round((currentIndex / (statusSteps.length - 1)) * 100)
-  );
+  const isCompleted =
+    normalizedStatus.includes("completed") ||
+    normalizedStatus.includes("delivered");
+
+  let activeIndex = 0;
+  if (isCompleted) {
+    activeIndex = 3;
+  } else if (
+    normalizedStatus.includes("progress") ||
+    normalizedStatus.includes("repair")
+  ) {
+    activeIndex = 2;
+  } else if (
+    normalizedStatus.includes("accepted") ||
+    normalizedStatus.includes("approved")
+  ) {
+    activeIndex = 1;
+  } else {
+    activeIndex = 0;
+  }
+
+  const progressPercent = isCompleted
+    ? 100
+    : Math.round((activeIndex / (repairLifecycleSteps.length - 1)) * 100);
 
   return (
     <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-7">
@@ -664,14 +767,21 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
           </h3>
         </div>
 
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#f2eadb] px-3.5 py-1 text-xs font-black text-[#8a6624] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a]">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8a6624] opacity-75 dark:bg-[#d6b46a]"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#8a6624] dark:bg-[#d6b46a]"></span>
+        {isCompleted ? (
+          <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-black text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Step 4 of 4 &bull; Completed
           </span>
-          Step {currentIndex + 1} of {statusSteps.length} &bull;{" "}
-          {statusSteps[currentIndex]?.label}
-        </span>
+        ) : (
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#f2eadb] px-3.5 py-1 text-xs font-black text-[#8a6624] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a]">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8a6624] opacity-75 dark:bg-[#d6b46a]"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#8a6624] dark:bg-[#d6b46a]"></span>
+            </span>
+            Step {activeIndex + 1} of {repairLifecycleSteps.length} &bull;{" "}
+            {repairLifecycleSteps[activeIndex]?.label}
+          </span>
+        )}
       </div>
 
       {/* Connected Stepper */}
@@ -687,9 +797,9 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
         {/* Step Nodes */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-4 sm:gap-3">
-          {statusSteps.map((step, index) => {
-            const completed = index < currentIndex;
-            const current = index === currentIndex;
+          {repairLifecycleSteps.map((step, index) => {
+            const completed = isCompleted ? true : index < activeIndex;
+            const current = !isCompleted && index === activeIndex;
 
             return (
               <div
@@ -728,10 +838,10 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                   <div className="flex items-center gap-2 sm:justify-center">
                     <p
                       className={`text-sm font-black tracking-tight ${
-                        current
-                          ? "text-[#1f1a12] dark:text-[#f7f5ef]"
-                          : completed
-                            ? "text-emerald-700 dark:text-emerald-300"
+                        completed
+                          ? "text-emerald-700 dark:text-emerald-300"
+                          : current
+                            ? "text-[#1f1a12] dark:text-[#f7f5ef]"
                             : "text-[#817867] dark:text-[#736c5f]"
                       }`}
                     >
@@ -799,32 +909,6 @@ function getInputClassName(hasError: boolean) {
       ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 dark:border-red-400/60"
       : "border-[#d8cdb6] focus:border-[#d6b46a] focus:ring-4 focus:ring-[#d6b46a]/20 dark:border-[#302c24] dark:focus:border-[#d6b46a]"
   }`;
-}
-
-function getCurrentStatusIndex(status: string) {
-  const normalized = status.trim().toLowerCase();
-
-  if (normalized.includes("completed") || normalized.includes("delivered")) {
-    return 3;
-  }
-
-  if (
-    normalized.includes("progress") ||
-    normalized.includes("repairing") ||
-    normalized.includes("repair started")
-  ) {
-    return 2;
-  }
-
-  if (
-    normalized.includes("accepted") ||
-    normalized.includes("approved") ||
-    normalized.includes("assigned")
-  ) {
-    return 1;
-  }
-
-  return 0;
 }
 
 function getStatusStyles(status: string) {
