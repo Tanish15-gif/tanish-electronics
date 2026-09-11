@@ -21,6 +21,7 @@ public partial class ChatbotService : IChatbotService
     private readonly IPublicRepairFeedbackService _feedbackService;
     private readonly IEnquiryService _enquiryService;
     private readonly TanishElectronicsDbContext _dbContext;
+    private readonly IChatLogService _chatLogService;
     private readonly string GroqEndpoint = "https://api.groq.com/openai/v1/chat/completions";
 
     public ChatbotService
@@ -36,7 +37,8 @@ public partial class ChatbotService : IChatbotService
         IAnnouncementService announcementService,
         IPublicRepairFeedbackService feedbackService,
         IEnquiryService enquiryService,
-        TanishElectronicsDbContext dbContext
+        TanishElectronicsDbContext dbContext,
+        IChatLogService chatLogService
     )
     {
         _httpClient = httpClient;
@@ -51,6 +53,7 @@ public partial class ChatbotService : IChatbotService
         _feedbackService = feedbackService;
         _enquiryService = enquiryService;
         _dbContext = dbContext;
+        _chatLogService = chatLogService;
     }
 
     private static readonly Dictionary<string, string> Synonyms = new()

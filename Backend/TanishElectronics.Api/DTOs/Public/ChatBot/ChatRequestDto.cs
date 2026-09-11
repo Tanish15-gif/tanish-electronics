@@ -7,4 +7,6 @@ public class ChatRequestDto
     public List<ChatHistoryItemDto> History { get; set; } = new();
 
     public string? CurrentPath { get; set; }
+
+    public string? SessionKey { get; set; }
 }

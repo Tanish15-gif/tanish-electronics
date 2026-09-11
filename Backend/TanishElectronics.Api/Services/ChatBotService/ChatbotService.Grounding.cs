@@ -260,13 +260,14 @@ public partial class ChatbotService
             "options in stock", "enquire about", "enquiry", "product", "products", "item", "items"
         };
         var hasBuyingIntent = buyingIntentKeywords.Any(k => lowerMessage.Contains(k));
+        var currentMessageHasBuyingIntent = hasBuyingIntent && !isRepairInMessage;
 
-        var isProductQuery = !isRepairQuery
+        var isProductQuery = !isRepairInMessage
             && !isAskingAboutCurrentProduct
             && !isAnnouncementQuery
             && !isReviewQuery
             && !mentionsTracking
-            && (hasBuyingIntent || (specificItem != null && (hasBuyingIntent || lowerMessage.StartsWith("show") || lowerMessage.StartsWith("do you"))));
+            && (currentMessageHasBuyingIntent || (specificItem != null && (hasBuyingIntent || lowerMessage.StartsWith("show") || lowerMessage.StartsWith("do you"))));
 
         if (isProductQuery)
         {
@@ -300,7 +301,7 @@ public partial class ChatbotService
                 );
             }
 
-            var topMatches = products.Where(p => p.IsAvailable && p.StockQuantity > 0).Take(5).ToList();
+            var topMatches = products.Take(5).ToList();
             if (topMatches.Any())
             {
                 sb.AppendLine("- Currently available products (sample):");

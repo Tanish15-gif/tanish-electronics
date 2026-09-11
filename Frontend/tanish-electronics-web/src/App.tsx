@@ -41,6 +41,7 @@ import AccountSecurityPage from "./Pages/account/AccountSecurityPage";
 import SessionWatcher from "./components/auth/SessionWatcher";
 import AdminUsersPage from "./Pages/admin/AdminUsersPage";
 import AdminUserDetailsPage from "./Pages/admin/AdminUserDetailsPage";
+import AdminChatLogsPage from "./Pages/admin/AdminChatLogsPage";
 
 function App() {
   return (
@@ -87,6 +88,7 @@ function App() {
               path="/admin/users/:appUserId"
               element={<AdminUserDetailsPage />}
             />
+            <Route path="/admin/chat-logs" element={<AdminChatLogsPage />} />
             <Route path="/admin/security" element={<AccountSecurityPage />} />
 
             <Route
@@ -137,4 +139,3 @@ function App() {
 }
 
 export default App;
-

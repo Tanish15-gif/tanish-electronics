@@ -5,6 +5,7 @@ using TanishElectronics.Api.Constants;
 using TanishElectronics.Api.DTOs.Public.ChatBot;
 using TanishElectronics.Api.Exceptions;
 using TanishElectronics.Api.Interfaces.Services;
+using TanishElectronics.Api.Services;
 
 namespace TanishElectronics.Api.Controllers;
 
@@ -27,7 +28,9 @@ public class ChatbotController : ControllerBase
         if (request.Message.Length > 500) return BadRequest(new { message = "Message is too long." });
 
         var appUserId = GetCurrentAppUserId();
-        var reply = await _chatbotService.GetReplyAsync(request, appUserId);
+        var ipAddress = AuditLogService.GetClientIpAddress(HttpContext);
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var reply = await _chatbotService.GetReplyAsync(request, appUserId, ipAddress, userAgent);
         return Ok(reply);
     }
 
@@ -58,7 +61,9 @@ public class ChatbotController : ControllerBase
         };
 
         var appUserId = GetCurrentAppUserId();
-        await foreach (var evt in _chatbotService.StreamReplyAsync(request, cancellationToken, appUserId))
+        var ipAddress = AuditLogService.GetClientIpAddress(HttpContext);
+        var userAgent = Request.Headers.UserAgent.ToString();
+        await foreach (var evt in _chatbotService.StreamReplyAsync(request, cancellationToken, appUserId, ipAddress, userAgent))
         {
             var json = System.Text.Json.JsonSerializer.Serialize(evt, jsonOptions);
             await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
@@ -68,7 +73,7 @@ public class ChatbotController : ControllerBase
 
     private int? GetCurrentAppUserId()
     {
-        var claimValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var claimValue = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         return int.TryParse(claimValue, out var appUserId) ? appUserId : null;
     }
 }

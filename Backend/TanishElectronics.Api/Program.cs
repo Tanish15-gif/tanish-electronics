@@ -464,6 +464,8 @@ builder.Services.AddScoped<IShopSettingsService, ShopSettingsService>();
 builder.Services.AddScoped<IAdminExportRepository, AdminExportRepository>();
 builder.Services.AddScoped<IAdminExportService, AdminExportService>();
 
+builder.Services.AddScoped<IChatLogService, ChatLogService>();
+
 builder.Services.AddScoped<IAdminUsersRepository, AdminUsersRepository>();
 builder.Services.AddScoped<IAdminUsersService, AdminUsersService>();
 

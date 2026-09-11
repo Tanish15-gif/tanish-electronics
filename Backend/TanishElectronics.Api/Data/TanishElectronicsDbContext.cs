@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using TanishElectronics.Api.Entities;
@@ -23,6 +23,10 @@ public partial class TanishElectronicsDbContext : DbContext
     public virtual DbSet<AppUserRole> AppUserRoles { get; set; }
 
     public virtual DbSet<AuditLog> AuditLogs { get; set; }
+
+    public virtual DbSet<ChatSession> ChatSessions { get; set; }
+
+    public virtual DbSet<ChatMessage> ChatMessages { get; set; }
 
     public virtual DbSet<Customer> Customers { get; set; }
 
@@ -777,6 +781,43 @@ public partial class TanishElectronicsDbContext : DbContext
             entity.HasOne(d => d.AppUser).WithMany(p => p.WebsiteVisits)
                 .HasForeignKey(d => d.AppUserId)
                 .HasConstraintName("FK_WebsiteVisits_AppUsers");
+        });
+
+        modelBuilder.Entity<ChatSession>(entity =>
+        {
+            entity.HasKey(e => e.ChatSessionId).HasName("PK_ChatSessions");
+
+            entity.HasIndex(e => e.SessionKey, "UQ_ChatSessions_Key").IsUnique();
+            entity.HasIndex(e => e.LastMessageAt, "IX_ChatSessions_LastMessageAt");
+
+            entity.Property(e => e.SessionKey).HasMaxLength(100);
+            entity.Property(e => e.IpAddress).HasMaxLength(50);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+            entity.Property(e => e.StartedAt)
+                .HasDefaultValueSql("(getdate())").HasColumnType("datetime");
+            entity.Property(e => e.LastMessageAt)
+                .HasDefaultValueSql("(getdate())").HasColumnType("datetime");
+
+            entity.HasOne(d => d.AppUser).WithMany()
+                .HasForeignKey(d => d.AppUserId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_ChatSessions_AppUsers");
+        });
+
+        modelBuilder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasKey(e => e.ChatMessageId).HasName("PK_ChatMessages");
+
+            entity.HasIndex(e => e.ChatSessionId, "IX_ChatMessages_ChatSessionId");
+            entity.HasIndex(e => e.CreatedAt, "IX_ChatMessages_CreatedAt");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())").HasColumnType("datetime");
+
+            entity.HasOne(d => d.ChatSession).WithMany(p => p.Messages)
+                .HasForeignKey(d => d.ChatSessionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_ChatMessages_ChatSession");
         });
 
         OnModelCreatingPartial(modelBuilder);

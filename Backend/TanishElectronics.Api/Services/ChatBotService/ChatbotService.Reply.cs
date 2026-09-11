@@ -7,7 +7,7 @@ namespace TanishElectronics.Api.Services;
 
 public partial class ChatbotService
 {
-    public async Task<ChatResponseDto> GetReplyAsync(ChatRequestDto request, int? appUserId = null)
+    public async Task<ChatResponseDto> GetReplyAsync(ChatRequestDto request, int? appUserId = null, string? ipAddress = null, string? userAgent = null)
     {
         var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath, appUserId, request.History);
         var systemPrompt = BuildSystemPrompt(groundingContext);
@@ -80,6 +80,26 @@ public partial class ChatbotService
 
         // --- Build Actions ---
         var actions = await BuildChatActionsAsync(request.Message, reply, enquiry.Submitted, booking.Submitted, matchedProducts);
+
+        // --- Save conversation to DB (fire-and-forget, never blocks chat reply) ---
+        var sessionKey = string.IsNullOrWhiteSpace(request.SessionKey)
+            ? $"anon-{Guid.NewGuid():N}"
+            : request.SessionKey;
+
+        _ = Task.Run(async () =>
+        {
+            await _chatLogService.SaveMessageAsync(
+                sessionKey: sessionKey,
+                appUserId: appUserId,
+                userMessage: request.Message,
+                botReply: reply,
+                currentPath: request.CurrentPath,
+                bookingCreated: booking.Submitted,
+                enquiryCreated: enquiry.Submitted,
+                ipAddress: ipAddress,
+                userAgent: userAgent
+            );
+        });
 
         return new ChatResponseDto
         {

@@ -170,6 +170,19 @@ function MessageBody({ content, role }: { content: string; role: string }) {
 export default function ChatWidget() {
   const navigate = useNavigate();
 
+  // Stable session UUID for this browser tab — persisted across reloads, sent to backend for chat logging
+  const [sessionKey, setSessionKey] = useState<string>(() => {
+    try {
+      const existing = sessionStorage.getItem("te_chat_session_key");
+      if (existing) return existing;
+      const newKey = crypto.randomUUID();
+      sessionStorage.setItem("te_chat_session_key", newKey);
+      return newKey;
+    } catch {
+      return crypto.randomUUID();
+    }
+  });
+
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem("te_chat_open") === "true";
@@ -179,7 +192,13 @@ export default function ChatWidget() {
   });
 
   // Default to full sidebar on desktop, small widget on mobile
-  const [isSidebar, setIsSidebar] = useState(false);
+  const [isSidebar, setIsSidebar] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem("te_chat_sidebar") === "true";
+    } catch {
+      return false;
+    }
+  });
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
@@ -204,6 +223,12 @@ export default function ChatWidget() {
       sessionStorage.setItem("te_chat_open", isOpen ? "true" : "false");
     } catch {}
   }, [isOpen]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("te_chat_sidebar", isSidebar ? "true" : "false");
+    } catch {}
+  }, [isSidebar]);
 
   useEffect(() => {
     try {
@@ -396,6 +421,7 @@ export default function ChatWidget() {
           body: JSON.stringify({
             message: trimmed,
             currentPath: window.location.pathname,
+            sessionKey,
             history: [...messages, userMsg]
               .slice(-HISTORY_WINDOW - 1, -1)
               .map(({ role, content }) => ({ role, content }))
@@ -632,10 +658,16 @@ export default function ChatWidget() {
                       }
                     ];
                     setMessages(fresh);
+                    const newSessionKey = crypto.randomUUID();
+                    setSessionKey(newSessionKey);
                     try {
                       sessionStorage.setItem(
                         "te_chat_messages",
                         JSON.stringify(fresh)
+                      );
+                      sessionStorage.setItem(
+                        "te_chat_session_key",
+                        newSessionKey
                       );
                     } catch {}
                   }}
