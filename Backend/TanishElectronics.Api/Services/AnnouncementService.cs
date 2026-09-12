@@ -377,11 +377,18 @@ public class AnnouncementService : IAnnouncementService
             throw new InvalidOperationException("Only JPG, PNG and WEBP images are allowed.");
         }
 
-        var maxImageSizeBytes = _shopSettings.MaxUploadImageSizeMb * 1024 * 1024;
+        var maxMb = _shopSettings.MaxUploadImageSizeMb > 0 ? _shopSettings.MaxUploadImageSizeMb : 5;
+        var maxImageSizeBytes = (long)maxMb * 1024 * 1024;
 
         if (image.Length > maxImageSizeBytes)
         {
-            throw new InvalidOperationException("Image must be less than 5MB.");
+            _logger.LogWarning(
+                "Announcement image upload rejected because file size exceeds limit. Size: {Size} bytes, Max: {Max} bytes, AnnouncementId: {AnnouncementId}",
+                image.Length,
+                maxImageSizeBytes,
+                announcementId
+            );
+            throw new InvalidOperationException($"Image must be less than {maxMb}MB.");
         }
 
         var uploadFolder = Path.Combine(

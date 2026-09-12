@@ -342,26 +342,29 @@ function CustomerDashboardAnnouncementPopup() {
         >
           {/* Image panel */}
           {hasImage && (
-            <div className="relative flex min-h-[220px] items-center justify-center overflow-hidden border-b border-[#d8cdb6] bg-[#11110f] dark:border-[#302c24] sm:min-h-[300px] lg:min-h-[560px] lg:border-b-0 lg:border-r">
+            <div className="relative min-h-[220px] overflow-hidden border-b border-[#d8cdb6] bg-[#11110f] dark:border-[#302c24] sm:min-h-[280px] lg:min-h-full lg:border-b-0 lg:border-r">
+              {/* Blurred ambient backdrop */}
+              <img
+                src={activeAnnouncement.imageUrl!}
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover object-center opacity-30 blur-2xl"
+              />
+
+              {/* Main image fitting the full panel */}
               <img
                 src={activeAnnouncement.imageUrl!}
                 alt={activeAnnouncement.title}
                 loading="eager"
                 decoding="async"
                 onError={() => setImageFailed(true)}
-                className="relative z-10 max-h-[360px] w-full object-contain object-center lg:max-h-[560px]"
+                className="relative z-10 h-full w-full object-cover object-center"
               />
 
-              {/* Light decorative background only */}
-              <div
-                className="pointer-events-none absolute inset-0 opacity-50"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 78% 18%, rgba(214,180,106,0.25), transparent 35%), radial-gradient(circle at 15% 90%, rgba(138,102,36,0.28), transparent 38%), linear-gradient(135deg, #1f1a12, #11110f)"
-                }}
-              />
+              {/* Subtle lighting overlay */}
+              <div className="pointer-events-none absolute inset-0 z-20 bg-gradient-to-t from-black/40 via-transparent to-black/10 lg:bg-gradient-to-r lg:from-transparent lg:to-black/20" />
 
-              <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
+              <div className="pointer-events-none absolute inset-0 z-20 ring-1 ring-inset ring-white/10" />
             </div>
           )}
 

@@ -25,5 +25,5 @@ public class ShopSettings
     public int MaxPublicAnnouncementLimit { get; set; }
     public int DefaultPublicAnnouncementLimit { get; set; }
     public int LowStockThreshold { get; set; }
-    public int MaxUploadImageSizeMb { get; set; }
+    public int MaxUploadImageSizeMb { get; set; } = 5;
 }

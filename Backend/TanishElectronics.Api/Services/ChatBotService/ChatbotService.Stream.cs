@@ -7,8 +7,12 @@ namespace TanishElectronics.Api.Services;
 
 public partial class ChatbotService
 {
-    public async IAsyncEnumerable<ChatStreamEventDto> StreamReplyAsync(ChatRequestDto request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default, int? appUserId = null, string? ipAddress = null, string? userAgent = null)
+    public async IAsyncEnumerable<ChatStreamEventDto> StreamReplyAsync(ChatRequestDto request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var appUserId = await _currentUserService.GetCurrentAppUserIdAsync();
+        var ipAddress = _authContextAccessor.GetClientIpAddress();
+        var userAgent = _authContextAccessor.GetUserAgent();
+
         var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath, appUserId, request.History);
         var systemPrompt = BuildSystemPrompt(groundingContext);
 

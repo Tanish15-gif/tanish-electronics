@@ -5,6 +5,8 @@ using TanishElectronics.Api.Interfaces.Repositories;
 using TanishElectronics.Api.Interfaces.Services;
 using TanishElectronics.Api.Settings;
 
+using TanishElectronics.Api.Interfaces.Services.AuthService;
+
 namespace TanishElectronics.Api.Services;
 
 public partial class ChatbotService : IChatbotService
@@ -22,6 +24,8 @@ public partial class ChatbotService : IChatbotService
     private readonly IEnquiryService _enquiryService;
     private readonly TanishElectronicsDbContext _dbContext;
     private readonly IChatLogService _chatLogService;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly IAuthContextAccessor _authContextAccessor;
     private readonly string GroqEndpoint = "https://api.groq.com/openai/v1/chat/completions";
 
     public ChatbotService
@@ -38,7 +42,9 @@ public partial class ChatbotService : IChatbotService
         IPublicRepairFeedbackService feedbackService,
         IEnquiryService enquiryService,
         TanishElectronicsDbContext dbContext,
-        IChatLogService chatLogService
+        IChatLogService chatLogService,
+        ICurrentUserService currentUserService,
+        IAuthContextAccessor authContextAccessor
     )
     {
         _httpClient = httpClient;
@@ -54,6 +60,8 @@ public partial class ChatbotService : IChatbotService
         _enquiryService = enquiryService;
         _dbContext = dbContext;
         _chatLogService = chatLogService;
+        _currentUserService = currentUserService;
+        _authContextAccessor = authContextAccessor;
     }
 
     private static readonly Dictionary<string, string> Synonyms = new()

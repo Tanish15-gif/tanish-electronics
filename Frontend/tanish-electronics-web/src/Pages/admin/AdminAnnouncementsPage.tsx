@@ -512,27 +512,39 @@ function AdminAnnouncementsPage() {
 
       const payload = toPayload(form);
 
+      let targetId = editingId;
+
       if (editingId !== null) {
         await updateAnnouncement(editingId, payload, token);
-
-        if (selectedImage) {
-          await uploadAnnouncementImage(editingId, selectedImage, token);
-        }
-
-        setSuccess("Announcement updated successfully.");
       } else {
         const createdAnnouncement = await createAnnouncement(payload, token);
-
-        if (selectedImage) {
-          await uploadAnnouncementImage(
-            createdAnnouncement.announcementId,
-            selectedImage,
-            token
-          );
-        }
-
-        setSuccess("Announcement created successfully.");
+        targetId = createdAnnouncement.announcementId;
       }
+
+      if (selectedImage && targetId !== null) {
+        try {
+          await uploadAnnouncementImage(targetId, selectedImage, token);
+        } catch (uploadErr) {
+          // The announcement was saved/created, but image upload failed.
+          // Switch to edit mode for this announcement so user doesn't duplicate it!
+          setEditingId(targetId);
+          await loadAnnouncements();
+          const uploadMsg =
+            uploadErr instanceof Error
+              ? uploadErr.message
+              : "Failed to upload image.";
+          setError(
+            `Announcement ${editingId !== null ? "updated" : `created (#${targetId})`}, but image upload failed: ${uploadMsg}. You can try uploading the image again.`
+          );
+          return;
+        }
+      }
+
+      setSuccess(
+        editingId !== null
+          ? "Announcement updated successfully."
+          : "Announcement created successfully."
+      );
 
       resetForm();
       setActiveTab("overview");
@@ -546,6 +558,7 @@ function AdminAnnouncementsPage() {
       setSaving(false);
     }
   }
+
   function removeAnnouncementImage() {
     if (imagePreview) {
       URL.revokeObjectURL(imagePreview);
@@ -554,6 +567,7 @@ function AdminAnnouncementsPage() {
     setSelectedImage(null);
     setImagePreview("");
     setImageError("");
+    updateField("imageUrl", "");
   }
 
   function handleCreateNew() {
@@ -1050,7 +1064,7 @@ function AdminAnnouncementsPage() {
                           </p>
                         </div>
 
-                        {selectedImage && (
+                        {(selectedImage || form.imageUrl) && (
                           <button
                             type="button"
                             onClick={removeAnnouncementImage}
@@ -1061,6 +1075,32 @@ function AdminAnnouncementsPage() {
                         )}
                       </div>
 
+                      {selectedImage && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2.5 rounded-xl border border-[#d8cdb6] bg-white px-4 py-2.5 text-xs font-bold dark:border-[#302c24] dark:bg-[#1a1712]">
+                          <span className="truncate max-w-[200px] text-[#1f1a12] dark:text-[#e8e3d8]">
+                            📁 {selectedImage.name}
+                          </span>
+                          <span className="rounded-md bg-[#f2eadb] px-2 py-0.5 text-[#725522] dark:bg-[#302c24] dark:text-[#d6b46a]">
+                            Size: {formatFileSize(selectedImage.size)} / 5 MB
+                            max
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                            ✓ Ready to upload
+                          </span>
+                        </div>
+                      )}
+
+                      {!selectedImage && form.imageUrl && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2.5 rounded-xl border border-[#d8cdb6] bg-white px-4 py-2.5 text-xs font-bold dark:border-[#302c24] dark:bg-[#1a1712]">
+                          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                            ✓ Saved Image
+                          </span>
+                          <span className="truncate max-w-[260px] text-[#6f6758] dark:text-[#a8a093]">
+                            {form.imageUrl}
+                          </span>
+                        </div>
+                      )}
+
                       <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[1.25rem] border border-dashed border-[#d8cdb6] bg-white px-5 py-8 text-center transition hover:bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]">
                         <input
                           type="file"
@@ -1070,7 +1110,9 @@ function AdminAnnouncementsPage() {
                         />
 
                         <span className="text-sm font-black text-[#1f1a12] dark:text-[#e8e3d8]">
-                          Click to upload announcement image
+                          {selectedImage || form.imageUrl
+                            ? "Click to change announcement image"
+                            : "Click to upload announcement image"}
                         </span>
 
                         <span className="mt-1 text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
@@ -1086,11 +1128,18 @@ function AdminAnnouncementsPage() {
 
                       {(imagePreview || form.imageUrl) && (
                         <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-[#d8cdb6] bg-white dark:border-[#302c24] dark:bg-[#1a1712]">
-                          <img
-                            src={imagePreview || form.imageUrl}
-                            alt="Announcement preview"
-                            className="h-56 w-full object-cover"
-                          />
+                          <div className="relative">
+                            <img
+                              src={imagePreview || form.imageUrl}
+                              alt="Announcement preview"
+                              className="h-56 w-full object-cover"
+                            />
+                            {selectedImage && (
+                              <div className="absolute bottom-2 left-2 rounded-lg bg-black/70 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm">
+                                {formatFileSize(selectedImage.size)}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1155,7 +1204,11 @@ function AdminAnnouncementsPage() {
             </div>
 
             <aside className="space-y-5 xl:sticky xl:top-24">
-              <AnnouncementPreview form={form} imagePreview={imagePreview} />
+              <AnnouncementPreview
+                form={form}
+                imagePreview={imagePreview}
+                selectedImage={selectedImage}
+              />
 
               <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
                 <h2 className="text-lg font-black">
@@ -1327,15 +1380,39 @@ function AnnouncementCard({
             <MetaBadge>
               {formatAnnouncementType(announcement.displayLocation)}
             </MetaBadge>
+
+            {announcement.imageUrl ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                Has Image
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                No Image
+              </span>
+            )}
           </div>
 
-          <h2 className="mt-4 text-xl font-black leading-tight sm:text-2xl">
-            {announcement.title}
-          </h2>
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
+            {announcement.imageUrl && (
+              <div className="h-28 w-full shrink-0 overflow-hidden rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] dark:border-[#302c24] dark:bg-[#11110f] sm:w-44">
+                <img
+                  src={announcement.imageUrl}
+                  alt={announcement.title}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            )}
 
-          <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-            {announcement.message}
-          </p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl font-black leading-tight sm:text-2xl">
+                {announcement.title}
+              </h2>
+
+              <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
+                {announcement.message}
+              </p>
+            </div>
+          </div>
 
           <div className="mt-5 grid gap-4 border-t border-[#eadfca] pt-5 dark:border-[#302c24] sm:grid-cols-2 xl:grid-cols-4">
             <InfoItem
@@ -1523,10 +1600,12 @@ function ToggleCard({
 
 function AnnouncementPreview({
   form,
-  imagePreview
+  imagePreview,
+  selectedImage
 }: {
   form: AnnouncementForm;
   imagePreview: string;
+  selectedImage?: File | null;
 }) {
   const previewImage = imagePreview || form.imageUrl.trim();
 
@@ -1539,12 +1618,17 @@ function AnnouncementPreview({
       </div>
 
       {previewImage && (
-        <div className="flex h-44 items-center justify-center overflow-hidden bg-[#f3efe6] dark:bg-[#0f0e0c]">
+        <div className="relative flex h-44 items-center justify-center overflow-hidden bg-[#f3efe6] dark:bg-[#0f0e0c]">
           <img
             src={previewImage}
             alt=""
             className="h-full w-full object-cover"
           />
+          {selectedImage && (
+            <div className="absolute bottom-2 right-2 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-black text-white backdrop-blur-sm">
+              {formatFileSize(selectedImage.size)}
+            </div>
+          )}
         </div>
       )}
 
@@ -2066,6 +2150,12 @@ const allowedAnnouncementImageTypes = ["image/jpeg", "image/png", "image/webp"];
 const allowedAnnouncementImageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
 const maxAnnouncementImageSize = 5 * 1024 * 1024;
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 function validateAnnouncementImage(file: File) {
   const fileName = file.name.toLowerCase();
 
@@ -2080,7 +2170,7 @@ function validateAnnouncementImage(file: File) {
   }
 
   if (file.size > maxAnnouncementImageSize) {
-    return "Image must be less than 5MB.";
+    return `Selected image is ${formatFileSize(file.size)}. Image must be less than 5MB.`;
   }
 
   return "";

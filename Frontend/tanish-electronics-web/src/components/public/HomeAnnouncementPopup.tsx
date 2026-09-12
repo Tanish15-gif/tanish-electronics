@@ -291,26 +291,29 @@ function HomeAnnouncementPopup() {
         >
           {/* Image panel */}
           {hasImage && (
-            <div className="relative flex min-h-[220px] items-center justify-center overflow-hidden border-b border-[#d8cdb6] bg-[#11110f] p-3 dark:border-[#302c24] sm:min-h-[300px] sm:p-5 lg:min-h-[560px] lg:border-b-0 lg:border-r">
-              {/* Decorative background */}
-              <div
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 78% 18%, rgba(214,180,106,0.24), transparent 35%), radial-gradient(circle at 15% 90%, rgba(138,102,36,0.26), transparent 38%), linear-gradient(135deg, #1f1a12, #11110f)"
-                }}
+            <div className="relative min-h-[220px] overflow-hidden border-b border-[#d8cdb6] bg-[#11110f] dark:border-[#302c24] sm:min-h-[280px] lg:min-h-full lg:border-b-0 lg:border-r">
+              {/* Blurred ambient backdrop */}
+              <img
+                src={activeAnnouncement.imageUrl!}
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover object-center opacity-30 blur-2xl"
               />
 
+              {/* Main image fitting the full panel */}
               <img
                 src={activeAnnouncement.imageUrl!}
                 alt={activeAnnouncement.title}
                 loading="eager"
                 decoding="async"
                 onError={() => setImageFailed(true)}
-                className="relative z-10 max-h-[36dvh] max-w-full rounded-xl object-contain object-center shadow-xl shadow-black/30 sm:max-h-[420px] lg:max-h-[520px]"
+                className="relative z-10 h-full w-full object-cover object-center"
               />
 
-              <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
+              {/* Subtle lighting overlay */}
+              <div className="pointer-events-none absolute inset-0 z-20 bg-gradient-to-t from-black/40 via-transparent to-black/10 lg:bg-gradient-to-r lg:from-transparent lg:to-black/20" />
+
+              <div className="pointer-events-none absolute inset-0 z-20 ring-1 ring-inset ring-white/10" />
             </div>
           )}
 

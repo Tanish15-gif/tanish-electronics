@@ -261,7 +261,7 @@ function HomeAnnouncementStrip() {
   }
 
   return (
-    <section className="bg-transparent px-4 py-9 sm:px-8 sm:py-12 lg:px-12 xl:px-16 2xl:px-20 lg:py-16">
+    <section className="bg-transparent px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-12 xl:px-12 2xl:px-16">
       <style>
         {`
           @keyframes homeAnnouncementProgress {
@@ -454,21 +454,26 @@ function AnnouncementSlide({
       aria-roledescription="slide"
       className={`min-w-full ${active ? "" : "pointer-events-none"}`}
     >
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_290px] xl:grid-cols-[minmax(0,1fr)_310px]">
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_250px] xl:grid-cols-[minmax(0,1fr)_270px]">
         {/* Main slide */}
-        <div className="min-w-0 p-5 sm:min-h-[390px] sm:p-8 lg:p-10">
+        <div className="relative flex min-w-0 flex-col justify-center p-5 sm:p-7 lg:p-8 xl:p-9 min-h-[300px] sm:min-h-[320px] lg:min-h-[340px] xl:min-h-[360px] overflow-hidden">
+          {/* Subtle ambient decorative backdrop for slides without images */}
+          {!announcement.imageUrl && (
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#d6b46a]/[0.07] blur-3xl dark:bg-[#d6b46a]/[0.05]" />
+          )}
+
           <div
-            className={`grid h-full gap-7 ${
+            className={`grid w-full items-center gap-6 lg:gap-7 xl:gap-8 ${
               announcement.imageUrl
-                ? "lg:grid-cols-[minmax(0,1fr)_minmax(300px,420px)] lg:items-stretch"
+                ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]"
                 : ""
             }`}
           >
             {/* Text */}
-            <div className="flex min-w-0 flex-col justify-between">
+            <div className="flex min-w-0 flex-col justify-center">
               <div>
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[#d8cdb6] bg-[#f2eadb] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#725522] dark:border-[#302c24] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a] sm:text-[11px]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#f2eadb] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#725522] dark:border-[#302c24] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a] sm:text-[11px]">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#d6b46a]" />
 
                     {formatAnnouncementType(announcement.announcementType)}
@@ -482,28 +487,30 @@ function AnnouncementSlide({
                   )}
                 </div>
 
-                <h3 className="mt-5 max-w-3xl text-[2rem] font-black leading-[1.08] tracking-[-0.035em] text-[#1f1a12] dark:text-[#f1ede5] sm:mt-6 sm:text-4xl lg:text-[2.65rem]">
+                <h3
+                  className={`mt-3 sm:mt-4 font-black leading-[1.15] tracking-tight text-[#1f1a12] dark:text-[#f1ede5] ${
+                    announcement.imageUrl
+                      ? "text-xl sm:text-2xl lg:text-[1.65rem] xl:text-[2rem] 2xl:text-3xl max-w-xl"
+                      : "text-2xl sm:text-3xl lg:text-[2.2rem] xl:text-[2.6rem] max-w-2xl xl:max-w-3xl"
+                  }`}
+                >
                   {announcement.title}
                 </h3>
 
-                <p className="mt-4 max-w-3xl whitespace-pre-wrap text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093] sm:text-base sm:leading-7">
+                <p className="mt-2.5 sm:mt-3 max-w-2xl whitespace-pre-wrap text-xs sm:text-sm lg:text-[15px] font-medium leading-relaxed text-[#6f6758] dark:text-[#a8a093] line-clamp-3 sm:line-clamp-4">
                   {announcement.message}
                 </p>
               </div>
 
               {/* Actions */}
-              <div
-                className={`mt-7 grid gap-3 sm:flex sm:items-center ${
-                  hasAction ? "grid-cols-2" : "grid-cols-1"
-                }`}
-              >
+              <div className="mt-5 flex flex-wrap items-center gap-2.5 sm:mt-6 sm:gap-3">
                 {hasAction && (
                   <SmartAnnouncementLink
                     to={announcement.buttonLink!}
                     tabIndex={active ? 0 : -1}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-5 py-3 text-center text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#352f26] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+                    className="inline-flex h-10 sm:h-11 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-4 sm:px-5 text-xs sm:text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#352f26] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
                   >
-                    {announcement.buttonText}
+                    <span>{announcement.buttonText}</span>
 
                     <ArrowUpRightIcon />
                   </SmartAnnouncementLink>
@@ -512,20 +519,20 @@ function AnnouncementSlide({
                 <a
                   href="tel:8850973399"
                   tabIndex={active ? 0 : -1}
-                  className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-transparent px-5 py-3 text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#3b372f] dark:text-[#e8e3d8] dark:hover:bg-[#242016] ${
-                    hasAction ? "" : "sm:min-w-40"
+                  className={`inline-flex h-10 sm:h-11 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-transparent px-4 sm:px-5 text-xs sm:text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#3b372f] dark:text-[#e8e3d8] dark:hover:bg-[#242016] ${
+                    hasAction ? "" : "min-w-36"
                   }`}
                 >
                   <PhoneIcon />
-                  Call shop
+                  <span>Call shop</span>
                 </a>
               </div>
             </div>
 
             {/* Image */}
             {announcement.imageUrl && (
-              <div className="order-first overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffaf0] shadow-sm dark:border-[#302c24] dark:bg-[#11110f] lg:order-none">
-                <div className="relative aspect-[16/10] w-full sm:aspect-[16/9] lg:h-full lg:min-h-[290px] lg:aspect-auto">
+              <div className="order-first w-full justify-self-center lg:order-none lg:justify-self-end max-w-[460px]">
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] shadow-sm dark:border-[#302c24] dark:bg-[#11110f] sm:aspect-[16/9] lg:aspect-[16/10] max-h-[240px] sm:max-h-[270px] lg:max-h-[280px]">
                   <AnnouncementImage
                     imageUrl={announcement.imageUrl}
                     title={announcement.title}
@@ -543,7 +550,7 @@ function AnnouncementSlide({
 
         {/* Desktop navigation */}
         {total > 1 && (
-          <aside className="hidden flex-col justify-between border-l border-[#d8cdb6] bg-[#faf7f0] p-7 dark:border-[#302c24] dark:bg-[#13110e] lg:flex xl:p-8">
+          <aside className="hidden flex-col justify-between border-l border-[#d8cdb6] bg-[#faf7f0] p-6 dark:border-[#302c24] dark:bg-[#13110e] lg:flex xl:p-7">
             <div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#817867] dark:text-[#928a7d]">
@@ -559,7 +566,7 @@ function AnnouncementSlide({
                 </p>
               </div>
 
-              <div className="mt-8 border-t border-[#ddd4c3] pt-6 dark:border-[#302c24]">
+              <div className="mt-6 border-t border-[#ddd4c3] pt-5 dark:border-[#302c24]">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#817867] dark:text-[#928a7d]">
                   Next update
                 </p>
@@ -568,20 +575,20 @@ function AnnouncementSlide({
                   type="button"
                   tabIndex={active ? 0 : -1}
                   onClick={onOpenNext}
-                  className="mt-3 line-clamp-4 text-left text-base font-black leading-6 text-[#1f1a12] transition hover:text-[#8a6624] focus-visible:outline-none focus-visible:text-[#8a6624] dark:text-[#e8e3d8] dark:hover:text-[#d6b46a]"
+                  className="mt-2 line-clamp-3 text-left text-sm font-black leading-snug text-[#1f1a12] transition hover:text-[#8a6624] focus-visible:outline-none focus-visible:text-[#8a6624] dark:text-[#e8e3d8] dark:hover:text-[#d6b46a] xl:text-base"
                 >
                   {nextAnnouncement.title}
                 </button>
               </div>
             </div>
 
-            <div className="mt-10 grid grid-cols-2 gap-3">
+            <div className="mt-6 grid grid-cols-2 gap-2.5 sm:gap-3">
               <button
                 type="button"
                 tabIndex={active ? 0 : -1}
                 onClick={onPrevious}
                 aria-label="Previous announcement"
-                className="inline-flex h-12 items-center justify-center rounded-xl border border-[#d8cdb6] bg-white text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d8cdb6] bg-white text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
               >
                 <ChevronLeftIcon />
               </button>
@@ -591,7 +598,7 @@ function AnnouncementSlide({
                 tabIndex={active ? 0 : -1}
                 onClick={onNext}
                 aria-label="Next announcement"
-                className="inline-flex h-12 items-center justify-center rounded-xl bg-[#1f1a12] text-white transition hover:bg-[#352f26] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-[#1f1a12] text-white transition hover:bg-[#352f26] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
               >
                 <ChevronRightIcon />
               </button>
@@ -643,29 +650,63 @@ function AnnouncementImage({
 
 function AnnouncementStripLoading() {
   return (
-    <section className="bg-transparent px-4 py-9 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
-      <div className="mx-auto max-w-7xl">
-        <div className="h-3 w-28 animate-pulse rounded bg-[#e8dfcf] dark:bg-[#302c24]" />
+    <section className="bg-transparent px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-12 xl:px-12 2xl:px-16">
+      <div className="mx-auto w-full max-w-[1720px]">
+        <div className="mb-5 sm:mb-6">
+          <div className="h-3 w-28 animate-pulse rounded bg-[#e8dfcf] dark:bg-[#302c24]" />
 
-        <div className="mt-3 h-8 w-72 max-w-full animate-pulse rounded-lg bg-[#e8dfcf] dark:bg-[#302c24]" />
+          <div className="mt-2 h-7 w-72 max-w-full animate-pulse rounded-lg bg-[#e8dfcf] dark:bg-[#302c24]" />
+        </div>
 
-        <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf8] p-5 dark:border-[#302c24] dark:bg-[#181612] sm:p-8">
-          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_380px]">
-            <div>
-              <div className="h-7 w-28 animate-pulse rounded-full bg-[#eee5d4] dark:bg-[#302c24]" />
+        <div className="overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf8] shadow-[0_25px_70px_-45px_rgba(31,26,18,0.6)] dark:border-[#302c24] dark:bg-[#181612] lg:rounded-[2rem]">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_250px] xl:grid-cols-[minmax(0,1fr)_270px]">
+            {/* Main slide skeleton */}
+            <div className="p-5 sm:p-7 lg:p-8 xl:p-9 min-h-[300px] sm:min-h-[320px] lg:min-h-[340px] xl:min-h-[360px] flex flex-col justify-center">
+              <div className="grid w-full items-center gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+                <div>
+                  <div className="h-6 w-28 animate-pulse rounded-full bg-[#eee5d4] dark:bg-[#302c24]" />
 
-              <div className="mt-6 h-11 w-4/5 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+                  <div className="mt-4 h-8 w-4/5 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
 
-              <div className="mt-3 h-11 w-3/5 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+                  <div className="mt-2 h-8 w-3/5 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
 
-              <div className="mt-5 h-4 w-full animate-pulse rounded bg-[#f3ebdc] dark:bg-[#242016]" />
+                  <div className="mt-3 h-4 w-full animate-pulse rounded bg-[#f3ebdc] dark:bg-[#242016]" />
 
-              <div className="mt-2 h-4 w-3/4 animate-pulse rounded bg-[#f3ebdc] dark:bg-[#242016]" />
+                  <div className="mt-2 h-4 w-2/3 animate-pulse rounded bg-[#f3ebdc] dark:bg-[#242016]" />
 
-              <div className="mt-7 h-12 w-40 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+                  <div className="mt-5 flex gap-3">
+                    <div className="h-10 w-32 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+
+                    <div className="h-10 w-28 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+                  </div>
+                </div>
+
+                <div className="aspect-[16/10] w-full max-h-[260px] animate-pulse rounded-2xl bg-[#eee5d4] dark:bg-[#302c24]" />
+              </div>
             </div>
 
-            <div className="aspect-[16/10] animate-pulse rounded-[1.5rem] bg-[#eee5d4] dark:bg-[#302c24] lg:aspect-auto lg:min-h-[290px]" />
+            {/* Sidebar skeleton */}
+            <div className="hidden flex-col justify-between border-l border-[#d8cdb6] bg-[#faf7f0] p-6 dark:border-[#302c24] dark:bg-[#13110e] lg:flex xl:p-7">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="h-3 w-20 animate-pulse rounded bg-[#eee5d4] dark:bg-[#302c24]" />
+
+                  <div className="h-4 w-10 animate-pulse rounded bg-[#eee5d4] dark:bg-[#302c24]" />
+                </div>
+
+                <div className="mt-6 border-t border-[#ddd4c3] pt-5 dark:border-[#302c24]">
+                  <div className="h-3 w-16 animate-pulse rounded bg-[#eee5d4] dark:bg-[#302c24]" />
+
+                  <div className="mt-2 h-5 w-36 animate-pulse rounded bg-[#eee5d4] dark:bg-[#302c24]" />
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className="h-11 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+
+                <div className="h-11 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -140,14 +140,20 @@ TanishElectronics\
 │       │   ├── Common/
 │       │   ├── Events/
 │       │   ├── Repositories/
+|       |   |   └── IAuth/
 │       │   └── Services/
+|       |       └── IAuth/
 │       ├── Middleware/
 │       ├── Migrations/     # EF Core migrations
 │       ├── Models/
 │       ├── Properties/
 │       ├── Repositories/
-│       ├── Services/       # Business services & ChatbotService (Groq LLaMA)
-│           └── ChatBotService/  # Separated files of chatbot services
+|       |   └── Auth/           # All Separated Auth Repostories
+│       ├── Services/           # Business services & ChatbotService (Groq LLaMA)
+│       |   ├── ChatBotService/  # Separated files of chatbot services
+|       |   └── Auth/           # All Separated Auth Service
+|       |       ├── Context/
+|       |       └── Helpers/
 |       ├── Settings/       # AppSettings, GroqSettings, ShopSettings
 │       └── wwwroot/
 │           └── uploads/

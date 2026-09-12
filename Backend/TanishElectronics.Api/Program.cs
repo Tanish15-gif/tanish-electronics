@@ -24,6 +24,15 @@ using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using TanishElectronics.Api.Interfaces.Common;
+using TanishElectronics.Api.Interfaces.Repositories.Auth;
+using TanishElectronics.Api.Repositories.Auth;
+using TanishElectronics.Api.Interfaces.Services.AuthService;
+using TanishElectronics.Api.Services.AuthService.CredentialAuth;
+using TanishElectronics.Api.Services.AuthService.Token;
+using TanishElectronics.Api.Services.AuthService.GoogleAuthService;
+using TanishElectronics.Api.Services.AuthService.Password;
+using TanishElectronics.Api.Services.AuthService.Sessions;
+using TanishElectronics.Api.Services.AuthService.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -472,8 +481,25 @@ builder.Services.AddScoped<IAdminUsersService, AdminUsersService>();
 builder.Services.AddScoped<IPasswordHasherService, PasswordHasherService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 
+/// Auth
+builder.Services.AddScoped<IAuthContextAccessor, AuthContextAccessor>();
+builder.Services.AddScoped<IAuthEventLogger, AuthEventLogger>();
+
+builder.Services.AddScoped<ICredentialAuthRepository, CredentialAuthRepository>();
+builder.Services.AddScoped<ITokenRepository, TokenRepository>();
+builder.Services.AddScoped<IGoogleAuthRepository, GoogleAuthRepository>();
+builder.Services.AddScoped<IPasswordRecoveryRepository, PasswordRecoveryRepository>();
+builder.Services.AddScoped<ISessionRepository, SessionRepository>();
 builder.Services.AddScoped<ICustomAuthRepository, CustomAuthRepository>();
+
+builder.Services.AddScoped<ICredentialAuthService, CredentialAuthService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
+builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<ICustomAuthService, CustomAuthService>();
+
+/// ----------------------------------------------
 
 builder.Services.AddScoped<IEmailService, MailKitEmailService>();
 
