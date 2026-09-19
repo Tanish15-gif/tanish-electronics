@@ -434,7 +434,7 @@ builder.Services.AddScoped<IEnquiryService, EnquiryService>();
 builder.Services.AddScoped<IAdminDashboardRepository, AdminDashboardRepository>();
 builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();
 
-builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 

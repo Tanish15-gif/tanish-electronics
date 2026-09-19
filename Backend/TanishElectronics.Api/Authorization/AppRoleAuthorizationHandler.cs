@@ -1,19 +1,20 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using TanishElectronics.Api.Interfaces.Repositories;
+using TanishElectronics.Api.Interfaces.Repositories.Auth;
 
 namespace TanishElectronics.Api.Authorization;
 
 public class AppRoleAuthorizationHandler : AuthorizationHandler<AppRoleRequirement>
 {
-    private readonly IAuthRepository _authRepository;
+    private readonly ICredentialAuthRepository _authRepository;
 
-    public AppRoleAuthorizationHandler(IAuthRepository authRepository)
+    public AppRoleAuthorizationHandler(ICredentialAuthRepository authRepository)
     {
         _authRepository = authRepository;
     }
 
-    protected override async Task HandleRequirementAsync(
+    protected override async Task HandleRequirementAsync
+    (
         AuthorizationHandlerContext context,
         AppRoleRequirement requirement
     )

@@ -13,4 +13,8 @@ public interface ICredentialAuthRepository
     Task CreateCustomerProfileIfMissingAsync(AppUser appUser);
     Task AddAuthEventAsync(UserAuthEvent authEvent);
     Task<AppUser?> GetUserByIdWithExternalLoginsAsync(int appUserId);
+
+    // Authorization support
+    Task<AppUser?> GetAppUserByIdAsync(int appUserId);
+    Task<bool> AppUserHasRoleAsync(int appUserId, string roleName);
 }

@@ -49,7 +49,7 @@ public class UserAgentParser : IUserAgentParser
         if (ua.Contains("Tizen", StringComparison.OrdinalIgnoreCase)) return "Tizen";
         if (ua.Contains("Web0S", StringComparison.OrdinalIgnoreCase) || ua.Contains("WebOS", StringComparison.OrdinalIgnoreCase)) return "webOS";
         if (ua.Contains("iPhone", StringComparison.OrdinalIgnoreCase)) return "iOS";
-        if (ua.Contains("iPad", StringComparison.OrdinalIgnoreCase)) return "iPadOs";
+        if (ua.Contains("iPad", StringComparison.OrdinalIgnoreCase)) return "iPadOS";
         if (ua.Contains("Android", StringComparison.OrdinalIgnoreCase)) return "Android";
         if (ua.Contains("Windows NT", StringComparison.OrdinalIgnoreCase)) return "Windows";
         if (ua.Contains("Mac OS X", StringComparison.OrdinalIgnoreCase)) return "macOS";
