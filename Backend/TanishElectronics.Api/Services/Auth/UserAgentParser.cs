@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using TanishElectronics.Api.Interfaces.Services;
 using TanishElectronics.Api.Models.Auth;
 
-namespace TanishElectronics.Api.Services;
+namespace TanishElectronics.Api.Services.AuthService;
 
 public class UserAgentParser : IUserAgentParser
 {

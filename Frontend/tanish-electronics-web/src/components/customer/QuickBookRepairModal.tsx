@@ -837,10 +837,20 @@ function ProfileSummary({
   serviceType: ServiceType;
   selectedAddress: CustomerAddress | null;
 }) {
+  const initials = profile.fullName?.trim()
+    ? profile.fullName
+        .trim()
+        .split(/\s+/)
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "CU";
+
   return (
     <div>
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8e3d8] text-sm font-black text-[#11110f]">
-        TE
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8e3d8] text-sm font-black text-[#11110f] dark:bg-[#242016] dark:text-[#d6b46a]">
+        {initials}
       </div>
 
       <h3 className="mt-4 text-lg font-black">{profile.fullName}</h3>

@@ -28,6 +28,7 @@ import {
 
 import UserAccountMenu from "../auth/UserAccountMenu";
 import { useShopSettings } from "../../hooks/useShopSettings";
+import TanishElectronicsLogo from "../common/TanishElectronicsLogo";
 
 function AdminLayout() {
   const { settings } = useShopSettings();
@@ -276,8 +277,8 @@ function AdminLayout() {
               to="/admin/dashboard"
               className="flex min-w-0 items-center gap-3 lg:hidden"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] text-xs font-black text-[#f7f5ef] dark:bg-[#e8e3d8] dark:text-[#11110f]">
-                TE
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-0.5 shadow-xs dark:border-[#383124] dark:bg-[#161410]">
+                <TanishElectronicsLogo className="h-full w-full rounded-lg object-cover" />
               </span>
 
               <span className="min-w-0">
@@ -580,11 +581,11 @@ function AdminLayout() {
         className="flex min-w-0 items-center gap-3"
       >
         <span
-          className={`flex shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] font-black text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f] ${
-            compact ? "h-10 w-10 text-xs" : "h-11 w-11 text-sm"
+          className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-0.5 shadow-xs dark:border-[#383124] dark:bg-[#161410] ${
+            compact ? "h-10 w-10" : "h-11 w-11"
           }`}
         >
-          TE
+          <TanishElectronicsLogo className="h-full w-full rounded-lg object-cover" />
         </span>
 
         <span className="min-w-0">

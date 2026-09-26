@@ -7,6 +7,7 @@ import { useShopSettings } from "../../hooks/useShopSettings";
 import { useApiAuth } from "../../hooks/useApiAuth";
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
 import UserAccountMenu from "../auth/UserAccountMenu";
+import TanishElectronicsLogo from "../common/TanishElectronicsLogo";
 
 function PublicNavbar() {
   const { isLoaded, isSignedIn, getToken } = useApiAuth();
@@ -231,9 +232,11 @@ function PublicNavbar() {
             {isLoaded && !isSignedIn && (
               <Link
                 to="/sign-in"
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-3.5 text-xs font-black transition hover:border-[#c7b98e] hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:bg-[#242016]"
+                aria-label="Sign in to your account"
+                title="Sign in"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] shadow-sm transition hover:border-[#c7b98e] hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:border-[#50483b] dark:hover:bg-[#242016]"
               >
-                Sign In
+                <AuthPersonIcon />
               </Link>
             )}
 
@@ -279,9 +282,11 @@ function PublicNavbar() {
             {isLoaded && !isSignedIn && (
               <Link
                 to="/sign-in"
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-4 text-sm font-black transition hover:border-[#c7b98e] hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:bg-[#242016]"
+                aria-label="Sign in to your account"
+                title="Sign in"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] shadow-sm transition hover:border-[#c7b98e] hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:border-[#50483b] dark:hover:bg-[#242016]"
               >
-                Sign In
+                <AuthPersonIcon />
               </Link>
             )}
 
@@ -349,11 +354,11 @@ function Brand({
       className="group flex min-w-0 shrink-0 items-center gap-3"
     >
       <span
-        className={`flex shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] font-black text-[#f7f5ef] shadow-sm transition group-hover:scale-[1.03] dark:bg-[#e8e3d8] dark:text-[#11110f] ${
-          compact ? "h-10 w-10 text-xs" : "h-11 w-11 text-sm"
+        className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-0.5 shadow-xs transition group-hover:scale-[1.04] dark:border-[#383124] dark:bg-[#161410] ${
+          compact ? "h-10 w-10" : "h-11 w-11"
         }`}
       >
-        TE
+        <TanishElectronicsLogo className="h-full w-full rounded-lg object-cover" />
       </span>
 
       <span className="min-w-0">
@@ -788,6 +793,20 @@ function DashboardIcon() {
         rx="1"
         stroke="currentColor"
         strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function AuthPersonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
       />
     </svg>
   );

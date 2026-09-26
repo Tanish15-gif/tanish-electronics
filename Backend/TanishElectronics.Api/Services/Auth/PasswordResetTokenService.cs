@@ -4,7 +4,7 @@ using System.Text;
 using Microsoft.AspNetCore.WebUtilities;
 using TanishElectronics.Api.Interfaces.Services;
 
-namespace TanishElectronics.Api.Services;
+namespace TanishElectronics.Api.Services.AuthService;
 
 public class PasswordResetTokenService : IPasswordResetTokenService
 {

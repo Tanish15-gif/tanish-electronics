@@ -16,6 +16,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
 import GoogleSignInButton from "../GoogleSignInButton";
 import { useShopSettings } from "../../hooks/useShopSettings";
+import TanishElectronicsLogo from "../../components/common/TanishElectronicsLogo";
 
 function SignUpPage() {
   const { settings } = useShopSettings();
@@ -157,8 +158,8 @@ function SignUpPage() {
             aria-label={`Go to ${settings.shopName} home`}
             className="flex min-w-0 items-center gap-3"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] text-xs font-black text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f]">
-              TE
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-0.5 shadow-xs dark:border-[#383124] dark:bg-[#161410]">
+              <TanishElectronicsLogo className="h-full w-full rounded-lg object-cover" />
             </span>
 
             <span className="min-w-0">

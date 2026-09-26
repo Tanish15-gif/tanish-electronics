@@ -21,6 +21,7 @@ import {
 import type { LookUpItem } from "../../Services/serviceRequestService";
 import { exportProducts } from "../../Services/adminExportService";
 import { useShopSettings } from "../../hooks/useShopSettings";
+import TanishElectronicsLogo from "../../components/common/TanishElectronicsLogo";
 
 function AdminProductsPage() {
   const { settings } = useShopSettings();
@@ -607,9 +608,9 @@ function AdminProductCard({
                 className="h-full w-full object-contain"
               />
             ) : (
-              <span className="text-xl font-black text-[#8a6624] dark:text-[#d6b46a]">
-                TE
-              </span>
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-[#1f1a12] p-0.5">
+                <TanishElectronicsLogo className="h-full w-full object-cover" />
+              </div>
             )}
           </div>
 

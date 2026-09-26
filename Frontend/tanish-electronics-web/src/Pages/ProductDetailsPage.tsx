@@ -8,6 +8,7 @@ import {
   type TouchEvent
 } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Sparkles } from "lucide-react";
 import ActionButton from "../components/UI/ActionButton";
 import { getCustomerProfile } from "../Services/customerProfileService";
 import {
@@ -16,6 +17,7 @@ import {
   type ProductDetails
 } from "../Services/productService";
 import { useShopSettings } from "../hooks/useShopSettings";
+import TanishElectronicsLogo from "../components/common/TanishElectronicsLogo";
 
 const SHOP_PHONE = "8850973399";
 const SWIPE_THRESHOLD = 50;
@@ -223,7 +225,7 @@ function ProductDetailsPage() {
 
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] pb-24 text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8] lg:pb-0">
-      <section className="mx-auto w-full max-w-[1720px] px-4 pt-24 pb-12 sm:px-8 sm:pt-28 sm:pb-16 lg:px-12 xl:px-16 2xl:px-20 lg:pt-32">
+      <section className="mx-auto w-full max-w-[1720px] px-4 pt-3 pb-12 sm:px-8 sm:pt-4 sm:pb-16 lg:px-12 xl:px-16 2xl:px-20 lg:pt-5">
         {/* Breadcrumb */}
         <nav
           aria-label="Breadcrumb"
@@ -267,7 +269,30 @@ function ProductDetailsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="category">{product.categoryName}</Badge>
               <Badge variant="condition">{product.conditionName}</Badge>
-              <Badge variant="available">Available</Badge>
+              {product.isAvailable && product.stockQuantity > 0 ? (
+                product.stockQuantity <= 2 ? (
+                  <Badge variant="lowStock">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Only {product.stockQuantity} left
+                  </Badge>
+                ) : (
+                  <Badge variant="available">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    In Stock
+                  </Badge>
+                )
+              ) : (
+                <Badge variant="outOfStock">
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                  Out of Stock
+                </Badge>
+              )}
+              {product.isFeatured && (
+                <Badge variant="featured">
+                  <Sparkles className="h-3 w-3 text-[#d6b46a]" />
+                  Featured Item
+                </Badge>
+              )}
             </div>
 
             <p className="mt-6 text-xs font-black uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
@@ -392,7 +417,11 @@ function ProductDetailsPage() {
 
                 <SpecificationRow
                   label="Availability"
-                  value="Available — confirmation required"
+                  value={
+                    product.isAvailable && product.stockQuantity > 0
+                      ? `In Stock (${product.stockQuantity} ${product.stockQuantity === 1 ? "unit" : "units"} available)`
+                      : "Out of Stock — Enquiry required for procurement"
+                  }
                 />
 
                 <SpecificationRow
@@ -428,8 +457,8 @@ function ProductDetailsPage() {
                   className="h-16 w-16 shrink-0 rounded-lg bg-white object-contain p-1"
                 />
               ) : (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-[#f2eadb] text-2xl font-black text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-                  {product.productName.charAt(0).toUpperCase()}
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8cdb6] bg-[#1f1a12] p-1 shadow-xs dark:border-[#383124] dark:bg-[#161410]">
+                  <TanishElectronicsLogo className="h-full w-full rounded-lg object-cover" />
                 </div>
               )}
 
@@ -666,8 +695,13 @@ function ProductImageGallery({
               className="h-full w-full object-contain"
             />
           ) : (
-            <div className="flex h-28 w-28 items-center justify-center rounded-3xl bg-[#fff4cc] text-5xl font-black text-[#7a570f] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-              {productName.charAt(0).toUpperCase()}
+            <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-[#d8cdb6] bg-[#1f1a12] p-2 shadow-sm dark:border-[#383124] dark:bg-[#161410]">
+                <TanishElectronicsLogo className="h-full w-full rounded-2xl object-cover" />
+              </div>
+              <span className="text-xs font-bold text-[#817867] dark:text-[#928a7d]">
+                Workshop Verified Electronics
+              </span>
             </div>
           )}
 
@@ -768,7 +802,13 @@ function Badge({
   variant
 }: {
   children: ReactNode;
-  variant: "category" | "condition" | "available";
+  variant:
+    | "category"
+    | "condition"
+    | "available"
+    | "lowStock"
+    | "outOfStock"
+    | "featured";
 }) {
   const styles = {
     category:
@@ -776,12 +816,18 @@ function Badge({
     condition:
       "border-[#d8cdb6] bg-[#fffdf7] text-[#6f6758] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#a8a093]",
     available:
-      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
+      "border-emerald-500/35 bg-emerald-500/15 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-400/20 dark:text-emerald-300",
+    lowStock:
+      "border-amber-500/35 bg-amber-500/15 text-amber-700 dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300",
+    outOfStock:
+      "border-rose-500/35 bg-rose-500/15 text-rose-700 dark:border-rose-400/35 dark:bg-rose-400/20 dark:text-rose-300",
+    featured:
+      "border-[#d6b46a]/60 bg-[#1f1a12] text-[#d6b46a] shadow-xs dark:bg-[#1f1a12] dark:text-[#d6b46a]"
   };
 
   return (
     <span
-      className={`rounded-full border px-3 py-1.5 text-[11px] font-black ${styles[variant]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-black ${styles[variant]}`}
     >
       {children}
     </span>

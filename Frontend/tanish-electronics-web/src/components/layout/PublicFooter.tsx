@@ -1,6 +1,7 @@
 import { useShopSettings } from "../../hooks/useShopSettings";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import TanishElectronicsLogo from "../common/TanishElectronicsLogo";
 
 const quickLinks = [
   {
@@ -66,8 +67,8 @@ function PublicFooter() {
               aria-label={`${settings.shopName} home`}
               className="inline-flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20"
             >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#1f1a12] text-sm font-black tracking-wide text-[#f7f5ef] shadow-sm dark:bg-[#e8e3d8] dark:text-[#11110f]">
-                TE
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-0.5 shadow-sm transition hover:scale-[1.04] dark:border-[#383124] dark:bg-[#161410]">
+                <TanishElectronicsLogo className="h-full w-full rounded-xl object-cover" />
               </span>
 
               <span>

@@ -231,16 +231,28 @@ function drawHeader(
   doc.setLineWidth(2);
   doc.line(0, headerH, pageWidth, headerH);
 
-  // Logo badge
-  doc.setFillColor(palette.goldSoft);
+  // Logo badge - TV Monogram Frame
+  doc.setFillColor(palette.headerBg);
   doc.roundedRect(margin, 24, 46, 46, 10, 10, "F");
   doc.setDrawColor(palette.gold);
-  doc.setLineWidth(1);
+  doc.setLineWidth(1.5);
   doc.roundedRect(margin + 4, 28, 38, 38, 8, 8);
+
+  // Outer TV screen frame
+  doc.setDrawColor(palette.gold);
+  doc.setLineWidth(1.2);
+  doc.roundedRect(margin + 9, 33, 28, 20, 2, 2);
+
+  // TV stand pedestal
+  doc.line(margin + 20, 53, margin + 26, 53);
+  doc.line(margin + 23, 53, margin + 23, 57);
+  doc.line(margin + 17, 57, margin + 29, 57);
+
+  // Central T monogram
   doc.setFont(fonts.base, "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(palette.headerBg);
-  doc.text("TE", margin + 23, 52, { align: "center" });
+  doc.setFontSize(13);
+  doc.setTextColor(palette.gold);
+  doc.text("T", margin + 23, 47, { align: "center" });
 
   // Shop identity
   doc.setTextColor("#ffffff");

@@ -2,7 +2,7 @@ using TanishElectronics.Api.DTOs.Auth;
 using TanishElectronics.Api.Interfaces.Services;
 using TanishElectronics.Api.Interfaces.Services.AuthService;
 
-namespace TanishElectronics.Api.Services;
+namespace TanishElectronics.Api.Services.AuthService;
 
 public class CustomAuthService : ICustomAuthService
 {

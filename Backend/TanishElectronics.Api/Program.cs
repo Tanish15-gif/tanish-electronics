@@ -33,6 +33,7 @@ using TanishElectronics.Api.Services.AuthService.GoogleAuthService;
 using TanishElectronics.Api.Services.AuthService.Password;
 using TanishElectronics.Api.Services.AuthService.Sessions;
 using TanishElectronics.Api.Services.AuthService.Context;
+using TanishElectronics.Api.Services.AuthService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -551,8 +552,8 @@ app.UseCors("AllowAll");
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-app.UseAuthentication();
 app.UseAuthorization();
+app.UseAuthentication();
 
 app.UseRateLimiter();
 app.UseOutputCache();

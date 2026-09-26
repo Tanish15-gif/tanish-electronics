@@ -21,6 +21,7 @@ import {
 } from "../../Services/adminProductService";
 import type { LookUpItem } from "../../Services/serviceRequestService";
 import { useShopSettings } from "../../hooks/useShopSettings";
+import TanishElectronicsLogo from "../../components/common/TanishElectronicsLogo";
 
 type ProductForm = {
   productCategoryId: number;
@@ -1037,8 +1038,8 @@ function ProductPreview({
             className="h-full w-full object-contain"
           />
         ) : (
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#fff4cc] text-2xl font-black text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-            TE
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#1f1a12] p-1 shadow-sm">
+            <TanishElectronicsLogo className="h-full w-full object-cover" />
           </div>
         )}
       </div>

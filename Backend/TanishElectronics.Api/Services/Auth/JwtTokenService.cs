@@ -9,7 +9,7 @@ using TanishElectronics.Api.Entities;
 using TanishElectronics.Api.Interfaces.Services;
 using TanishElectronics.Api.Settings;
 
-namespace TanishElectronics.Api.Services;
+namespace TanishElectronics.Api.Services.AuthService;
 
 public class JwtTokenService : IJwtTokenService
 {

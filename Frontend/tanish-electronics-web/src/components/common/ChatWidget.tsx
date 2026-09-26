@@ -21,7 +21,16 @@ import {
   Package,
   Wrench,
   Search,
-  MessageSquare
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Check,
+  AlertTriangle,
+  ClipboardCheck
 } from "lucide-react";
 
 export interface ChatProductCardDto {
@@ -53,21 +62,17 @@ function ActionIcon({ name }: { name?: string }) {
   switch (name?.toLowerCase()) {
     case "phone":
     case "call":
-    case "📞":
       return <Phone size={13} className="shrink-0" />;
     case "package":
     case "products":
     case "box":
-    case "📦":
       return <Package size={13} className="shrink-0" />;
     case "wrench":
     case "repair":
     case "tool":
-    case "🔧":
       return <Wrench size={13} className="shrink-0" />;
     case "search":
     case "track":
-    case "🔍":
       return <Search size={13} className="shrink-0" />;
     case "message":
     case "chat":
@@ -81,6 +86,8 @@ import {
   getAccessToken,
   getStoredAuthUser
 } from "../../Services/customAuthService";
+import { useCustomAuth } from "../../contexts/CustomAuthContext";
+import GoogleSignInButton from "../../Pages/GoogleSignInButton";
 
 const API_BASE_URL = import.meta.env["VITE_API_BASE_URL"] ?? "";
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -119,24 +126,370 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const formatTime = (at: number) =>
   new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+import TanishElectronicsLogo from "./TanishElectronicsLogo";
+
+function IconBadge({
+  type
+}: {
+  type:
+    "lock" | "cross" | "check" | "alert" | "clipboard" | "wrench" | "sparkles";
+}) {
+  switch (type) {
+    case "lock":
+      return (
+        <span
+          aria-label="Security Lock"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-amber-500/35 bg-amber-500/15 text-amber-700 shadow-xs mr-1.5 align-text-bottom dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300"
+        >
+          <Lock size={12} strokeWidth={2.4} />
+        </span>
+      );
+    case "cross":
+      return (
+        <span
+          aria-label="Error"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-rose-500/35 bg-rose-500/15 text-rose-700 shadow-xs mr-1.5 align-text-bottom dark:border-rose-400/35 dark:bg-rose-400/20 dark:text-rose-300"
+        >
+          <X size={12} strokeWidth={2.6} />
+        </span>
+      );
+    case "check":
+      return (
+        <span
+          aria-label="Success"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-emerald-500/35 bg-emerald-500/15 text-emerald-700 shadow-xs mr-1.5 align-text-bottom dark:border-emerald-400/35 dark:bg-emerald-400/20 dark:text-emerald-300"
+        >
+          <Check size={12} strokeWidth={2.6} />
+        </span>
+      );
+    case "alert":
+      return (
+        <span
+          aria-label="Alert"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-amber-500/35 bg-amber-500/15 text-amber-700 shadow-xs mr-1.5 align-text-bottom dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300"
+        >
+          <AlertTriangle size={12} strokeWidth={2.4} />
+        </span>
+      );
+    case "clipboard":
+      return (
+        <span
+          aria-label="Summary"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-[#8a6624]/35 bg-[#8a6624]/15 text-[#8a6624] shadow-xs mr-1.5 align-text-bottom dark:border-[#d6b46a]/35 dark:bg-[#d6b46a]/20 dark:text-[#d6b46a]"
+        >
+          <ClipboardCheck size={12} strokeWidth={2.4} />
+        </span>
+      );
+    case "wrench":
+      return (
+        <span
+          aria-label="Service"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-[#8a6624]/35 bg-[#8a6624]/15 text-[#8a6624] shadow-xs mr-1.5 align-text-bottom dark:border-[#d6b46a]/35 dark:bg-[#d6b46a]/20 dark:text-[#d6b46a]"
+        >
+          <Wrench size={12} strokeWidth={2.4} />
+        </span>
+      );
+    case "sparkles":
+      return (
+        <span
+          aria-label="Feature"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-[#8a6624]/35 bg-[#8a6624]/15 text-[#8a6624] shadow-xs mr-1.5 align-text-bottom dark:border-[#d6b46a]/35 dark:bg-[#d6b46a]/20 dark:text-[#d6b46a]"
+        >
+          <Sparkles size={12} strokeWidth={2.4} />
+        </span>
+      );
+    default:
+      return null;
+  }
+}
+
+const ICON_TOKEN_REGEX = /(\[ICON_[A-Z]+\]|[⚠️🔑🔐🔒❌🎉📋🔧✨✅])/g;
+
+function parseIconType(
+  raw: string
+):
+  | "lock"
+  | "cross"
+  | "check"
+  | "alert"
+  | "clipboard"
+  | "wrench"
+  | "sparkles"
+  | null {
+  switch (raw) {
+    case "[ICON_LOCK]":
+    case "🔑":
+    case "🔐":
+    case "🔒":
+      return "lock";
+    case "[ICON_CROSS]":
+    case "❌":
+      return "cross";
+    case "[ICON_ALERT]":
+    case "⚠️":
+      return "alert";
+    case "[ICON_CHECK]":
+    case "🎉":
+    case "✅":
+      return "check";
+    case "[ICON_CLIPBOARD]":
+    case "📋":
+      return "clipboard";
+    case "[ICON_WRENCH]":
+    case "🔧":
+      return "wrench";
+    case "[ICON_SPARKLES]":
+    case "✨":
+      return "sparkles";
+    default:
+      return null;
+  }
+}
+
+function renderTextWithIcons(text: string, baseKey: string | number) {
+  const parts = text.split(ICON_TOKEN_REGEX);
+  return (
+    <span key={baseKey}>
+      {parts.map((p, i) => {
+        const iconType = parseIconType(p);
+        if (iconType) {
+          return <IconBadge key={i} type={iconType} />;
+        }
+        return p;
+      })}
+    </span>
+  );
+}
+
 function FormattedText({ text }: { text: string }) {
-  const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return (
     <>
-      {boldParts.map((part, index) => {
+      {parts.map((part, index) => {
         if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
           return (
             <strong
               key={index}
-              className="font-bold text-slate-900 dark:text-amber-200"
+              className="font-bold text-[#1f1a12] dark:text-[#f3dfb5]"
             >
-              {part.slice(2, -2)}
+              {renderTextWithIcons(part.slice(2, -2), `bold-${index}`)}
             </strong>
           );
         }
-        return <span key={index}>{part}</span>;
+        if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+          return (
+            <code
+              key={index}
+              className="rounded border border-[#d8cdb6] bg-[#f7f5ef] px-1.5 py-0.5 font-mono text-[12px] font-bold text-[#8a6624] select-all dark:border-[#3a3428] dark:bg-[#201c16] dark:text-[#d6b46a]"
+            >
+              {part.slice(1, -1)}
+            </code>
+          );
+        }
+        return renderTextWithIcons(part, `text-${index}`);
       })}
     </>
+  );
+}
+
+function HammerThinkingLoader() {
+  const THINKING_PHRASES = useMemo(
+    () => [
+      "Thinking...",
+      "Pondering...",
+      "Curating...",
+      "Synthesizing...",
+      "Analyzing request...",
+      "Checking shop inventory...",
+      "Consulting repair manuals...",
+      "Reviewing pricing...",
+      "Formulating response...",
+      "Evaluating options...",
+      "Polishing recommendations...",
+      "Gathering technician notes...",
+      "Checking parts availability..."
+    ],
+    []
+  );
+
+  const [phrase, setPhrase] = useState(() => {
+    return THINKING_PHRASES[
+      Math.floor(Math.random() * THINKING_PHRASES.length)
+    ];
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhrase((current) => {
+        let next: string;
+        do {
+          next =
+            THINKING_PHRASES[
+              Math.floor(Math.random() * THINKING_PHRASES.length)
+            ];
+        } while (next === current && THINKING_PHRASES.length > 1);
+        return next;
+      });
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [THINKING_PHRASES]);
+
+  return (
+    <div
+      className="flex items-center gap-2.5 py-1.5 px-1"
+      aria-label="Assistant is thinking"
+    >
+      <div className="grid grid-cols-3 gap-[3px] w-[17px] h-[17px] shrink-0">
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+          const row = Math.floor(i / 3);
+          const col = i % 3;
+          const delay = (row + col) * 0.12;
+          return (
+            <span
+              key={i}
+              className="h-[3.8px] w-[3.8px] rounded-[1px] bg-[#1f1a12] dark:bg-[#d6b46a]"
+              style={{
+                animation: "hammer-grid-pulse 1.2s ease-in-out infinite",
+                animationDelay: `${delay}s`
+              }}
+            />
+          );
+        })}
+      </div>
+      <span className="text-[13px] font-medium tracking-wide text-[#7d7363] transition-opacity duration-300 dark:text-[#d6b46a]/90">
+        {phrase}
+      </span>
+    </div>
+  );
+}
+
+function ChatProductList({
+  products,
+  onActionClick
+}: {
+  products: ChatProductCardDto[];
+  onActionClick: (e: MouseEvent, url: string) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const INITIAL_LIMIT = 2; // Show only 2 products initially
+  const displayedProducts = isExpanded
+    ? products
+    : products.slice(0, INITIAL_LIMIT);
+  const hasMore = products.length > INITIAL_LIMIT;
+
+  return (
+    <div className="mt-3 w-full space-y-2">
+      {/* Top count badge matching Hammer Lifestyle */}
+      <div className="flex items-center justify-between">
+        <span className="inline-block rounded-full bg-[#1f1a12] px-3 py-1 text-[11px] font-bold text-white shadow-xs dark:bg-[#d6b46a] dark:text-[#11110f]">
+          {products.length} {products.length === 1 ? "product" : "products"}
+        </span>
+      </div>
+
+      {/* Horizontal product cards list */}
+      <div className="flex flex-col gap-2.5">
+        {displayedProducts.map((p) => (
+          <div
+            key={p.productId}
+            className="group relative flex w-full items-center gap-3 rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-2.5 text-left shadow-xs transition-all hover:border-[#8a6624] hover:shadow-sm dark:border-[#302c24] dark:bg-[#161411] dark:hover:border-[#d6b46a]/60"
+          >
+            {/* Square Image container on left */}
+            <div className="relative flex h-24 w-24 sm:h-26 sm:w-26 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#ede7d8] bg-white p-1.5 dark:border-[#2a261f] dark:bg-[#201c16]">
+              {p.primaryImageUrl ? (
+                <img
+                  src={p.primaryImageUrl}
+                  alt={p.productName}
+                  className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#161411]">
+                  <span className="text-xl font-black text-[#8a6624] dark:text-[#d6b46a]">
+                    {p.productName.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Right side: details & action */}
+            <div className="flex flex-1 flex-col justify-between self-stretch min-w-0 py-0.5">
+              <div>
+                {/* Category & Condition tags */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                  <span className="truncate rounded-full border border-[#d8cdb6] bg-[#f7f5ef] px-2 py-0.2 text-[9px] font-bold uppercase tracking-wider text-[#5f574a] dark:border-[#302c24] dark:bg-[#201c16] dark:text-[#d6b46a]">
+                    {p.categoryName}
+                  </span>
+                  {p.conditionName && (
+                    <span className="rounded-full border border-[#d8cdb6] px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-[#6f6758] dark:border-[#302c24] dark:text-[#a8a093]">
+                      {p.conditionName}
+                    </span>
+                  )}
+                </div>
+
+                {/* Title */}
+                <a
+                  href={`/products/${p.productId}`}
+                  onClick={(e) => onActionClick(e, `/products/${p.productId}`)}
+                  className="line-clamp-2 text-[13px] font-bold leading-snug text-[#1f1a12] hover:underline dark:text-[#f7f5ef]"
+                >
+                  {p.productName}
+                </a>
+              </div>
+
+              {/* Price & CTA Button */}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[15px] font-black text-[#1f1a12] dark:text-[#f7f5ef]">
+                    ₹{p.price.toLocaleString("en-IN")}
+                  </p>
+                </div>
+
+                <a
+                  href={`/products/${p.productId}`}
+                  onClick={(e) => onActionClick(e, `/products/${p.productId}`)}
+                  className="inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-[#1f1a12] px-3.5 py-1.5 text-[11px] font-bold text-[#f7f5ef] shadow-xs transition-colors hover:bg-[#3b3223] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#e8cba5]"
+                >
+                  <span>View details</span>
+                  <svg
+                    className="h-2.5 w-2.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination / Expand Button */}
+      {hasMore && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#d8cdb6] bg-white py-2 text-[12px] font-bold text-[#1f1a12] shadow-xs transition hover:bg-[#f7f5ef] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#d6b46a] dark:hover:bg-[#201c16]"
+        >
+          {isExpanded ? (
+            <>
+              Show fewer products
+              <ChevronUp size={14} />
+            </>
+          ) : (
+            <>
+              Show more products (+{products.length - INITIAL_LIMIT} more)
+              <ChevronDown size={14} />
+            </>
+          )}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -235,6 +588,60 @@ export default function ChatWidget() {
       sessionStorage.setItem("te_chat_messages", JSON.stringify(messages));
     } catch {}
   }, [messages]);
+
+  const { isAuthenticated, login } = useCustomAuth();
+  type AuthFlowStage = "idle" | "email" | "password" | "submitting";
+  const [authFlowStage, setAuthFlowStage] = useState<AuthFlowStage>("idle");
+  const [authEmail, setAuthEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const authInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (
+      showAuthPrompt &&
+      !isAuthenticated &&
+      !getStoredAuthUser() &&
+      authFlowStage === "idle"
+    ) {
+      setAuthFlowStage("email");
+    }
+  }, [showAuthPrompt, isAuthenticated, authFlowStage]);
+
+  useEffect(() => {
+    if (authFlowStage === "email" || authFlowStage === "password") {
+      const timer = setTimeout(() => authInputRef.current?.focus(), 80);
+      return () => clearTimeout(timer);
+    }
+  }, [authFlowStage]);
+  const [userMsgCount, setUserMsgCount] = useState<number>(() => {
+    try {
+      return parseInt(sessionStorage.getItem("te_chat_user_count") || "0", 10);
+    } catch {
+      return 0;
+    }
+  });
+
+  const wasInactiveOrClosedRef = useRef<boolean>(false);
+  const lastActiveTimestampRef = useRef<number>(Date.now());
+  const pendingMessageRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const now = Date.now();
+      const inactiveDuration = now - lastActiveTimestampRef.current;
+      if (
+        inactiveDuration > 120_000 ||
+        sessionStorage.getItem("te_chat_was_closed") === "true"
+      ) {
+        wasInactiveOrClosedRef.current = true;
+      }
+      sessionStorage.removeItem("te_chat_was_closed");
+    } else {
+      sessionStorage.setItem("te_chat_was_closed", "true");
+      lastActiveTimestampRef.current = Date.now();
+    }
+  }, [isOpen]);
 
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -379,21 +786,22 @@ export default function ChatWidget() {
 
   useEffect(resizeInput, [input, resizeInput]);
 
-  const send = useCallback(
-    async (raw: string) => {
-      const trimmed = raw.trim().slice(0, MAX_MESSAGE_LENGTH);
-      if (!trimmed || isLoading) return;
+  const executeChatMessage = useCallback(
+    async (text: string) => {
+      const cleanMsg = text.trim().slice(0, MAX_MESSAGE_LENGTH);
+      if (!cleanMsg) return;
 
       setLastFailed(null);
       const userMsg: ChatMessage = {
         id: uid(),
         role: "user",
-        content: trimmed,
+        content: cleanMsg,
         at: Date.now()
       };
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setIsLoading(true);
+      lastActiveTimestampRef.current = Date.now();
 
       const controller = new AbortController();
       const timeoutId = setTimeout(
@@ -419,7 +827,7 @@ export default function ChatWidget() {
           headers,
           signal: controller.signal,
           body: JSON.stringify({
-            message: trimmed,
+            message: cleanMsg,
             currentPath: window.location.pathname,
             sessionKey,
             history: [...messages, userMsg]
@@ -542,13 +950,190 @@ export default function ChatWidget() {
             }
           ]);
         }
-        setLastFailed(trimmed);
+        setLastFailed(cleanMsg);
       } finally {
         clearTimeout(timeoutId);
         setIsLoading(false);
       }
     },
-    [isLoading, messages]
+    [messages, sessionKey]
+  );
+
+  const handleSkipAuth = useCallback(() => {
+    setShowAuthPrompt(false);
+    setAuthFlowStage("idle");
+    setAuthEmail("");
+    wasInactiveOrClosedRef.current = false;
+    const pending = pendingMessageRef.current;
+    if (pending) {
+      pendingMessageRef.current = null;
+      void executeChatMessage(pending);
+    }
+  }, [executeChatMessage]);
+
+  const send = useCallback(
+    async (raw: string) => {
+      const trimmed = raw.trim();
+      if (!trimmed || isLoading) return;
+
+      // --- 1. Conversational Sign-in Flow: Email Stage ---
+      if (authFlowStage === "email") {
+        if (
+          trimmed.toLowerCase() === "skip" ||
+          trimmed.toLowerCase() === "no" ||
+          trimmed.toLowerCase() === "cancel" ||
+          trimmed.toLowerCase() === "close"
+        ) {
+          handleSkipAuth();
+          setInput("");
+          return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(trimmed)) {
+          // If the user entered a regular sentence/query with spaces and no '@', assume they want to chat/ask a question
+          if (!trimmed.includes("@") && trimmed.includes(" ")) {
+            setShowAuthPrompt(false);
+            setAuthFlowStage("idle");
+            setAuthEmail("");
+            pendingMessageRef.current = null;
+            void executeChatMessage(trimmed);
+            return;
+          } else {
+            setMessages((prev) => [
+              ...prev,
+              { id: uid(), role: "user", content: trimmed, at: Date.now() },
+              {
+                id: uid(),
+                role: "assistant",
+                content:
+                  "[ICON_CROSS] That does not appear to be a valid email. Please enter a valid email address (e.g. name@example.com) or click **Skip**:",
+                at: Date.now()
+              }
+            ]);
+            setInput("");
+            return;
+          }
+        } else {
+          // Email is valid!
+          setAuthEmail(trimmed);
+          setAuthFlowStage("password");
+          setMessages((prev) => [
+            ...prev,
+            { id: uid(), role: "user", content: trimmed, at: Date.now() },
+            {
+              id: uid(),
+              role: "assistant",
+              content:
+                "[ICON_LOCK] Thanks! Now please enter your **Password** below to complete sign-in:",
+              at: Date.now()
+            }
+          ]);
+          setInput("");
+          return;
+        }
+      }
+
+      // --- 2. Conversational Sign-in Flow: Password Stage ---
+      if (authFlowStage === "password") {
+        if (
+          trimmed.toLowerCase() === "skip" ||
+          trimmed.toLowerCase() === "cancel"
+        ) {
+          handleSkipAuth();
+          setInput("");
+          return;
+        }
+        setAuthFlowStage("submitting");
+        setIsLoading(true);
+        setMessages((prev) => [
+          ...prev,
+          { id: uid(), role: "user", content: "••••••••", at: Date.now() }
+        ]);
+        setInput("");
+
+        try {
+          await login({ email: authEmail, password: trimmed });
+          // Success!
+          setAuthFlowStage("idle");
+          setShowAuthPrompt(false);
+          setAuthEmail("");
+          const authUser = getStoredAuthUser();
+          const firstName = authUser?.fullName
+            ? ` ${authUser.fullName.trim().split(" ")[0]}`
+            : "";
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: uid(),
+              role: "assistant",
+              content: `[ICON_CHECK] **Welcome back${firstName}!** You have successfully signed in. Your repair tickets and chat history are saved. How can I help you today?`,
+              at: Date.now()
+            }
+          ]);
+          const pending = pendingMessageRef.current;
+          if (pending) {
+            pendingMessageRef.current = null;
+            void executeChatMessage(pending);
+          }
+        } catch (err) {
+          const errMsg =
+            err instanceof Error ? err.message : "Invalid email or password.";
+          setAuthFlowStage("password");
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: uid(),
+              role: "assistant",
+              content: `[ICON_CROSS] **Sign-in failed**: ${errMsg}\n\nPlease re-enter your password, or click **Skip** to continue as a guest.`,
+              at: Date.now()
+            }
+          ]);
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      // --- 3. Normal AI Assistant Chat ---
+      const cleanMsg = trimmed.slice(0, MAX_MESSAGE_LENGTH);
+
+      // Check if sign-in promotion should trigger on this message:
+      const nextCount = userMsgCount + 1;
+      setUserMsgCount(nextCount);
+      try {
+        sessionStorage.setItem("te_chat_user_count", nextCount.toString());
+      } catch {}
+
+      const isUnauthenticated = !isAuthenticated && !getStoredAuthUser();
+      const shouldTriggerAuth =
+        isUnauthenticated &&
+        (nextCount % 5 === 0 || wasInactiveOrClosedRef.current);
+
+      if (shouldTriggerAuth) {
+        wasInactiveOrClosedRef.current = false;
+        // Hold user's message on hold!
+        pendingMessageRef.current = cleanMsg;
+        setInput("");
+        // Show Quick Action & hold input for email
+        setShowAuthPrompt(true);
+        setAuthFlowStage("email");
+        // DO NOT add userMsg to messages; DO NOT stream yet!
+        return;
+      }
+
+      void executeChatMessage(cleanMsg);
+    },
+    [
+      isLoading,
+      authFlowStage,
+      authEmail,
+      login,
+      handleSkipAuth,
+      userMsgCount,
+      isAuthenticated,
+      executeChatMessage
+    ]
   );
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -565,26 +1150,7 @@ export default function ChatWidget() {
     <>
       <style>{`
         body.chat-sidebar-open { overflow-x: hidden; }
-        #root { transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1); width: 100%; }
-        header.fixed { transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
         
-        @media (min-width: 640px) {
-          body.chat-sidebar-open #root, body.chat-sidebar-open header.fixed { width: calc(100vw - 350px) !important; }
-          body.chat-sidebar-open .floating-whatsapp { right: calc(350px + 1.5rem) !important; }
-        }
-        @media (min-width: 768px) {
-          body.chat-sidebar-open #root, body.chat-sidebar-open header.fixed { width: calc(100vw - 400px) !important; }
-          body.chat-sidebar-open .floating-whatsapp { right: calc(400px + 1.5rem) !important; }
-        }
-        @media (min-width: 1024px) {
-          body.chat-sidebar-open #root, body.chat-sidebar-open header.fixed { width: calc(100vw - 450px) !important; }
-          body.chat-sidebar-open .floating-whatsapp { right: calc(450px + 1.5rem) !important; }
-        }
-        @media (min-width: 1280px) {
-          body.chat-sidebar-open #root, body.chat-sidebar-open header.fixed { width: 72vw !important; }
-          body.chat-sidebar-open .floating-whatsapp { right: calc(28vw + 1.5rem) !important; }
-        }
-
         /* Animations for Chat Widget */
         @keyframes chat-in {
           from { opacity: 0; transform: translateY(16px) scale(0.98); }
@@ -594,6 +1160,14 @@ export default function ChatWidget() {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
         }
+        @keyframes hammer-grid-pulse {
+          0%, 100% { opacity: 0.22; transform: scale(0.85); }
+          50% { opacity: 1; transform: scale(1.1); }
+        }
+        @keyframes chat-ping {
+          0% { opacity: 0.7; transform: scale(1); }
+          70%, 100% { opacity: 0; transform: scale(1.5); }
+        }
         .animate-chat-widget {
           animation: chat-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
@@ -602,16 +1176,7 @@ export default function ChatWidget() {
             animation: chat-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           }
         }
-        @keyframes chat-dot {
-          0%, 100% { opacity: 0.3; transform: translateY(0); }
-          50% { opacity: 1; transform: translateY(-2px); }
-        }
-        @keyframes chat-ping {
-          0% { opacity: 0.7; transform: scale(1); }
-          70%, 100% { opacity: 0; transform: scale(1.5); }
-        }
         @media (prefers-reduced-motion: reduce) {
-          #root, header, .floating-whatsapp { transition: none !important; }
           .animate-chat-widget, .animate-chat-sidebar, .chat-ping-ring { animation: none !important; }
         }
       `}</style>
@@ -624,23 +1189,23 @@ export default function ChatWidget() {
           className={`te-sheet-bg fixed z-[99999] flex flex-col overflow-hidden bg-[var(--warm-bg-light)] font-sans text-[#1f1a12] shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] dark:bg-[var(--warm-bg-dark)] dark:text-[var(--warm-text-dark)]
             ${
               isSidebar
-                ? "animate-chat-sidebar inset-0 sm:inset-y-0 sm:left-auto sm:right-0 h-[100dvh] sm:h-full sm:w-[350px] md:w-[400px] lg:w-[450px] xl:w-[28vw] sm:rounded-none sm:border-l sm:border-y-0 sm:border-r-0 sm:border-[#d8cdb6] dark:border-[var(--warm-border-dark)]"
-                : "animate-chat-widget inset-0 sm:inset-auto sm:bottom-28 sm:right-6 h-[100dvh] sm:h-[36rem] sm:w-[24rem] lg:w-[28rem] sm:rounded-2xl sm:border sm:border-[#d8cdb6] dark:border-[var(--warm-border-dark)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.8)]"
+                ? "animate-chat-sidebar inset-0 sm:inset-y-0 sm:left-auto sm:right-0 h-[100dvh] sm:h-full sm:w-[440px] md:w-[480px] lg:w-[520px] sm:rounded-none sm:border-l sm:border-y-0 sm:border-r-0 sm:border-[#d8cdb6] dark:border-[var(--warm-border-dark)]"
+                : "animate-chat-widget inset-0 sm:inset-auto sm:bottom-20 sm:right-6 h-[100dvh] sm:h-[40rem] lg:h-[43rem] sm:w-[27rem] md:w-[30rem] lg:w-[33rem] sm:rounded-2xl sm:border sm:border-[#d8cdb6] dark:border-[var(--warm-border-dark)] shadow-[0_16px_50px_rgba(0,0,0,0.16)] dark:shadow-[0_16px_50px_rgba(0,0,0,0.85)]"
             }
           `}
         >
           {/* Header */}
-          <div className="relative shrink-0 border-b border-slate-200/60 bg-[var(--warm-bg-light)]/95 px-4 py-3 backdrop-blur-md dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-bg-dark)]/95">
+          <div className="relative shrink-0 border-b border-[#d8cdb6] bg-[var(--warm-bg-light)]/95 px-4 py-3 backdrop-blur-md dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-bg-dark)]/95">
             <div className="flex items-center gap-3">
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-[0.8rem] font-bold tracking-wide text-slate-900 dark:border-[#302c24] dark:bg-[var(--warm-card-dark)] dark:text-[#d6b46a]">
-                TE
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-[var(--warm-card-dark)]" />
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#1f1a12] p-0.5 shadow-sm dark:border-[#3a3428] dark:bg-[#161410]">
+                <TanishElectronicsLogo className="h-full w-full rounded-lg object-cover" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#fffdf7] bg-emerald-500 dark:border-[#161410]" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-bold leading-tight text-slate-900 dark:text-[var(--warm-text-dark)]">
+                <p className="truncate text-[15px] font-bold leading-tight text-[#1f1a12] dark:text-[var(--warm-text-dark)]">
                   Tanish Electronics
                 </p>
-                <p className="mt-0.5 text-[13px] text-slate-500 dark:text-[var(--warm-muted-dark)]">
+                <p className="mt-0.5 text-[13px] text-[#817867] dark:text-[var(--warm-muted-dark)]">
                   Online - Replies instantly
                 </p>
               </div>
@@ -658,6 +1223,10 @@ export default function ChatWidget() {
                       }
                     ];
                     setMessages(fresh);
+                    setShowAuthPrompt(false);
+                    setAuthFlowStage("idle");
+                    setAuthEmail("");
+                    setUserMsgCount(0);
                     const newSessionKey = crypto.randomUUID();
                     setSessionKey(newSessionKey);
                     try {
@@ -669,25 +1238,26 @@ export default function ChatWidget() {
                         "te_chat_session_key",
                         newSessionKey
                       );
+                      sessionStorage.removeItem("te_chat_user_count");
                     } catch {}
                   }}
                   aria-label="Restart conversation"
                   title="Restart conversation"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200/50 hover:text-slate-900 focus-visible:bg-slate-200/50 focus-visible:outline-none dark:text-[var(--warm-muted-dark)] dark:hover:bg-[var(--warm-card-dark)] dark:hover:text-[var(--warm-text-dark)] dark:focus-visible:bg-[var(--warm-card-dark)]"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d8cdb6]/60 bg-[#fffdf7] text-[#817867] shadow-xs transition hover:border-[#8a6624]/40 hover:bg-[#1f1a12]/5 hover:text-[#1f1a12] focus-visible:outline-none dark:border-[#3a3428] dark:bg-[#161410] dark:text-[#9e9585] dark:hover:text-[#f7f5ef]"
                 >
-                  <RotateCcw size={15} />
+                  <RotateCcw size={14} />
                 </button>
                 <button
                   onClick={() => setIsSidebar((prev) => !prev)}
                   aria-label={
                     isSidebar ? "Minimize to widget" : "Expand to sidebar"
                   }
-                  className="hidden h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200/50 hover:text-slate-900 focus-visible:bg-slate-200/50 focus-visible:outline-none sm:flex dark:text-[var(--warm-muted-dark)] dark:hover:bg-[var(--warm-card-dark)] dark:hover:text-[var(--warm-text-dark)] dark:focus-visible:bg-[var(--warm-card-dark)]"
+                  className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#d8cdb6]/60 bg-[#fffdf7] text-[#817867] shadow-xs transition hover:border-[#8a6624]/40 hover:bg-[#1f1a12]/5 hover:text-[#1f1a12] focus-visible:outline-none sm:flex dark:border-[#3a3428] dark:bg-[#161410] dark:text-[#9e9585] dark:hover:text-[#f7f5ef]"
                 >
                   {isSidebar ? (
-                    <Minimize2 size={16} />
+                    <Minimize2 size={14} />
                   ) : (
-                    <Maximize2 size={16} />
+                    <Maximize2 size={14} />
                   )}
                 </button>
                 <button
@@ -696,9 +1266,9 @@ export default function ChatWidget() {
                     launcherRef.current?.focus();
                   }}
                   aria-label="Close chat"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200/50 hover:text-slate-900 focus-visible:bg-slate-200/50 focus-visible:outline-none dark:text-[var(--warm-muted-dark)] dark:hover:bg-[var(--warm-card-dark)] dark:hover:text-[var(--warm-text-dark)] dark:focus-visible:bg-[var(--warm-card-dark)]"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d8cdb6]/60 bg-[#fffdf7] text-[#817867] shadow-xs transition hover:border-rose-400/50 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none dark:border-[#3a3428] dark:bg-[#161410] dark:text-[#9e9585] dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
                 >
-                  <X size={20} />
+                  <X size={14} strokeWidth={2.4} />
                 </button>
               </div>
             </div>
@@ -780,121 +1350,23 @@ export default function ChatWidget() {
                     </div>
                   )}
 
-                  {/* 2. PRODUCT GRID */}
+                  {/* 2. PRODUCT LIST (Horizontal Hammer Lifestyle Layout + Pagination) */}
                   {msg.products && msg.products.length > 0 && (
-                    <div className="mt-3 grid w-full grid-cols-1 sm:grid-cols-2 gap-3 pb-1 overscroll-contain">
-                      {msg.products.map((p) => (
-                        <a
-                          key={p.productId}
-                          href={`/products/${p.productId}`}
-                          onClick={(e) =>
-                            handleActionClick(e, `/products/${p.productId}`)
-                          }
-                          className="group relative flex w-full flex-col rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-3 text-left no-underline shadow-sm transition-all hover:border-[#8a6624] hover:shadow-md dark:border-[#302c24] dark:bg-[#161411] dark:hover:border-[#d6b46a]/60"
-                        >
-                          {/* Category & Available Tag */}
-                          <div className="mb-2.5 flex items-center justify-between gap-1">
-                            <span className="truncate rounded-full border border-[#d8cdb6] bg-[#f7f5ef] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#5f574a] dark:border-[#302c24] dark:bg-[#201c16] dark:text-[#d6b46a]">
-                              {p.categoryName}
-                            </span>
-                            {p.isAvailable && (
-                              <span className="flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold tracking-wide text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
-                                Available
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Image / Letter Fallback Container */}
-                          <div className="mb-2.5 flex h-[105px] w-full items-center justify-center overflow-hidden rounded-xl bg-[#f7f5ef] dark:bg-[#201c16]">
-                            {p.primaryImageUrl ? (
-                              <img
-                                src={p.primaryImageUrl}
-                                alt={p.productName}
-                                className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
-                              />
-                            ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#161411]">
-                                <span className="text-xl font-black text-[#8a6624] dark:text-[#d6b46a]">
-                                  {p.productName.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Condition Tag & Title */}
-                          <div className="flex flex-col">
-                            <span className="mb-1.5 w-fit rounded-full border border-[#d8cdb6] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#6f6758] dark:border-[#302c24] dark:text-[#a8a093]">
-                              {p.conditionName}
-                            </span>
-                            <p className="truncate text-[14px] font-bold text-[#1f1a12] dark:text-[#f7f5ef]">
-                              {p.productName}
-                            </p>
-                            <p className="mt-0.5 truncate text-[11px] font-semibold text-[#817867] dark:text-[#928a7d]">
-                              Details available
-                            </p>
-                          </div>
-
-                          {/* Price Label, Amount, and Button Row */}
-                          <div className="mt-3 flex items-end justify-between border-t border-[#d8cdb6]/60 pt-2.5 dark:border-[#302c24]">
-                            <div className="min-w-0 flex-1">
-                              <p className="mb-0.5 text-[8px] font-bold tracking-widest text-[#817867] dark:text-[#d6b46a]">
-                                PRICE
-                              </p>
-                              <p className="truncate text-[16px] font-black leading-none text-[#1f1a12] dark:text-[#f7f5ef]">
-                                ₹{p.price.toLocaleString("en-IN")}
-                              </p>
-                            </div>
-                            <div className="flex h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-[#1f1a12] px-2.5 text-[10px] font-bold text-[#f7f5ef] transition-colors group-hover:bg-[#3b3223] dark:bg-[#d6b46a] dark:text-[#11110f] dark:group-hover:bg-[#e8cba5]">
-                              View details
-                              <svg
-                                className="h-2.5 w-2.5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={3}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M9 5l7 7-7 7"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        </a>
-                      ))}
-                    </div>
+                    <ChatProductList
+                      products={msg.products}
+                      onActionClick={handleActionClick}
+                    />
                   )}
 
                   {/* Time Stamp */}
-                  <span className="mt-1.5 px-1 text-[12px] text-slate-500 dark:text-[var(--warm-muted-dark)]">
+                  <span className="mt-1.5 px-1 text-[12px] text-[#817867] dark:text-[var(--warm-muted-dark)]">
                     {formatTime(msg.at)}
                   </span>
                 </div>
               );
             })}
 
-            {isLoading && (
-              <div
-                className="flex w-fit items-center gap-1.5 rounded-2xl rounded-bl-sm border border-slate-200/50 bg-slate-100 px-4 py-3.5 dark:bg-[var(--warm-card-dark)] dark:border-[var(--warm-border-dark)]"
-                aria-label="Assistant is typing"
-              >
-                {[0, 1, 2].map((d) => (
-                  <span
-                    key={d}
-                    className="h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-[#a8a093]"
-                    style={{
-                      animation: prefersReducedMotion
-                        ? undefined
-                        : "chat-dot 1.2s ease-in-out infinite",
-                      animationDelay: `${d * 0.15}s`,
-                      opacity: prefersReducedMotion ? 0.6 : undefined
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+            {isLoading && <HammerThinkingLoader />}
 
             {messages.length === 1 && !isLoading && (
               <div className="flex flex-nowrap sm:flex-wrap gap-2 overflow-x-auto pb-1 pt-1 sm:overflow-visible -mx-1 px-1">
@@ -902,7 +1374,7 @@ export default function ChatWidget() {
                   <button
                     key={s}
                     onClick={() => send(s)}
-                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[13px] sm:text-[14px] font-medium text-[#1f1a12] transition hover:bg-[#1f1a12]/5 hover:border-[#1f1a12]/30 dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-card-dark)] dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/10 dark:hover:border-[#d6b46a]"
+                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-3.5 py-1.5 text-[13px] sm:text-[14px] font-medium text-[#1f1a12] transition hover:bg-[#1f1a12]/5 hover:border-[#1f1a12]/30 dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-card-dark)] dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/10 dark:hover:border-[#d6b46a]"
                   >
                     <Sparkles size={14} />
                     {s}
@@ -916,44 +1388,206 @@ export default function ChatWidget() {
           {hasNewBelow && (
             <button
               onClick={() => scrollToBottom()}
-              className="absolute bottom-[6rem] left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-slate-200 bg-[#1f1a12] px-4 py-1.5 text-[13px] font-bold text-[#f7f5ef] shadow-md transition hover:bg-[#000000] dark:border-[var(--warm-border-dark)] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:brightness-110"
+              className="absolute bottom-[5.5rem] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#1f1a12] px-4 py-1.5 text-[12px] font-bold text-[#f7f5ef] shadow-lg transition-all hover:bg-[#3d3425] hover:scale-105 active:scale-95 dark:border-[#e8cba5]/60 dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#ecd7b6] dark:hover:text-[#11110f]"
             >
-              <ArrowDown size={14} />
-              New message
+              <ArrowDown size={13} className="shrink-0 stroke-[2.5]" />
+              <span>New message</span>
             </button>
           )}
 
+          {/* Quick Action Google Sign-In Card (Hammer Lifestyle Style) */}
+          {showAuthPrompt && !isAuthenticated && !getStoredAuthUser() && (
+            <div className="shrink-0 px-4 pt-2 pb-1 animate-chat-widget">
+              <div className="rounded-2xl border border-[#d8cdb6] bg-[#fbf8f0] p-3 shadow-xs dark:border-[#383124] dark:bg-[#1a1712]">
+                <div className="flex items-start gap-2.5">
+                  <div
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full shadow-xs ${
+                      authFlowStage === "password"
+                        ? "border border-amber-500/35 bg-amber-500/15 text-amber-700 dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300"
+                        : "bg-[#1f1a12] text-[#f7f5ef] dark:bg-[#d6b46a] dark:text-[#11110f]"
+                    }`}
+                  >
+                    {authFlowStage === "password" ? (
+                      <Lock size={13} strokeWidth={2.4} />
+                    ) : (
+                      <Mail size={13} strokeWidth={2.4} />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
+                        QUICK ACTION
+                      </p>
+                      {authFlowStage === "password" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthFlowStage("email");
+                            setInput("");
+                          }}
+                          className="text-[11px] font-semibold text-[#8a6624] hover:underline dark:text-[#d6b46a] cursor-pointer"
+                        >
+                          Change email
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[12px] leading-snug font-medium text-[#4f4638] dark:text-[#c4bcaf]">
+                      {authFlowStage === "password" ? (
+                        <>
+                          Signing in as{" "}
+                          <strong className="text-[#1f1a12] dark:text-[#f7f5ef]">
+                            {authEmail}
+                          </strong>
+                          . Enter your password in the chat input below:
+                        </>
+                      ) : (
+                        "Sign in with Google or enter your email in the chat input below to save tickets & history:"
+                      )}
+                    </p>
+                    <div className="mt-2.5 max-w-[280px]">
+                      <GoogleSignInButton
+                        mode="signin"
+                        onAuthenticated={() => {
+                          setShowAuthPrompt(false);
+                          setAuthFlowStage("idle");
+                          setAuthEmail("");
+                          wasInactiveOrClosedRef.current = false;
+                          const authUser = getStoredAuthUser();
+                          const firstName = authUser?.fullName
+                            ? ` ${authUser.fullName.trim().split(" ")[0]}`
+                            : "";
+                          setMessages((prev) => [
+                            ...prev,
+                            {
+                              id: uid(),
+                              role: "assistant",
+                              content: `[ICON_CHECK] **Welcome back${firstName}!** You're now signed in with Google. Your repair tickets and chat history are saved.`,
+                              at: Date.now()
+                            }
+                          ]);
+                          const pending = pendingMessageRef.current;
+                          if (pending) {
+                            pendingMessageRef.current = null;
+                            void executeChatMessage(pending);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-1 flex justify-end">
+                <button
+                  onClick={handleSkipAuth}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#817867] hover:text-[#1f1a12] transition-colors dark:text-[#928a7d] dark:hover:text-[#f7f5ef] cursor-pointer pr-1"
+                >
+                  <span>Skip</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Composer */}
-          <div className="shrink-0 border-t border-slate-200/60 bg-[var(--warm-bg-light)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] pt-2 sm:pb-5 dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-bg-dark)]">
-            <div className="flex items-end gap-2 rounded-3xl border border-transparent bg-slate-100 px-2 py-1.5 transition-colors focus-within:border-[#1f1a12] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#1f1a12]/20 dark:bg-[var(--warm-card-dark)] dark:border-[var(--warm-border-dark)] dark:focus-within:border-[#d6b46a] dark:focus-within:ring-[#d6b46a] dark:focus-within:bg-[var(--warm-card-dark)]">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) =>
-                  setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))
-                }
-                onKeyDown={handleKeyDown}
-                placeholder="Start a new message"
-                rows={1}
-                maxLength={MAX_MESSAGE_LENGTH}
-                aria-label="Message"
-                className="max-h-24 flex-1 resize-none bg-transparent px-3 py-2 text-[15px] leading-normal text-slate-900 placeholder:text-slate-500 focus:outline-none dark:text-[var(--warm-text-dark)] dark:placeholder:text-[var(--warm-muted-dark)]"
-              />
+          <div className="shrink-0 border-t border-[#d8cdb6] bg-[#fbf8f0] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] pt-2.5 sm:pb-4 dark:border-[#383124] dark:bg-[var(--warm-bg-dark)]">
+            <div className="flex items-center gap-2 rounded-3xl border border-[#d8cdb6] bg-[#fffdf7] px-3 py-1.5 shadow-xs transition-colors focus-within:border-[#8a6624] focus-within:ring-2 focus-within:ring-[#8a6624]/15 dark:border-[#3a3428] dark:bg-[#1a1712] dark:focus-within:border-[#d6b46a] dark:focus-within:ring-2 dark:focus-within:ring-[#d6b46a]/20">
+              {/* Context Icon */}
+              {authFlowStage === "email" && (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#8a6624]/10 text-[#8a6624] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a]">
+                  <Mail size={14} strokeWidth={2.2} />
+                </span>
+              )}
+              {authFlowStage === "password" && (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber-500/35 bg-amber-500/15 text-amber-700 shadow-xs dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300">
+                  <Lock size={14} strokeWidth={2.2} />
+                </span>
+              )}
+
+              {/* Dynamic Input / Textarea */}
+              {authFlowStage === "idle" ? (
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) =>
+                    setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))
+                  }
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask anything or book a repair..."
+                  rows={1}
+                  maxLength={MAX_MESSAGE_LENGTH}
+                  aria-label="Message"
+                  style={{
+                    resize: "none",
+                    overflowY:
+                      input.includes("\n") || input.length > 70
+                        ? "auto"
+                        : "hidden"
+                  }}
+                  className="max-h-24 flex-1 resize-none bg-transparent px-2 py-1 text-[14px] sm:text-[15px] leading-normal text-[#1f1a12] placeholder:text-[#8a8170] focus:outline-none dark:text-[#f7f5ef] dark:placeholder:text-[#9e9585]"
+                />
+              ) : (
+                <input
+                  ref={authInputRef}
+                  type={
+                    authFlowStage === "password"
+                      ? showPassword
+                        ? "text"
+                        : "password"
+                      : "email"
+                  }
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void send(input);
+                    }
+                  }}
+                  placeholder={
+                    authFlowStage === "email"
+                      ? "Enter your email address..."
+                      : "Enter your password..."
+                  }
+                  autoComplete={
+                    authFlowStage === "email" ? "email" : "current-password"
+                  }
+                  className="flex-1 bg-transparent px-2 py-1 text-[14px] sm:text-[15px] leading-normal text-[#1f1a12] placeholder:text-[#8a8170] focus:outline-none dark:text-[#f7f5ef] dark:placeholder:text-[#9e9585]"
+                />
+              )}
+
+              {/* Password eye toggle */}
+              {authFlowStage === "password" && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#d8cdb6]/60 bg-[#fffdf7] text-[#817867] shadow-2xs hover:border-[#8a6624]/40 hover:text-[#1f1a12] dark:border-[#3a3428] dark:bg-[#161410] dark:text-[#9e9585] dark:hover:text-[#f7f5ef] transition cursor-pointer"
+                >
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              )}
+
               <button
                 onClick={() => void send(input)}
                 disabled={isLoading || !input.trim()}
-                aria-label="Send message"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#1f1a12] transition hover:bg-[#1f1a12]/10 disabled:opacity-50 disabled:hover:bg-transparent focus-visible:outline-none dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/10"
+                aria-label={
+                  authFlowStage !== "idle" ? "Submit" : "Send message"
+                }
+                className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-[#1f1a12] transition hover:bg-[#8a6624]/10 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/15 cursor-pointer"
               >
-                <Send size={18} />
+                <Send size={17} />
               </button>
             </div>
-            <div className="mt-2.5 flex items-center justify-center gap-4 px-1 text-[12px] text-slate-500 dark:text-[var(--warm-muted-dark)]">
-              <span className="flex items-center gap-1.5 text-center">
-                <ShieldCheck size={14} />
-                End-to-end encrypted
+
+            <div className="mt-2 flex items-center justify-center gap-4 px-1 text-[11px] sm:text-[12px] text-[#7d7363] dark:text-[#a8a093]">
+              <span className="flex items-center gap-1.5 text-center font-medium">
+                <ShieldCheck
+                  size={14}
+                  className="text-emerald-600 dark:text-emerald-400"
+                />
+                Verified Shop Assistant
               </span>
-              {showCounter && (
+              {showCounter && authFlowStage === "idle" && (
                 <span
                   className={
                     charsLeft <= 0
@@ -1015,33 +1649,16 @@ export default function ChatWidget() {
                   : "chat-ping 2.4s ease-out infinite"
               }}
             />
-            {/* ----- THE CUSTOM CHAT BUBBLE SVG ----- */}
+            {/* Friendly Chat Bubble with Sparkle Icon */}
             <span className="relative flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-              <svg
-                width="26"
-                height="26"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                {/* Neural connections */}
-                <path d="M12 12L6.5 6.5" />
-                <path d="M12 12L17.5 6.5" />
-                <path d="M12 12L6.5 17.5" />
-                <path d="M12 12L17.5 17.5" />
-
-                {/* Outer nodes */}
-                <circle cx="6.5" cy="6.5" r="1.8" />
-                <circle cx="17.5" cy="6.5" r="1.8" />
-                <circle cx="6.5" cy="17.5" r="1.8" />
-                <circle cx="17.5" cy="17.5" r="1.8" />
-
-                {/* AI core */}
-                <circle cx="12" cy="12" r="2.5" />
-              </svg>
+              <MessageSquare
+                size={24}
+                className="stroke-[2] text-[#1f1a12] dark:text-[#d6b46a]"
+              />
+              <Sparkles
+                size={13}
+                className="absolute -top-1.5 -right-1.5 fill-[#8a6624] text-[#8a6624] dark:fill-[#d6b46a] dark:text-[#d6b46a]"
+              />
             </span>
           </button>
         </>

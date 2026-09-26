@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { Sparkles, Check, X, Search, ChevronDown } from "lucide-react";
 import { getProducts, type ProductListItem } from "../Services/productService";
-import UniversalDropdown, {
-  type DropdownOption
-} from "../components/UI/UniversalDropdown";
 import { useShopSettings } from "../hooks/useShopSettings";
+import TanishElectronicsLogo from "../components/common/TanishElectronicsLogo";
 
 type SortOption = "Recommended" | "PriceLow" | "PriceHigh" | "Name";
 
-const sortOptions: DropdownOption<SortOption>[] = [
+const sortOptions: { value: SortOption; label: string }[] = [
   {
     value: "Recommended",
-    label: "Recommended"
+    label: "Featured"
   },
   {
     value: "PriceLow",
@@ -23,9 +22,96 @@ const sortOptions: DropdownOption<SortOption>[] = [
   },
   {
     value: "Name",
-    label: "Product name"
+    label: "Product Name"
   }
 ];
+
+function AmazonSortSelect({
+  value,
+  onChange,
+  options
+}: {
+  value: SortOption;
+  onChange: (value: SortOption) => void;
+  options: { value: SortOption; label: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selected = options.find((o) => o.value === value) ?? options[0];
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative inline-flex items-center text-xs font-bold"
+    >
+      <span className="mr-1.5 hidden text-[#817867] sm:inline dark:text-[#928a7d]">
+        Sort by:
+      </span>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-label="Sort products"
+        aria-expanded={open}
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#d8cdb6] bg-[#fffaf0] px-3 py-1.5 text-xs font-bold text-[#1f1a12] shadow-2xs transition hover:border-[#c8b98f] hover:bg-[#f2eadb] focus:border-[#d6b46a] focus:ring-2 focus:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:border-[#50483b] dark:hover:bg-[#1a1712] cursor-pointer"
+      >
+        <span className="sm:hidden text-[#817867] dark:text-[#928a7d]">
+          Sort:
+        </span>
+        <span className="truncate max-w-[120px] sm:max-w-none">
+          {selected.label}
+        </span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-[#817867] transition-transform duration-200 dark:text-[#928a7d] ${
+            open ? "rotate-180 text-[#8a6624] dark:text-[#d6b46a]" : ""
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-xl border border-[#d8cdb6] bg-[#fffdf7] py-1 shadow-xl dark:border-[#302c24] dark:bg-[#1a1712]">
+          <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#817867] dark:text-[#928a7d]">
+            Sort by
+          </div>
+          {options.map((option) => {
+            const active = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between px-3 py-2 text-xs font-bold text-left transition cursor-pointer ${
+                  active
+                    ? "bg-[#1f1a12] text-[#f7f5ef] dark:bg-[#d6b46a] dark:text-[#11110f]"
+                    : "text-[#1f1a12] hover:bg-[#f2eadb] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
+                }`}
+              >
+                <span>{option.label}</span>
+                {active && <Check className="h-3.5 w-3.5" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ProductsPage() {
   const [products, setProducts] = useState<ProductListItem[]>([]);
@@ -81,24 +167,6 @@ function ProductsPage() {
 
     return ["All", ...uniqueConditions];
   }, [products]);
-
-  const categoryOptions = useMemo<DropdownOption<string>[]>(
-    () =>
-      categories.map((category) => ({
-        value: category,
-        label: category === "All" ? "All categories" : category
-      })),
-    [categories]
-  );
-
-  const conditionOptions = useMemo<DropdownOption<string>[]>(
-    () =>
-      conditions.map((condition) => ({
-        value: condition,
-        label: condition === "All" ? "All conditions" : condition
-      })),
-    [conditions]
-  );
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -214,82 +282,68 @@ function ProductsPage() {
 
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-      <section className="mx-auto w-full max-w-[1720px] px-4 pt-24 pb-8 sm:px-8 sm:pt-28 sm:pb-10 lg:px-12 xl:px-16 2xl:px-20 lg:pb-12">
-        {/* Search and sort */}
-        <section className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:p-5">
-          <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_220px_auto] lg:items-end">
-            <div>
-              <label htmlFor="product-search" className="sr-only">
-                Search products
-              </label>
-
-              <div className="relative">
-                <SearchIcon />
-
-                <input
-                  id="product-search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search product, brand or model..."
-                  className="min-h-12 w-full rounded-xl border border-[#d8cdb6] bg-[#fffaf0] py-3 pl-11 pr-11 text-sm font-semibold text-[#1f1a12] outline-none transition placeholder:text-[#9b907d] focus:border-[#d6b46a] focus:ring-4 focus:ring-[#d6b46a]/15 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:placeholder:text-[#817a6e]"
-                />
-
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    aria-label="Clear product search"
-                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#817867] transition hover:bg-[#f2eadb] hover:text-[#1f1a12] dark:text-[#928a7d] dark:hover:bg-[#242016] dark:hover:text-[#e8e3d8]"
-                  >
-                    <CloseIcon />
-                  </button>
-                )}
-              </div>
+      <section className="mx-auto w-full max-w-[1720px] px-4 pt-3 pb-12 sm:px-8 sm:pt-4 lg:px-12 xl:px-16 2xl:px-20 lg:pt-5">
+        {/* Amazon-style Straightforward Header: Search Bar + Mobile Category Strip */}
+        <div className="space-y-3">
+          {/* Search Input */}
+          <div className="relative">
+            <label htmlFor="product-search" className="sr-only">
+              Search products
+            </label>
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#817867] dark:text-[#928a7d]">
+              <Search className="h-4 w-4" />
             </div>
-
-            <UniversalDropdown<SortOption>
-              label="Sort"
-              options={sortOptions}
-              value={sortBy}
-              onChange={setSortBy}
+            <input
+              id="product-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search products, brands, or models (e.g. Sony, Magic Remote)..."
+              className="h-11 sm:h-12 w-full rounded-xl border border-[#d8cdb6] bg-[#fffaf0] pl-10 pr-10 text-sm font-semibold text-[#1f1a12] outline-none transition placeholder:text-[#9b907d] focus:border-[#d6b46a] focus:ring-4 focus:ring-[#d6b46a]/15 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:placeholder:text-[#817a6e]"
             />
-          </div>
-
-          {/* Mobile and tablet dropdown filters */}
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:hidden">
-            <UniversalDropdown<string>
-              label="Category"
-              options={categoryOptions}
-              value={selectedCategory}
-              onChange={setSelectedCategory}
-            />
-
-            <UniversalDropdown<string>
-              label="Condition"
-              options={conditionOptions}
-              value={selectedCondition}
-              onChange={setSelectedCondition}
-            />
-            {hasActiveFilters && (
+            {search && (
               <button
                 type="button"
-                onClick={clearFilters}
-                className="min-h-12 rounded-xl border border-[#d8cdb6] bg-transparent px-5 text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
+                onClick={() => setSearch("")}
+                aria-label="Clear product search"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-[#817867] hover:text-[#1f1a12] dark:text-[#928a7d] dark:hover:text-[#e8e3d8] cursor-pointer"
               >
-                Clear filters
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
-        </section>
+
+          {/* Mobile 1-Tap Category Horizontal Carousel */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none lg:hidden">
+            {categories.map((category) => {
+              const active = selectedCategory === category;
+              const count = categoryCounts.get(category) ?? 0;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                    active
+                      ? "bg-[#1f1a12] text-[#f7f5ef] shadow-xs dark:bg-[#d6b46a] dark:text-[#11110f]"
+                      : "border border-[#d8cdb6] bg-[#fffaf0] text-[#6f6758] hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#a8a093]"
+                  }`}
+                >
+                  <span>{category === "All" ? "All Items" : category}</span>
+                  <span className="text-[10px] tabular-nums font-black opacity-75">
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {loading && <ProductsLoading />}
 
         {error && (
           <div className="mt-6 rounded-[1.5rem] border border-red-200 bg-red-50 p-5 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
             <p className="text-sm font-black">Products could not be loaded</p>
-
             <p className="mt-1 text-xs font-semibold">{error}</p>
-
             <button
               type="button"
               onClick={() => void loadProducts()}
@@ -301,24 +355,26 @@ function ProductsPage() {
         )}
 
         {!loading && !error && (
-          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)]">
-            {/* Desktop filters */}
-            <aside className="sticky top-24 hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] lg:block">
+          <div className="mt-4 sm:mt-6 grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
+            {/* Desktop Left Filters Sidebar */}
+            <aside className="sticky top-28 hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] lg:block">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black">Filters</h2>
+                <h2 className="text-sm font-black uppercase tracking-wider text-[#1f1a12] dark:text-[#f7f5ef]">
+                  Filters
+                </h2>
 
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="text-xs font-black text-[#8a6624] transition hover:text-[#5e4315] dark:text-[#d6b46a]"
+                    className="text-xs font-black text-[#8a6624] transition hover:text-[#5e4315] dark:text-[#d6b46a] cursor-pointer"
                   >
-                    Reset
+                    Clear all
                   </button>
                 )}
               </div>
 
-              <div className="mt-5">
+              <div className="mt-4">
                 <FilterGroup
                   title="Category"
                   items={categories}
@@ -328,7 +384,7 @@ function ProductsPage() {
                 />
               </div>
 
-              <div className="my-6 h-px bg-[#d8cdb6] dark:bg-[#302c24]" />
+              <div className="my-5 h-px bg-[#d8cdb6] dark:bg-[#302c24]" />
 
               <FilterGroup
                 title="Condition"
@@ -339,36 +395,137 @@ function ProductsPage() {
               />
             </aside>
 
-            {/* Product results */}
+            {/* Right Section: Amazon-style Results & Sort Bar + Product Grid */}
             <section className="min-w-0">
-              <div className="mb-5 flex flex-col gap-2 border-b border-[#d8cdb6] pb-4 dark:border-[#302c24] sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-black">
-                  {visibleProducts.length}{" "}
-                  {visibleProducts.length === 1 ? "product" : "products"}
-                </p>
+              {/* Amazon-style Toolbar: Results Count on Left, Sort by on Right */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8cdb6]/60 pb-3 dark:border-[#302c24]">
+                <div>
+                  <p className="text-xs sm:text-sm font-bold text-[#1f1a12] dark:text-[#e8e3d8]">
+                    {search.trim() ? (
+                      <span>
+                        {visibleProducts.length}{" "}
+                        {visibleProducts.length === 1 ? "result" : "results"}{" "}
+                        for &ldquo;
+                        <span className="font-black text-[#8a6624] dark:text-[#d6b46a]">
+                          {search.trim()}
+                        </span>
+                        &rdquo;
+                      </span>
+                    ) : (
+                      <span>
+                        <span className="font-black">
+                          {visibleProducts.length}
+                        </span>{" "}
+                        {visibleProducts.length === 1 ? "product" : "products"}{" "}
+                        available
+                      </span>
+                    )}
+                  </p>
+                </div>
 
-                <p className="text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                  Availability may change. Confirm before visiting.
-                </p>
+                <AmazonSortSelect
+                  value={sortBy}
+                  onChange={setSortBy}
+                  options={sortOptions}
+                />
               </div>
 
-              {visibleProducts.length === 0 ? (
-                <EmptyProducts
-                  onClear={clearFilters}
-                  hasActiveFilters={hasActiveFilters}
-                />
-              ) : (
-                <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-                  {visibleProducts.map((product) => (
-                    <ProductCard
-                      key={product.productId}
-                      product={product}
-                      formatPrice={formatPrice}
-                      getProductImageUrl={getProductImageUrl}
-                    />
-                  ))}
+              {/* Active Filter Chips */}
+              {hasActiveFilters && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-[#817867] dark:text-[#928a7d]">
+                    Active:
+                  </span>
+
+                  {search.trim() && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#d8cdb6] bg-[#f2eadb] px-2.5 py-0.5 text-[11px] font-bold text-[#1f1a12] dark:border-[#383124] dark:bg-[#242016] dark:text-[#e8e3d8]">
+                      <span>&ldquo;{search.trim()}&rdquo;</span>
+                      <button
+                        type="button"
+                        onClick={() => setSearch("")}
+                        aria-label="Remove search filter"
+                        className="cursor-pointer hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {selectedCategory !== "All" && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#d8cdb6] bg-[#f2eadb] px-2.5 py-0.5 text-[11px] font-bold text-[#1f1a12] dark:border-[#383124] dark:bg-[#242016] dark:text-[#e8e3d8]">
+                      <span>{selectedCategory}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategory("All")}
+                        aria-label="Remove category filter"
+                        className="cursor-pointer hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {selectedCondition !== "All" && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#d8cdb6] bg-[#f2eadb] px-2.5 py-0.5 text-[11px] font-bold text-[#1f1a12] dark:border-[#383124] dark:bg-[#242016] dark:text-[#e8e3d8]">
+                      <span>{selectedCondition}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCondition("All")}
+                        aria-label="Remove condition filter"
+                        className="cursor-pointer hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {sortBy !== "Recommended" && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#d8cdb6] bg-[#f2eadb] px-2.5 py-0.5 text-[11px] font-bold text-[#1f1a12] dark:border-[#383124] dark:bg-[#242016] dark:text-[#e8e3d8]">
+                      <span>
+                        Sort:{" "}
+                        {sortOptions.find((o) => o.value === sortBy)?.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSortBy("Recommended")}
+                        aria-label="Reset sort"
+                        className="cursor-pointer hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="ml-1 text-[11px] font-black text-[#8a6624] hover:underline dark:text-[#d6b46a] cursor-pointer"
+                  >
+                    Clear all
+                  </button>
                 </div>
               )}
+
+              {/* Product Grid */}
+              <div className="mt-4">
+                {visibleProducts.length === 0 ? (
+                  <EmptyProducts
+                    onClear={clearFilters}
+                    hasActiveFilters={hasActiveFilters}
+                  />
+                ) : (
+                  <div className="grid gap-5 sm:gap-6 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))] sm:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+                    {visibleProducts.map((product) => (
+                      <ProductCard
+                        key={product.productId}
+                        product={product}
+                        formatPrice={formatPrice}
+                        getProductImageUrl={getProductImageUrl}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
           </div>
         )}
@@ -392,6 +549,9 @@ function ProductCard({
     [product.brand, product.modelName].filter(Boolean).join(" • ") ||
     "Details available";
 
+  const isInStock = product.isAvailable && product.stockQuantity > 0;
+  const isLowStock = isInStock && product.stockQuantity <= 2;
+
   return (
     <Link
       to={`/products/${product.productId}`}
@@ -408,8 +568,13 @@ function ProductCard({
             className="h-full w-full object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.05]"
           />
         ) : (
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#fff4cc] text-3xl font-black text-[#7a570f] shadow-inner dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-            {product.productName.trim().charAt(0).toUpperCase()}
+          <div className="flex flex-col items-center justify-center gap-2 p-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-1 shadow-sm dark:border-[#383124] dark:bg-[#161410]">
+              <TanishElectronicsLogo className="h-full w-full rounded-xl object-cover" />
+            </div>
+            <span className="text-[11px] font-bold text-[#817867] dark:text-[#928a7d]">
+              Workshop Verified
+            </span>
           </div>
         )}
 
@@ -418,16 +583,48 @@ function ProductCard({
             {product.categoryName}
           </span>
 
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/95 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm backdrop-blur dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Available
-          </span>
+          {/* Dynamic Availability & Stock Urgency */}
+          {isInStock ? (
+            isLowStock ? (
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-[10px] font-black text-amber-700 shadow-sm backdrop-blur dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Only {product.stockQuantity} left
+              </span>
+            ) : (
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm backdrop-blur dark:border-emerald-400/35 dark:bg-emerald-400/20 dark:text-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                In Stock
+              </span>
+            )
+          ) : (
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/35 bg-rose-500/15 px-2.5 py-1 text-[10px] font-black text-rose-700 shadow-sm backdrop-blur dark:border-rose-400/35 dark:bg-rose-400/20 dark:text-rose-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+              Out of Stock
+            </span>
+          )}
         </div>
+
+        {/* Featured Product Badge */}
+        {product.isFeatured && (
+          <div className="absolute left-3 bottom-3">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b46a]/60 bg-[#1f1a12]/90 px-2.5 py-1 text-[10px] font-black text-[#d6b46a] shadow-md backdrop-blur">
+              <Sparkles size={11} className="text-[#d6b46a]" />
+              Featured
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Product information */}
       <div className="flex flex-1 flex-col p-5 sm:p-6">
-        <Badge>{product.conditionName}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge>{product.conditionName}</Badge>
+          {product.brand && (
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
+              {product.brand}
+            </span>
+          )}
+        </div>
 
         <h2 className="mt-3 line-clamp-2 text-xl font-black leading-snug tracking-tight transition group-hover:text-[#8a6624] dark:group-hover:text-[#d6b46a] sm:text-2xl">
           {product.productName}
@@ -582,26 +779,6 @@ function Badge({ children }: { children: ReactNode }) {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8f8677]"
-    >
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-
-      <path
-        d="m16.5 16.5 4 4"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function SearchIconStatic() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-6 w-6">
@@ -611,19 +788,6 @@ function SearchIconStatic() {
         d="m16.5 16.5 4 4"
         stroke="currentColor"
         strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
-      <path
-        d="M7 7l10 10M17 7 7 17"
-        stroke="currentColor"
-        strokeWidth="2"
         strokeLinecap="round"
       />
     </svg>

@@ -299,12 +299,17 @@ public partial class ChatbotService
                 actions.Add(new ChatActionDto { Label = "Browse Products", Url = "/products", Icon = "package" });
             }
 
-            if (isTrackRelated || isRepairRelated)
+            if (isRepairRelated)
+            {
+                actions.Add(new ChatActionDto { Label = "Book Repair", Url = "/book-repair", Icon = "wrench" });
+            }
+
+            if (isTrackRelated)
             {
                 actions.Add(new ChatActionDto { Label = "Track Repair", Url = "/track-request", Icon = "search" });
             }
 
-            if (lowerMsg.Contains("contact") || lowerMsg.Contains("call") || lowerMsg.Contains("phone") || lowerMsg.Contains("location") || lowerMsg.Contains("address") || isRepairRelated)
+            if (lowerMsg.Contains("contact") || lowerMsg.Contains("call") || lowerMsg.Contains("phone") || lowerMsg.Contains("location") || lowerMsg.Contains("address"))
             {
                 actions.Add(new ChatActionDto { Label = "Call Shop", Url = $"tel:{shopPhone}", Icon = "phone" });
             }

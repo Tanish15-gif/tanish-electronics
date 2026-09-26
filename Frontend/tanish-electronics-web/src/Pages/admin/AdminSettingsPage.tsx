@@ -6,6 +6,7 @@ import {
   type AdminShopSettings
 } from "../../Services/adminSettingsService";
 import { useShopSettings } from "../../hooks/useShopSettings";
+import TanishElectronicsLogo from "../../components/common/TanishElectronicsLogo";
 
 type SettingsForm = {
   shopName: string;
@@ -541,8 +542,8 @@ function SettingsPreview({ form }: { form: SettingsForm }) {
       </div>
 
       <div className="p-5">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1f1a12] text-sm font-black text-[#f7f5ef] dark:bg-[#e8e3d8] dark:text-[#11110f]">
-          TE
+        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-0.5 shadow-xs dark:border-[#383124] dark:bg-[#161410]">
+          <TanishElectronicsLogo className="h-full w-full rounded-xl object-cover" />
         </div>
 
         <h2 className="mt-4 text-2xl font-black leading-tight">

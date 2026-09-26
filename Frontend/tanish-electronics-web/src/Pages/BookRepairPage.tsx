@@ -6,7 +6,7 @@ import {
   type ChangeEvent,
   type ReactNode
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Controller,
   useForm,
@@ -225,17 +225,33 @@ function BookRepairPage() {
     [categories]
   );
 
+  const prevCategoryRef = useRef<number>(selectedCategoryId);
+
   useEffect(() => {
-    if (selectedCategoryId <= 0) return;
+    const prevCategory = categories.find(
+      (item) => item.id === prevCategoryRef.current
+    );
+    const wasTvRepair =
+      prevCategoryRef.current <= 0 ||
+      (prevCategory?.name.toLowerCase().includes("tv repair") ?? true);
 
-    const category = categories.find((item) => item.id === selectedCategoryId);
-    const isTvRepairCategory = category?.name
-      .toLowerCase()
-      .includes("tv repair");
+    const currentCategory = categories.find(
+      (item) => item.id === selectedCategoryId
+    );
+    const isTvRepairCategory =
+      selectedCategoryId <= 0 ||
+      (currentCategory?.name.toLowerCase().includes("tv repair") ?? true);
 
-    if (!isTvRepairCategory && selectedServiceType === "Home Visit") {
-      setValue("serviceType", "Shop Repair", { shouldValidate: true });
+    if (!isTvRepairCategory) {
+      if (selectedServiceType === "Home Visit") {
+        setValue("serviceType", "Shop Repair", { shouldValidate: true });
+      }
+    } else if (!wasTvRepair) {
+      // Switched back to TV Repair (or cleared category) from a non-TV service:
+      setValue("serviceType", "Home Visit", { shouldValidate: true });
     }
+
+    prevCategoryRef.current = selectedCategoryId;
   }, [selectedCategoryId, categories, selectedServiceType, setValue]);
 
   const availableServiceTypeOptions = useMemo<
@@ -267,6 +283,9 @@ function BookRepairPage() {
       ? "Not required"
       : (locations.find((location) => location.id === selectedLocationId)
           ?.name ?? "Not selected");
+
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     async function loadLookups() {
       try {
@@ -280,6 +299,22 @@ function BookRepairPage() {
 
         setCategories(categoryData);
         setLocations(locationData);
+
+        const categoryParam = searchParams.get("category");
+        if (categoryParam && categoryData.length > 0) {
+          const cleanParam = categoryParam
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
+          const matched = categoryData.find((cat) => {
+            const cleanName = cat.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+            return (
+              cleanName.includes(cleanParam) || cleanParam.includes(cleanName)
+            );
+          });
+          if (matched) {
+            setValue("serviceCategoryId", matched.id, { shouldValidate: true });
+          }
+        }
       } catch {
         setApiError("Failed to load booking options.");
       } finally {
@@ -288,7 +323,22 @@ function BookRepairPage() {
     }
 
     loadLookups();
-  }, []);
+  }, [searchParams, setValue]);
+
+  useEffect(() => {
+    const categoryParam = searchParams.get("category");
+    if (!categoryParam || categories.length === 0) return;
+
+    const cleanParam = categoryParam.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const matched = categories.find((cat) => {
+      const cleanName = cat.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return cleanName.includes(cleanParam) || cleanParam.includes(cleanName);
+    });
+
+    if (matched) {
+      setValue("serviceCategoryId", matched.id, { shouldValidate: true });
+    }
+  }, [searchParams, categories, setValue]);
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);

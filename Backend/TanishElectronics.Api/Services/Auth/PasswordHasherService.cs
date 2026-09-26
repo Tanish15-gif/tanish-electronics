@@ -1,6 +1,6 @@
 using TanishElectronics.Api.Interfaces.Services;
 
-namespace TanishElectronics.Api.Services;
+namespace TanishElectronics.Api.Services.AuthService;
 
 public class PasswordHasherService : IPasswordHasherService
 {
