@@ -406,7 +406,7 @@ public partial class ChatbotService
                         {
                             ProductId = candidate.ProductId,
                             ProductName = candidate.ProductName,
-                            CategoryName = candidate.CategoryName,
+                            CategoryName = candidate.CategoryName!,
                             ConditionName = candidate.ConditionName,
                             Price = candidate.Price,
                             IsAvailable = candidate.IsAvailable,
@@ -423,7 +423,7 @@ public partial class ChatbotService
                         {
                             ProductId = candidate.ProductId,
                             ProductName = candidate.ProductName,
-                            CategoryName = candidate.CategoryName,
+                            CategoryName = candidate.CategoryName!,
                             ConditionName = candidate.ConditionName,
                             Price = candidate.Price,
                             IsAvailable = candidate.IsAvailable,
@@ -438,7 +438,7 @@ public partial class ChatbotService
                     {
                         ProductId = candidate.ProductId,
                         ProductName = candidate.ProductName,
-                        CategoryName = candidate.CategoryName,
+                        CategoryName = candidate.CategoryName!,
                         ConditionName = candidate.ConditionName,
                         Price = candidate.Price,
                         IsAvailable = candidate.IsAvailable,

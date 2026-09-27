@@ -260,7 +260,7 @@ function AdminLayout() {
               <p className="text-xs font-black">Protected workspace</p>
 
               <p className="mt-1 text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
-                Administration tools for ${settings.shopName}
+                Administration tools for {settings.shopName}
               </p>
             </div>
           </div>

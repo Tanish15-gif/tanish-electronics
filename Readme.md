@@ -421,6 +421,14 @@ Full route list generated from the live OpenAPI spec (`/openapi/v1.json`).
 
 ![Track Repair Status](screenshots/track-status.png)
 
+### Products Page (Light Mode)
+
+![Products Page](screenshots/products-page.png)
+
+### Product Details Page (Light Mode)
+
+![Product Details Page](screenshots/product-details-page.png)
+
 ### AI Assistant & Live In-Chat Booking (Light Mode)
 
 ![AI Assistant](screenshots/ai-assistant.png)
