@@ -176,6 +176,13 @@ function HomePage() {
     settings.whatsAppNumber
   )}?text=${whatsappMessage}`;
 
+  const SHOP_LATITUDE = 19.079166;
+  const SHOP_LONGITUDE = 72.828855;
+  const shopCoordinates = `${SHOP_LATITUDE},${SHOP_LONGITUDE}`;
+  const directionsUrl =
+    "https://www.google.com/maps/dir/?api=1" +
+    `&destination=${encodeURIComponent(shopCoordinates)}`;
+
   useEffect(() => {
     document.title = `${settings.shopName} | TV Repair in Santacruz West`;
 
@@ -571,13 +578,13 @@ function HomePage() {
                 </a>
 
                 <a
-                  href={`https://maps.google.com/?q=${encodeURIComponent(settings.address)}`}
+                  href={directionsUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/20 px-5 text-sm font-black transition hover:bg-white/10"
                 >
                   <MapPinIcon />
-                  Open in Google Maps
+                  Get Directions in Google Maps
                 </a>
               </div>
             </aside>

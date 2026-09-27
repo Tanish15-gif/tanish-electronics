@@ -553,6 +553,118 @@ export default function ChatWidget() {
     }
   });
 
+  // Mobile sheet height: "compact" (60dvh) vs "expanded" (95dvh)
+  const [mobileHeight, setMobileHeight] = useState<"compact" | "expanded">(
+    () => {
+      try {
+        const saved = sessionStorage.getItem("te_chat_mobile_height");
+        return saved === "compact" ? "compact" : "expanded";
+      } catch {
+        return "expanded";
+      }
+    }
+  );
+
+  const toggleMobileHeight = useCallback(() => {
+    setMobileHeight((prev) => {
+      const next = prev === "compact" ? "expanded" : "compact";
+      try {
+        sessionStorage.setItem("te_chat_mobile_height", next);
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const touchStartYRef = useRef<number | null>(null);
+  const touchDeltaYRef = useRef<number>(0);
+  const startHeightRef = useRef<number>(0);
+  const isDraggingHandleRef = useRef<boolean>(false);
+  const wasDraggedRef = useRef<boolean>(false);
+
+  const handleHandleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    touchStartYRef.current = e.touches[0].clientY;
+    touchDeltaYRef.current = 0;
+    isDraggingHandleRef.current = true;
+    wasDraggedRef.current = false;
+    startHeightRef.current = panelRef.current
+      ? panelRef.current.getBoundingClientRect().height
+      : window.innerHeight * (mobileHeight === "compact" ? 0.6 : 0.95);
+
+    if (panelRef.current) {
+      panelRef.current.style.transition = "none";
+    }
+  };
+
+  const handleHandleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDraggingHandleRef.current || touchStartYRef.current === null) return;
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - touchStartYRef.current;
+    touchDeltaYRef.current = deltaY;
+
+    if (Math.abs(deltaY) > 8) {
+      wasDraggedRef.current = true;
+    }
+
+    if (panelRef.current) {
+      // Pulling up (deltaY < 0) expands height; pulling down (deltaY > 0) shrinks height
+      const targetHeight = startHeightRef.current - deltaY;
+      const minHeight = window.innerHeight * 0.4;
+      const maxHeight = window.innerHeight * 0.96;
+      const clampedHeight = Math.max(
+        minHeight,
+        Math.min(maxHeight, targetHeight)
+      );
+      panelRef.current.style.height = `${clampedHeight}px`;
+    }
+  };
+
+  const handleHandleTouchEnd = () => {
+    if (!isDraggingHandleRef.current) return;
+    isDraggingHandleRef.current = false;
+    const deltaY = touchDeltaYRef.current;
+    touchStartYRef.current = null;
+    touchDeltaYRef.current = 0;
+
+    const currentH = panelRef.current
+      ? panelRef.current.getBoundingClientRect().height
+      : startHeightRef.current;
+    const midpoint = window.innerHeight * 0.77;
+
+    if (panelRef.current) {
+      panelRef.current.style.transition =
+        "height 0.3s cubic-bezier(0.16, 1, 0.3, 1)";
+      panelRef.current.style.height = "";
+    }
+
+    if (wasDraggedRef.current) {
+      if (deltaY < -40 || currentH > midpoint) {
+        // Dragged up -> snap and stay expanded
+        setMobileHeight("expanded");
+        try {
+          sessionStorage.setItem("te_chat_mobile_height", "expanded");
+        } catch {}
+      } else if (currentH < window.innerHeight * 0.45) {
+        // Dragged down far -> close
+        setIsOpen(false);
+      } else {
+        // Dragged down -> snap to compact
+        setMobileHeight("compact");
+        try {
+          sessionStorage.setItem("te_chat_mobile_height", "compact");
+        } catch {}
+      }
+    }
+  };
+
+  const handleHandleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (wasDraggedRef.current) {
+      wasDraggedRef.current = false;
+      return;
+    }
+    toggleMobileHeight();
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = sessionStorage.getItem("te_chat_messages");
@@ -582,6 +694,12 @@ export default function ChatWidget() {
       sessionStorage.setItem("te_chat_sidebar", isSidebar ? "true" : "false");
     } catch {}
   }, [isSidebar]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("te_chat_mobile_height", mobileHeight);
+    } catch {}
+  }, [mobileHeight]);
 
   useEffect(() => {
     try {
@@ -1188,12 +1306,46 @@ export default function ChatWidget() {
           aria-label="Tanish Electronics Assistant"
           className={`te-sheet-bg fixed z-[99999] flex flex-col overflow-hidden bg-[var(--warm-bg-light)] font-sans text-[#1f1a12] shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] dark:bg-[var(--warm-bg-dark)] dark:text-[var(--warm-text-dark)]
             ${
+              mobileHeight === "compact"
+                ? "inset-x-0 bottom-0 top-auto h-[60dvh] rounded-t-[1.75rem] border-t border-x border-[#d8cdb6] dark:border-[var(--warm-border-dark)] shadow-[0_-16px_50px_rgba(0,0,0,0.35)]"
+                : "inset-x-0 bottom-0 top-auto h-[95dvh] rounded-t-[1.75rem] border-t border-x border-[#d8cdb6] dark:border-[var(--warm-border-dark)] shadow-[0_-16px_50px_rgba(0,0,0,0.45)]"
+            }
+            ${
               isSidebar
-                ? "animate-chat-sidebar inset-0 sm:inset-y-0 sm:left-auto sm:right-0 h-[100dvh] sm:h-full sm:w-[440px] md:w-[480px] lg:w-[520px] sm:rounded-none sm:border-l sm:border-y-0 sm:border-r-0 sm:border-[#d8cdb6] dark:border-[var(--warm-border-dark)]"
-                : "animate-chat-widget inset-0 sm:inset-auto sm:bottom-20 sm:right-6 h-[100dvh] sm:h-[40rem] lg:h-[43rem] sm:w-[27rem] md:w-[30rem] lg:w-[33rem] sm:rounded-2xl sm:border sm:border-[#d8cdb6] dark:border-[var(--warm-border-dark)] shadow-[0_16px_50px_rgba(0,0,0,0.16)] dark:shadow-[0_16px_50px_rgba(0,0,0,0.85)]"
+                ? "sm:inset-0 sm:inset-y-0 sm:left-auto sm:right-0 sm:h-full sm:w-[440px] md:w-[480px] lg:w-[520px] sm:rounded-none sm:border-l sm:border-y-0 sm:border-r-0 sm:border-[#d8cdb6] dark:border-[var(--warm-border-dark)] sm:animate-chat-sidebar"
+                : "sm:inset-auto sm:bottom-20 sm:right-6 sm:h-[40rem] lg:h-[43rem] sm:w-[27rem] md:w-[30rem] lg:w-[33rem] sm:rounded-2xl sm:border sm:border-[#d8cdb6] dark:border-[var(--warm-border-dark)] sm:shadow-[0_16px_50px_rgba(0,0,0,0.16)] dark:sm:shadow-[0_16px_50px_rgba(0,0,0,0.85)] sm:animate-chat-widget"
             }
           `}
         >
+          {/* Mobile Hammer AI Style Horizontal Drag/Resize Handle */}
+          <div
+            onTouchStart={handleHandleTouchStart}
+            onTouchMove={handleHandleTouchMove}
+            onTouchEnd={handleHandleTouchEnd}
+            onClick={handleHandleClick}
+            className="sm:hidden flex items-center justify-center pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none select-none bg-[var(--warm-bg-light)]/95 dark:bg-[var(--warm-bg-dark)]/95 border-b border-[#d8cdb6]/40 dark:border-[var(--warm-border-dark)]/40"
+          >
+            <div
+              aria-label={
+                mobileHeight === "expanded"
+                  ? "Shrink chat to half screen"
+                  : "Expand chat to full screen"
+              }
+              title={
+                mobileHeight === "expanded" ? "Tap to shrink" : "Tap to expand"
+              }
+              className="flex h-5 w-24 items-center justify-center cursor-pointer"
+            >
+              <span
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  mobileHeight === "expanded"
+                    ? "w-12 bg-[#817867]/50 hover:bg-[#8a6624] dark:bg-[#928a7d]/50 dark:hover:bg-[#d6b46a]"
+                    : "w-8 bg-[#8a6624] hover:w-12 dark:bg-[#d6b46a]"
+                }`}
+              />
+            </div>
+          </div>
+
           {/* Header */}
           <div className="relative shrink-0 border-b border-[#d8cdb6] bg-[var(--warm-bg-light)]/95 px-4 py-3 backdrop-blur-md dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-bg-dark)]/95">
             <div className="flex items-center gap-3">
@@ -1247,6 +1399,7 @@ export default function ChatWidget() {
                 >
                   <RotateCcw size={14} />
                 </button>
+
                 <button
                   onClick={() => setIsSidebar((prev) => !prev)}
                   aria-label={
@@ -1369,15 +1522,15 @@ export default function ChatWidget() {
             {isLoading && <HammerThinkingLoader />}
 
             {messages.length === 1 && !isLoading && (
-              <div className="flex flex-nowrap sm:flex-wrap gap-2 overflow-x-auto pb-1 pt-1 sm:overflow-visible -mx-1 px-1">
+              <div className="flex flex-wrap gap-2 pt-1.5 pb-1">
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
                     onClick={() => send(s)}
-                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-3.5 py-1.5 text-[13px] sm:text-[14px] font-medium text-[#1f1a12] transition hover:bg-[#1f1a12]/5 hover:border-[#1f1a12]/30 dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-card-dark)] dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/10 dark:hover:border-[#d6b46a]"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-3.5 py-1.5 text-[13px] sm:text-[14px] font-medium text-[#1f1a12] shadow-xs transition hover:bg-[#1f1a12]/5 hover:border-[#1f1a12]/30 dark:border-[var(--warm-border-dark)] dark:bg-[var(--warm-card-dark)] dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/10 dark:hover:border-[#d6b46a] cursor-pointer"
                   >
-                    <Sparkles size={14} />
-                    {s}
+                    <Sparkles size={13} className="shrink-0" />
+                    <span>{s}</span>
                   </button>
                 ))}
               </div>

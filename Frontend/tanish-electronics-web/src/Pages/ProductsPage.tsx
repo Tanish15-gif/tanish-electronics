@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, Check, X, Search, ChevronDown } from "lucide-react";
+import {
+  Sparkles,
+  Check,
+  X,
+  Search,
+  ChevronDown,
+  MessageSquare
+} from "lucide-react";
 import { getProducts, type ProductListItem } from "../Services/productService";
 import { useShopSettings } from "../hooks/useShopSettings";
 import TanishElectronicsLogo from "../components/common/TanishElectronicsLogo";
@@ -335,6 +342,14 @@ function ProductsPage() {
                 </button>
               );
             })}
+
+            <Link
+              to="/book-repair"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-[#d6b46a] bg-[#fff8e7] px-3.5 py-1.5 text-xs font-bold text-[#8a6624] transition hover:bg-[#f2eadb] dark:border-[#d6b46a]/50 dark:bg-[#1f1a12] dark:text-[#d6b46a]"
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-[#d6b46a]" />
+              <span>Enquire for parts</span>
+            </Link>
           </div>
         </div>
 
@@ -758,15 +773,23 @@ function EmptyProducts({
         Try another search or change the selected filters.
       </p>
 
-      {hasActiveFilters && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="mt-5 rounded-xl bg-[#1f1a12] px-5 py-3 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f]"
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-xl bg-[#1f1a12] px-5 py-3 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f]"
+          >
+            Clear all filters
+          </button>
+        )}
+        <Link
+          to="/book-repair"
+          className="rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-5 py-3 text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#161410] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
         >
-          Clear all filters
-        </button>
-      )}
+          Enquire with Workshop
+        </Link>
+      </div>
     </div>
   );
 }

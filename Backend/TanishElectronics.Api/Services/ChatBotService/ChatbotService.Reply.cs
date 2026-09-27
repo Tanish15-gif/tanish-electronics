@@ -69,9 +69,28 @@ public partial class ChatbotService
         // --- Process Enquiry Tag ---
         var enquiry = await ProcessEnquiryTagAsync(reply, request);
         reply = GenericEnquiryTagRegex.Replace(reply, "").Trim().Trim('`', '\'', '"', '\n', '\r', ' ');
-        if (enquiry.Submitted && !reply.Contains("Enquiry Summary", StringComparison.OrdinalIgnoreCase))
+        List<ChatProductCardDto>? enquiryCompanionProducts = null;
+        if (enquiry.Submitted)
         {
-            reply += BuildEnquirySummaryCard(enquiry);
+            if (!reply.Contains("Enquiry Summary", StringComparison.OrdinalIgnoreCase))
+            {
+                reply += BuildEnquirySummaryCard(enquiry);
+            }
+
+            var (companionProducts, isBrandMatched) = await GetCompanionProductsForEnquiryAsync(enquiry.ProductId, enquiry.ProductName);
+            if (companionProducts.Any())
+            {
+                enquiryCompanionProducts = companionProducts;
+                if (isBrandMatched)
+                {
+                    var pLabel = !string.IsNullOrWhiteSpace(enquiry.ProductName) ? $" for **{enquiry.ProductName}**" : "";
+                    reply += $"\n\n💡 **Matching Accessories & Companion Items:**\nWe also have these compatible accessories in stock{pLabel}:";
+                }
+                else
+                {
+                    reply += "\n\n💡 **Featured Promotions & Popular Workshop Deals:**\nWhile our team reviews your enquiry, check out these trending items currently in stock:";
+                }
+            }
         }
 
         // --- Process Booking Tag ---
@@ -105,10 +124,20 @@ public partial class ChatbotService
             );
         });
 
+        List<ChatProductCardDto>? finalProducts = null;
+        if (enquiry.Submitted)
+        {
+            finalProducts = enquiryCompanionProducts;
+        }
+        else if (!booking.Submitted && matchedProducts?.Any() == true)
+        {
+            finalProducts = matchedProducts;
+        }
+
         return new ChatResponseDto
         {
             Reply = reply,
-            Products = (!enquiry.Submitted && !booking.Submitted && matchedProducts?.Any() == true) ? matchedProducts : null,
+            Products = finalProducts,
             Actions = actions.Any() ? actions.DistinctBy(a => a.Label).ToList() : null
         };
     }

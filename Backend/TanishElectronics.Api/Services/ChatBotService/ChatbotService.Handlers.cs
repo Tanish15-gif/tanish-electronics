@@ -123,6 +123,7 @@ public partial class ChatbotService
         result.Message = finalMessage;
 
         int? resolvedProductId = await ResolveProductId(tagProductIdStr, tagProductName, request.CurrentPath);
+        result.ProductId = resolvedProductId;
         var subject = await BuildEnquirySubjectAsync(resolvedProductId, tagProductName);
 
         if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone) && !string.IsNullOrWhiteSpace(finalMessage))
@@ -318,6 +319,172 @@ public partial class ChatbotService
         return actions;
     }
 
+    /// <summary>
+    /// Finds compatible accessories (such as remotes, adapters, cables) or matching items
+    /// for a product that was just enquired about in chat.
+    /// If no brand-specific accessories exist (e.g. Vu TV), returns promotional / featured
+    /// workshop items so the customer always receives helpful product cards!
+    /// </summary>
+    private async Task<(List<ChatProductCardDto> Products, bool IsBrandMatched)> GetCompanionProductsForEnquiryAsync(int? productId, string? productName)
+    {
+        var companionCards = new List<ChatProductCardDto>();
+        bool isBrandMatched = false;
+        try
+        {
+            var allProducts = await _productService.GetProductsAsync(null, null, null, false);
+            if (!allProducts.Any()) return (companionCards, false);
+
+            string targetBrand = "";
+            string targetCategory = "";
+            string targetName = productName ?? "";
+
+            if (productId.HasValue)
+            {
+                try
+                {
+                    var details = await _productService.GetProductByIdAsync(productId.Value);
+                    if (details != null)
+                    {
+                        targetBrand = (details.Brand ?? "").Trim().ToLowerInvariant();
+                        targetCategory = (details.CategoryName ?? "").Trim().ToLowerInvariant();
+                        targetName = details.ProductName;
+                    }
+                }
+                catch { }
+            }
+
+            var knownBrands = new[] { "vu", "lg", "samsung", "sony", "sansui", "kodak", "croma", "mi", "xiaomi", "oneplus", "tcl", "panasonic", "philips", "nxt" };
+            if (string.IsNullOrWhiteSpace(targetBrand))
+            {
+                var lowerName = targetName.ToLowerInvariant();
+                targetBrand = knownBrands.FirstOrDefault(b => lowerName.Contains(b)) ?? "";
+            }
+
+            var lowerTargetName = targetName.ToLowerInvariant();
+            var isTargetTv = targetCategory.Contains("tv") || targetCategory.Contains("television") ||
+                             lowerTargetName.Contains("tv") || lowerTargetName.Contains("television") ||
+                             lowerTargetName.Contains("led") || lowerTargetName.Contains("oled") ||
+                             lowerTargetName.Contains("smart tv");
+
+            var candidates = allProducts.Where(p => !productId.HasValue || p.ProductId != productId.Value).ToList();
+
+            foreach (var candidate in candidates)
+            {
+                var candName = candidate.ProductName.ToLowerInvariant();
+                var candCategory = (candidate.CategoryName ?? "").ToLowerInvariant();
+                var candBrand = (candidate.Brand ?? "").Trim().ToLowerInvariant();
+
+                if (string.IsNullOrWhiteSpace(candBrand))
+                {
+                    candBrand = knownBrands.FirstOrDefault(b => candName.Contains(b)) ?? "";
+                }
+
+                var isRemote = candCategory.Contains("remote") || candName.Contains("remote");
+                var isAccessory = candCategory.Contains("accessory") || candCategory.Contains("accessories") ||
+                                  candCategory.Contains("adapter") || candCategory.Contains("cable") ||
+                                  candName.Contains("adapter") || candName.Contains("cable");
+                var isUniversal = candName.Contains("universal") || candCategory.Contains("universal");
+
+                var brandMatches = !string.IsNullOrWhiteSpace(targetBrand) &&
+                    (candBrand == targetBrand || candName.Contains(targetBrand));
+
+                var hasConflictingBrand = !string.IsNullOrWhiteSpace(targetBrand) &&
+                    !string.IsNullOrWhiteSpace(candBrand) &&
+                    targetBrand != candBrand &&
+                    !brandMatches &&
+                    !isUniversal;
+
+                // Strict brand isolation: If candidate belongs to a conflicting brand (e.g. LG remote for Vu TV), reject it!
+                if (hasConflictingBrand) continue;
+
+                // If target is a TV: prioritize matching remotes or universal remotes, then accessories
+                if (isTargetTv && isRemote)
+                {
+                    if (brandMatches || isUniversal)
+                    {
+                        companionCards.Add(new ChatProductCardDto
+                        {
+                            ProductId = candidate.ProductId,
+                            ProductName = candidate.ProductName,
+                            CategoryName = candidate.CategoryName,
+                            ConditionName = candidate.ConditionName,
+                            Price = candidate.Price,
+                            IsAvailable = candidate.IsAvailable,
+                            PrimaryImageUrl = candidate.PrimaryImageUrl
+                        });
+                        isBrandMatched = true;
+                    }
+                }
+                else if (isTargetTv && isAccessory)
+                {
+                    if (brandMatches || isUniversal)
+                    {
+                        companionCards.Add(new ChatProductCardDto
+                        {
+                            ProductId = candidate.ProductId,
+                            ProductName = candidate.ProductName,
+                            CategoryName = candidate.CategoryName,
+                            ConditionName = candidate.ConditionName,
+                            Price = candidate.Price,
+                            IsAvailable = candidate.IsAvailable,
+                            PrimaryImageUrl = candidate.PrimaryImageUrl
+                        });
+                        isBrandMatched = true;
+                    }
+                }
+                else if (brandMatches && candidate.IsAvailable)
+                {
+                    companionCards.Add(new ChatProductCardDto
+                    {
+                        ProductId = candidate.ProductId,
+                        ProductName = candidate.ProductName,
+                        CategoryName = candidate.CategoryName,
+                        ConditionName = candidate.ConditionName,
+                        Price = candidate.Price,
+                        IsAvailable = candidate.IsAvailable,
+                        PrimaryImageUrl = candidate.PrimaryImageUrl
+                    });
+                    isBrandMatched = true;
+                }
+
+                if (companionCards.Count >= 3) break;
+            }
+
+            // Fallback: If no matching brand accessories exist (e.g. Vu TV), show workshop featured & popular promotion items!
+            if (!companionCards.Any())
+            {
+                var promoProducts = candidates
+                    .Where(c => c.IsAvailable)
+                    .OrderByDescending(c => c.IsFeatured)
+                    .ThenByDescending(c => c.StockQuantity > 0)
+                    .ThenBy(c => c.Price)
+                    .Take(3)
+                    .ToList();
+
+                foreach (var promo in promoProducts)
+                {
+                    companionCards.Add(new ChatProductCardDto
+                    {
+                        ProductId = promo.ProductId,
+                        ProductName = promo.ProductName,
+                        CategoryName = promo.CategoryName,
+                        ConditionName = promo.ConditionName,
+                        Price = promo.Price,
+                        IsAvailable = promo.IsAvailable,
+                        PrimaryImageUrl = promo.PrimaryImageUrl
+                    });
+                }
+                isBrandMatched = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve companion products for chatbot enquiry.");
+        }
+
+        return (companionCards.Take(3).ToList(), isBrandMatched);
+    }
+
     // --- Internal result DTOs for tag processing ---
 
     private class EnquirySubmissionResult
@@ -327,6 +494,7 @@ public partial class ChatbotService
         public string? Phone { get; set; }
         public string? ProductName { get; set; }
         public string? Message { get; set; }
+        public int? ProductId { get; set; }
     }
 
     private class BookingSubmissionResult

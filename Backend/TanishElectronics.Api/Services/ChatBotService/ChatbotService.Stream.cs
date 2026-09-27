@@ -199,6 +199,7 @@ public partial class ChatbotService
         var booking = await ProcessBookingTagAsync(fullReply);
 
         var visibleText = streamedVisibleTextBuilder.ToString().Trim();
+        List<ChatProductCardDto>? enquiryCompanionProducts = null;
 
         if (enquiry.Submitted)
         {
@@ -219,6 +220,29 @@ public partial class ChatbotService
                     Type = "token",
                     Content = summaryCard
                 };
+            }
+
+            var (companionProducts, isBrandMatched) = await GetCompanionProductsForEnquiryAsync(enquiry.ProductId, enquiry.ProductName);
+            if (companionProducts.Any())
+            {
+                enquiryCompanionProducts = companionProducts;
+                if (isBrandMatched)
+                {
+                    var pLabel = !string.IsNullOrWhiteSpace(enquiry.ProductName) ? $" for **{enquiry.ProductName}**" : "";
+                    yield return new ChatStreamEventDto
+                    {
+                        Type = "token",
+                        Content = $"\n\n💡 **Matching Accessories & Companion Items:**\nWe also have these compatible accessories in stock{pLabel}:"
+                    };
+                }
+                else
+                {
+                    yield return new ChatStreamEventDto
+                    {
+                        Type = "token",
+                        Content = "\n\n💡 **Featured Promotions & Popular Workshop Deals:**\nWhile our team reviews your enquiry, check out these trending items currently in stock:"
+                    };
+                }
             }
         }
         else if (booking.Submitted)
@@ -254,10 +278,20 @@ public partial class ChatbotService
         // --- Emit metadata (products + action buttons) ---
         var actions = await BuildChatActionsAsync(request.Message, fullReply, enquiry.Submitted, booking.Submitted, matchedProducts);
 
+        List<ChatProductCardDto>? finalProducts = null;
+        if (enquiry.Submitted)
+        {
+            finalProducts = enquiryCompanionProducts;
+        }
+        else if (!booking.Submitted && matchedProducts?.Any() == true)
+        {
+            finalProducts = matchedProducts;
+        }
+
         yield return new ChatStreamEventDto
         {
             Type = "metadata",
-            Products = (!enquiry.Submitted && !booking.Submitted && matchedProducts?.Any() == true) ? matchedProducts : null,
+            Products = finalProducts,
             Actions = actions.Any() ? actions.DistinctBy(a => a.Label).ToList() : null
         };
 
