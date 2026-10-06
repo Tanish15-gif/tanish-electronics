@@ -228,7 +228,7 @@ public partial class ChatbotService
     private static string BuildEnquirySummaryCard(EnquirySubmissionResult enquiry)
     {
         var pName = !string.IsNullOrWhiteSpace(enquiry.ProductName) ? enquiry.ProductName : "Electronics Enquiry";
-        return $"\n\n📋 **Enquiry Summary:**\n• **Product**: {pName}\n• **Customer**: {enquiry.Name}\n• **Phone**: {enquiry.Phone}\n• **Message**: {enquiry.Message ?? "General Enquiry"}\n• **Status**: Received — Our team will contact you shortly.";
+        return $"\n\n**Enquiry Summary:**\n• **Product**: {pName}\n• **Customer**: {enquiry.Name}\n• **Phone**: {enquiry.Phone}\n• **Message**: {enquiry.Message ?? "General Enquiry"}\n• **Status**: Received — Our team will contact you shortly.";
     }
 
     /// <summary>
@@ -238,7 +238,7 @@ public partial class ChatbotService
     {
         var addrLine = booking.ServiceType == "Home Visit" && !string.IsNullOrWhiteSpace(booking.Address) && booking.Address != "Shop Drop-off"
             ? $" — {booking.Address}" : "";
-        return $"\n\n✅ **Repair Request Booked Successfully!**\n\n📋 **Booking Summary:**\n• **Tracking Number**: `{booking.TrackingNumber}`\n• **Customer**: {booking.Name} ({booking.Phone})\n• **Device**: {booking.Device}\n• **Issue**: {booking.Issue ?? "Repairs required"}\n• **Service Type**: {booking.ServiceType}{addrLine}\n• **Status**: Received — Technician assigned shortly.";
+        return $"\n\n**Repair Request Booked Successfully!**\n\n**Booking Summary:**\n• **Tracking Number**: `{booking.TrackingNumber}`\n• **Customer**: {booking.Name} ({booking.Phone})\n• **Device**: {booking.Device}\n• **Issue**: {booking.Issue ?? "Repairs required"}\n• **Service Type**: {booking.ServiceType}{addrLine}\n• **Status**: Received — Technician assigned shortly.";
     }
 
     /// <summary>
@@ -292,27 +292,32 @@ public partial class ChatbotService
             };
             var isProductRelated = !isRepairRelated && (productBuyingKeywords.Any(k => lowerMsg.Contains(k) || lowerReply.Contains(k)) || (matchedProducts != null && matchedProducts.Any()));
 
-            var trackKeywords = new[] { "track", "status" };
-            var isTrackRelated = trackKeywords.Any(k => lowerMsg.Contains(k) || lowerReply.Contains(k));
-
-            if (isProductRelated)
-            {
-                actions.Add(new ChatActionDto { Label = "Browse Products", Url = "/products", Icon = "package" });
-            }
-
-            if (isRepairRelated)
-            {
-                actions.Add(new ChatActionDto { Label = "Book Repair", Url = "/book-repair", Icon = "wrench" });
-            }
+            var trackKeywords = new[] { "track", "status", "where is", "where's", "pending", "technician" };
+            var isTrackRelated = RequestNumberPattern.IsMatch(replyText)
+                || RequestNumberPattern.IsMatch(userMessage)
+                || (trackKeywords.Any(k => lowerMsg.Contains(k)) && (PhoneNumberPattern.IsMatch(userMessage) || RequestNumberPattern.IsMatch(userMessage) || lowerReply.Contains("repair #") || lowerReply.Contains("te-")));
 
             if (isTrackRelated)
             {
                 actions.Add(new ChatActionDto { Label = "Track Repair", Url = "/track-request", Icon = "search" });
-            }
-
-            if (lowerMsg.Contains("contact") || lowerMsg.Contains("call") || lowerMsg.Contains("phone") || lowerMsg.Contains("location") || lowerMsg.Contains("address"))
-            {
                 actions.Add(new ChatActionDto { Label = "Call Shop", Url = $"tel:{shopPhone}", Icon = "phone" });
+            }
+            else
+            {
+                if (isProductRelated)
+                {
+                    actions.Add(new ChatActionDto { Label = "Browse Products", Url = "/products", Icon = "package" });
+                }
+
+                if (isRepairRelated)
+                {
+                    actions.Add(new ChatActionDto { Label = "Book Repair", Url = "/book-repair", Icon = "wrench" });
+                }
+
+                if (lowerMsg.Contains("contact") || lowerMsg.Contains("call") || lowerMsg.Contains("phone") || lowerMsg.Contains("location") || lowerMsg.Contains("address"))
+                {
+                    actions.Add(new ChatActionDto { Label = "Call Shop", Url = $"tel:{shopPhone}", Icon = "phone" });
+                }
             }
         }
 

@@ -421,6 +421,10 @@ builder.Services.AddHttpClient<IChatbotService, ChatbotService>(client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+builder.Services.AddScoped<IStoreKnowledgeRepository, StoreKnowledgeRepository>();
+builder.Services.AddScoped<IStoreKnowledgeService, StoreKnowledgeService>();
+builder.Services.AddScoped<IKnowledgeVectorService, KnowledgeVectorService>();
+
 builder.Services.AddScoped<ILookUpService, LookUpService>();
 
 builder.Services.AddScoped<IServiceRequestRepository, ServiceRequestRepository>();

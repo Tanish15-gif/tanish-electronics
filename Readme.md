@@ -25,7 +25,7 @@
 - **Product-Aware Enquiries**: Automatically detects the active product page or discussed item and creates direct product-linked enquiries in the Admin Panel
 - **Real-Time Repair Tracking**: Instant status, price estimation, and diagnosis lookups via request number and phone number directly in chat
 - **Interactive Product Search**: Real-time inventory searches that render interactive product cards with photos, prices, category badges, and direct navigation links
-- **Live Knowledge Grounding**: Dynamically grounded in real-time shop hours, contact numbers, service areas, active announcements, and verified customer reviews
+- **Live Knowledge Grounding & Semantic Vector RAG**: Dynamically grounded in real-time shop hours, contact numbers, service areas, active announcements, verified customer reviews, and high-performance in-memory cosine similarity vector search (`KnowledgeVectorService`) that retrieves authoritative workshop diagnostics, root causes, component fixes, and repair warranties from the SQL knowledge base
 - **Proactive Page Awareness**: Contextual prompt bubbles and guidance tailored to the user's active page (`/`, `/products`, `/products/:id`, `/book-repair`, `/track-request`)
 - **High-Speed SSE Streaming**: Real-time token streaming with tag-suppression token buffering to seamlessly hide background system action tags
 - **Modular Partial Class Architecture**: Clean separation into `Grounding`, `Prompt`, `Handlers`, `Reply`, `Stream`, and `Core` partial files
@@ -36,8 +36,7 @@
 - Approve/reject a customer's repair request and manage repair work/diagnosis notes with instant SignalR customer broadcast
 - Set estimated and final repair pricing
 - Update the status of a repair request (e.g. Pending → Approved → In Progress → Completed)
-- Manage product listings (second-hand TVs, remotes, etc.) with image uploads and stock management
-- Manage customer enquiries, internal notes, and announcement banners
+- **AI Store Knowledge Base Manager (`/admin/store-knowledge`)**: Full administrative CRUD workspace for managing authoritative diagnostic solutions, warranties, and Mumbai home visit policies grounding the AI Assistant
 - **Enterprise System Health & Telemetry**: Live 7-point health check suite monitoring SQL Server, User Sessions, In-Memory Cache, Server Host RAM / GC Heap, Server Storage, Media Uploads, and Groq Cloud AI with 3-minute in-memory caching to eliminate rate limit spam
 - **Responsive Telemetry Dashboard**: Real-time admin monitoring dashboard with smooth Catmull-Rom Bézier response trend curves, mobile 2x2 grid, and category filter tabs
 - View audit logs, website visit analytics, user management, and data exports (CSV/Excel)

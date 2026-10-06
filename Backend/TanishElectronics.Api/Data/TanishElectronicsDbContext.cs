@@ -76,6 +76,8 @@ public partial class TanishElectronicsDbContext : DbContext
 
     public virtual DbSet<ShopBusinessSetting> ShopBusinessSettings { get; set; }
 
+    public virtual DbSet<StoreKnowledge> StoreKnowledges { get; set; }
+
     public virtual DbSet<UserAuthEvent> UserAuthEvents { get; set; }
 
     public virtual DbSet<UserSession> UserSessions { get; set; }
@@ -589,6 +591,8 @@ public partial class TanishElectronicsDbContext : DbContext
 
             entity.HasIndex(e => e.RequestNumber, "IX_ServiceRequests_RequestNumber");
 
+            entity.HasIndex(e => new { e.RequestNumber, e.PhoneNumber }, "IX_ServiceRequests_RequestNumber_PhoneNumber");
+
             entity.HasIndex(e => e.RequestNumber, "UQ__ServiceR__9ADA6BE0535B494D").IsUnique();
 
             entity.Property(e => e.AdminNotes).HasMaxLength(800);
@@ -818,6 +822,19 @@ public partial class TanishElectronicsDbContext : DbContext
                 .HasForeignKey(d => d.ChatSessionId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_ChatMessages_ChatSession");
+        });
+
+        modelBuilder.Entity<StoreKnowledge>(entity =>
+        {
+            entity.HasKey(e => e.StoreKnowledgeId).HasName("PK_StoreKnowledges");
+
+            entity.HasIndex(e => new { e.Category, e.IsActive }, "IX_StoreKnowledges_Category_IsActive");
+
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.Category).HasMaxLength(60);
+            entity.Property(e => e.Tags).HasMaxLength(250);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
         });
 
         OnModelCreatingPartial(modelBuilder);

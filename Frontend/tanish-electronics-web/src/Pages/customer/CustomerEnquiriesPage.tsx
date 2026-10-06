@@ -348,11 +348,25 @@ function CustomerEnquiriesPage() {
 }
 
 function EnquiryCard({ enquiry }: { enquiry: CustomerDashboardEnquiry }) {
+  const { settings } = useShopSettings();
   const title = enquiry.productName || enquiry.subject || "Product enquiry";
 
   const showSubject =
     Boolean(enquiry.subject) &&
     enquiry.subject?.trim().toLowerCase() !== title.trim().toLowerCase();
+
+  const rawNumber = (
+    settings.whatsAppNumber ||
+    settings.primaryPhone ||
+    "8850973399"
+  ).replace(/\D/g, "");
+  const waNumber =
+    rawNumber.startsWith("91") && rawNumber.length >= 12
+      ? rawNumber
+      : `91${rawNumber}`;
+  const whatsappUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(
+    `Hi Tanish Electronics, I am following up on my enquiry ENQ-${enquiry.enquiryId} for ${title}.`
+  )}`;
 
   return (
     <article className="flex h-full min-w-0 flex-col rounded-[1.25rem] border border-[#d8cdb6] bg-[#fffaf0] p-4 transition duration-300 hover:border-[#c7b98e] hover:shadow-md dark:border-[#302c24] dark:bg-[#11110f] dark:hover:border-[#50483b] sm:p-5">
@@ -409,23 +423,36 @@ function EnquiryCard({ enquiry }: { enquiry: CustomerDashboardEnquiry }) {
           </p>
         </div>
 
-        {enquiry.productId ? (
-          <Link
-            to={`/products/${enquiry.productId}`}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-4 text-xs font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Chat on WhatsApp regarding enquiry ${enquiry.enquiryId}`}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-black text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
           >
-            View Product
-            <ArrowRightIcon />
-          </Link>
-        ) : (
-          <Link
-            to="/products"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-4 text-xs font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
-          >
-            Browse Products
-            <ArrowRightIcon />
-          </Link>
-        )}
+            <WhatsAppSmallIcon />
+            WhatsApp
+          </a>
+
+          {enquiry.productId ? (
+            <Link
+              to={`/products/${enquiry.productId}`}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-4 text-xs font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+            >
+              View Product
+              <ArrowRightIcon />
+            </Link>
+          ) : (
+            <Link
+              to="/products"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-4 text-xs font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+            >
+              Browse Products
+              <ArrowRightIcon />
+            </Link>
+          )}
+        </div>
       </footer>
     </article>
   );
@@ -598,15 +625,24 @@ function EnquiriesEmptyState({
 
 function EnquiriesLoadingState() {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="flex min-h-[55vh] items-center justify-center rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]">
-        <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
-
-          <p className="mt-4 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-            Loading enquiries...
-          </p>
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 animate-pulse">
+      <div className="rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 dark:border-[#302c24] dark:bg-[#1a1712]">
+        <div className="h-3.5 w-32 rounded bg-[#e8e0ce] dark:bg-[#28231a]" />
+        <div className="mt-3 h-10 w-48 rounded-xl bg-[#e8e0ce] dark:bg-[#28231a]" />
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="h-20 rounded-xl bg-[#e8e0ce] dark:bg-[#28231a]" />
+          <div className="h-20 rounded-xl bg-[#e8e0ce] dark:bg-[#28231a]" />
+          <div className="h-20 rounded-xl bg-[#e8e0ce] dark:bg-[#28231a]" />
         </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="h-64 rounded-[1.25rem] border border-[#d8cdb6] bg-[#fffaf0] dark:border-[#302c24] dark:bg-[#11110f]"
+          />
+        ))}
       </div>
     </main>
   );
@@ -940,6 +976,24 @@ function SummaryIcon({ type }: { type: "active" | "contacted" | "closed" }) {
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function WhatsAppSmallIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
+      <path
+        d="M20.5 12A8.5 8.5 0 0 1 7.8 19.3L3.5 20.5l1.2-4.1A8.5 8.5 0 1 1 20.5 12z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.5 9.5c.3-.6.6-.6.9-.6h.7c.2 0 .4.1.5.4.3.7.8 2 .9 2.2.1.2 0 .4-.1.6l-.4.5c-.1.2-.3.3-.1.6.4.7 1.2 1.5 2 1.9.3.2.5 0 .7-.2l.6-.7c.2-.2.4-.2.6-.1.3.1 1.6.8 1.8.9.3.2.4.3.3.6-.1.6-.9 1.5-1.7 1.5-.7 0-2.3-.6-3.8-2.1-1.6-1.5-2.2-3.1-2.2-3.8 0-.8.8-1.5 1.5-1.7z"
+        fill="currentColor"
       />
     </svg>
   );

@@ -8,5 +8,5 @@ public class GroqSettings
 
     public string Model { get; set; } = "openai/gpt-oss-20b";
 
-    public int MaxTokens { get; set; } = 400;
+    public int MaxTokens { get; set; } = 800;
 }

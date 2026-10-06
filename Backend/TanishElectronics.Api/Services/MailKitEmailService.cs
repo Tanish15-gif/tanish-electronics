@@ -35,7 +35,7 @@ public class MailKitEmailService : IEmailService
         if (string.IsNullOrWhiteSpace(_emailSettings.Username) || string.IsNullOrWhiteSpace(_emailSettings.Password))
         {
             _logger.LogError("SMTP credentials are not configured in EmailSettings.");
-            throw new InvalidOperationException("Email service is not properly configured. Please contact support.");
+            throw new InvalidOperationException("We are unable to deliver the verification code email right now. Please try again shortly or contact our workshop.");
         }
 
         var message = new MimeMessage();
@@ -57,13 +57,22 @@ public class MailKitEmailService : IEmailService
         message.Body = bodyBuilder.ToMessageBody();
 
         using var smtpClient = new SmtpClient();
+        smtpClient.Timeout = 5000; // 5-second timeout prevents lengthy hangs on slow or failing SMTP
 
         try
         {
+            var socketOptions = _emailSettings.Port switch
+            {
+                465 => SecureSocketOptions.SslOnConnect,
+                587 => SecureSocketOptions.StartTls,
+                25 => SecureSocketOptions.None,
+                _ => SecureSocketOptions.Auto
+            };
+
             await smtpClient.ConnectAsync(
                 _emailSettings.Host,
                 _emailSettings.Port,
-                SecureSocketOptions.StartTls,
+                socketOptions,
                 cancellationToken
             );
 
@@ -83,7 +92,7 @@ public class MailKitEmailService : IEmailService
                 "SMTP authentication failed for user '{Username}'. Ensure your 16-character Google App Password is valid.",
                 _emailSettings.Username
             );
-            throw new InvalidOperationException("Email delivery authentication failed. Please verify your Google App Password.", ex);
+            throw new InvalidOperationException("We are unable to deliver the verification code email right now. Please try again shortly or contact our workshop.", ex);
         }
         catch (SmtpCommandException ex)
         {
@@ -93,12 +102,12 @@ public class MailKitEmailService : IEmailService
                 toEmail,
                 ex.StatusCode
             );
-            throw new InvalidOperationException($"Email server error: {ex.Message}", ex);
+            throw new InvalidOperationException("We are unable to deliver the verification code email right now. Please try again shortly or contact our workshop.", ex);
         }
         catch (Exception ex) when (ex is not InvalidOperationException)
         {
             _logger.LogError(ex, "Unexpected error occurred while delivering email to '{Recipient}'", toEmail);
-            throw new InvalidOperationException("Unable to deliver verification email. Please try again later.", ex);
+            throw new InvalidOperationException("We are unable to deliver the verification code email right now. Please try again shortly or contact our workshop.", ex);
         }
         finally
         {

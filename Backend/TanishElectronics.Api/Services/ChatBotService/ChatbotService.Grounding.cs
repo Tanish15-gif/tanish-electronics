@@ -30,6 +30,25 @@ public partial class ChatbotService
             sb.AppendLine($"- Booking notice: {shopSettings.BookingNotice}");
         }
 
+        // --- Semantic Vector Search across StoreKnowledges (RAG) ---
+        try
+        {
+            var semanticKnowledge = await _knowledgeVectorService.SearchAsync(message, topK: 3);
+            if (semanticKnowledge.Any())
+            {
+                sb.AppendLine("- Verified Store Policies & Technical Knowledge (Semantically Retrieved):");
+                foreach (var k in semanticKnowledge)
+                {
+                    sb.AppendLine($"  * [{k.Category}] {k.Title}:");
+                    sb.AppendLine($"    {k.Content}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve semantic vector knowledge for message: {Message}", message);
+        }
+
         // --- Authenticated Customer Profile ---
         if (appUserId.HasValue)
         {
@@ -163,16 +182,48 @@ public partial class ChatbotService
 
         var requestNumberMatch = RequestNumberPattern.Match(normalizedForRegex);
         var phoneNumberMatch = PhoneNumberPattern.Match(normalizedForRegex);
-        var mentionsTracking = TrackingKeywords.Any(k => lowerMessage.Contains(k));
 
-        if (requestNumberMatch.Success && phoneNumberMatch.Success)
+        if (!requestNumberMatch.Success && history != null)
+        {
+            foreach (var h in history.TakeLast(6).Reverse())
+            {
+                var m = RequestNumberPattern.Match(h.Content);
+                if (m.Success) { requestNumberMatch = m; break; }
+            }
+        }
+
+        if (!phoneNumberMatch.Success && history != null)
+        {
+            foreach (var h in history.TakeLast(6).Reverse())
+            {
+                var m = PhoneNumberPattern.Match(h.Content);
+                if (m.Success) { phoneNumberMatch = m; break; }
+            }
+        }
+
+        string? resolvedPhoneNumber = phoneNumberMatch.Success ? phoneNumberMatch.Value : null;
+        if (string.IsNullOrWhiteSpace(resolvedPhoneNumber) && appUserId.HasValue)
+        {
+            var userPhone = await _dbContext.Customers
+                .Where(c => c.AppUserId == appUserId.Value && c.DeletedAt == null && c.IsActive)
+                .Select(c => c.PhoneNumber)
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrWhiteSpace(userPhone))
+            {
+                resolvedPhoneNumber = userPhone;
+            }
+        }
+
+        var mentionsTracking = TrackingKeywords.Any(k => lowerMessage.Contains(k)) || requestNumberMatch.Success;
+
+        if (requestNumberMatch.Success && !string.IsNullOrWhiteSpace(resolvedPhoneNumber))
         {
             try
             {
                 var tracking = await _serviceRequestService.TrackAsync(new TrackServiceRequestDto
                 {
                     RequestNumber = requestNumberMatch.Value.ToUpperInvariant(),
-                    PhoneNumber = phoneNumberMatch.Value
+                    PhoneNumber = resolvedPhoneNumber
                 });
 
                 sb.AppendLine($"- Repair request {tracking.RequestNumber} found:");

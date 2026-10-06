@@ -84,11 +84,11 @@ public partial class ChatbotService
                 if (isBrandMatched)
                 {
                     var pLabel = !string.IsNullOrWhiteSpace(enquiry.ProductName) ? $" for **{enquiry.ProductName}**" : "";
-                    reply += $"\n\n💡 **Matching Accessories & Companion Items:**\nWe also have these compatible accessories in stock{pLabel}:";
+                    reply += $"\n\n**Matching Accessories & Companion Items:**\nWe also have these compatible accessories in stock{pLabel}:";
                 }
                 else
                 {
-                    reply += "\n\n💡 **Featured Promotions & Popular Workshop Deals:**\nWhile our team reviews your enquiry, check out these trending items currently in stock:";
+                    reply += "\n\n**Featured Promotions & Popular Workshop Deals:**\nWhile our team reviews your enquiry, check out these trending items currently in stock:";
                 }
             }
         }

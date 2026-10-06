@@ -4,19 +4,18 @@ import {
   useEffect,
   useRef,
   useState,
+  type KeyboardEvent,
   type ReactNode,
   type TouchEvent
 } from "react";
 import { Link } from "react-router-dom";
-
 import type { PublicAnnouncement } from "../../Services/publicAnnouncementService";
-
 import { getCustomerAnnouncements } from "../../Services/customerAnnouncementService";
-
 import { startAnnouncementRealtime } from "../../Services/announcementRealtimeService";
+import { useShopSettings } from "../../hooks/useShopSettings";
 
 const SLIDE_DURATION = 6000;
-const SWIPE_THRESHOLD = 55;
+const SWIPE_THRESHOLD = 50;
 
 type LoadOptions = {
   showLoader?: boolean;
@@ -24,26 +23,17 @@ type LoadOptions = {
 
 function CustomerDashboardAnnouncements() {
   const { getToken, isLoaded, isSignedIn } = useApiAuth();
+  const { settings } = useShopSettings();
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-
   const touchCurrentRef = useRef<{ x: number; y: number } | null>(null);
-
   const activeAnnouncementIdRef = useRef<number | null>(null);
 
   const [announcements, setAnnouncements] = useState<PublicAnnouncement[]>([]);
-
   const [activeIndex, setActiveIndex] = useState(0);
-
   const [loading, setLoading] = useState(true);
-
-  const [refreshing, setRefreshing] = useState(false);
-
   const [isPaused, setIsPaused] = useState(false);
-
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  const [error, setError] = useState("");
 
   const loadAnnouncements = useCallback(
     async (options: LoadOptions = {}) => {
@@ -52,11 +42,7 @@ function CustomerDashboardAnnouncements() {
       try {
         if (showLoader) {
           setLoading(true);
-        } else {
-          setRefreshing(true);
         }
-
-        setError("");
 
         const token = await getToken();
 
@@ -72,16 +58,7 @@ function CustomerDashboardAnnouncements() {
           6
         );
 
-        /*
-         * Every active Customer Dashboard
-         * announcement stays in this slideshow.
-         *
-         * showOnce only controls whether the
-         * same announcement also appears once
-         * in the popup.
-         */
         const currentAnnouncementId = activeAnnouncementIdRef.current;
-
         setAnnouncements(data);
 
         setActiveIndex((currentIndex) => {
@@ -102,48 +79,28 @@ function CustomerDashboardAnnouncements() {
 
           return Math.min(currentIndex, data.length - 1);
         });
-      } catch (error) {
-        console.error("Failed to load customer announcements:", error);
-
-        /*
-         * Keep existing announcements during a
-         * failed realtime refresh. Only clear them
-         * when the initial request fails.
-         */
+      } catch (err) {
+        console.error("Failed to load customer announcements:", err);
         if (showLoader) {
           setAnnouncements([]);
           setActiveIndex(0);
         }
-
-        setError("Failed to load shop updates.");
       } finally {
         if (showLoader) {
           setLoading(false);
         }
-
-        setRefreshing(false);
       }
     },
     [getToken]
   );
 
-  /*
-   * Remember the currently visible announcement
-   * so realtime updates do not jump back to slide 1.
-   */
   useEffect(() => {
     activeAnnouncementIdRef.current =
       announcements[activeIndex]?.announcementId ?? null;
   }, [announcements, activeIndex]);
 
-  /*
-   * Initial authenticated request.
-   */
   useEffect(() => {
-    if (!isLoaded) {
-      return;
-    }
-
+    if (!isLoaded) return;
     if (!isSignedIn) {
       setAnnouncements([]);
       setActiveIndex(0);
@@ -151,39 +108,21 @@ function CustomerDashboardAnnouncements() {
       return;
     }
 
-    void loadAnnouncements({
-      showLoader: true
-    });
+    void loadAnnouncements({ showLoader: true });
   }, [isLoaded, isSignedIn, loadAnnouncements]);
 
-  /*
-   * SignalR refresh.
-   *
-   * This runs silently so the complete slideshow
-   * does not turn into a skeleton after every update.
-   */
   useEffect(() => {
-    if (!isLoaded || !isSignedIn) {
-      return;
-    }
+    if (!isLoaded || !isSignedIn) return;
 
     const stopRealtime = startAnnouncementRealtime(() => {
-      console.log("Customer dashboard announcement update received.");
-
-      void loadAnnouncements({
-        showLoader: false
-      });
+      void loadAnnouncements({ showLoader: false });
     });
 
     return stopRealtime;
   }, [isLoaded, isSignedIn, loadAnnouncements]);
 
-  /*
-   * Respect reduced-motion settings.
-   */
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-
     setPrefersReducedMotion(mediaQuery.matches);
 
     function handlePreferenceChange(event: MediaQueryListEvent) {
@@ -191,18 +130,11 @@ function CustomerDashboardAnnouncements() {
     }
 
     mediaQuery.addEventListener("change", handlePreferenceChange);
-
     return () => {
       mediaQuery.removeEventListener("change", handlePreferenceChange);
     };
   }, []);
 
-  /*
-   * Automatic slideshow movement.
-   *
-   * A timeout restarts the full duration whenever
-   * the customer changes slides manually.
-   */
   useEffect(() => {
     if (announcements.length <= 1 || isPaused || prefersReducedMotion) {
       return;
@@ -219,10 +151,6 @@ function CustomerDashboardAnnouncements() {
     };
   }, [activeIndex, announcements.length, isPaused, prefersReducedMotion]);
 
-  /*
-   * Protect against an invalid index when an
-   * announcement is removed through SignalR.
-   */
   useEffect(() => {
     if (announcements.length === 0) {
       setActiveIndex(0);
@@ -235,78 +163,59 @@ function CustomerDashboardAnnouncements() {
   }, [announcements.length, activeIndex]);
 
   function goPrevious() {
-    if (announcements.length <= 1) {
-      return;
-    }
-
+    if (announcements.length <= 1) return;
     setActiveIndex((currentIndex) =>
       currentIndex === 0 ? announcements.length - 1 : currentIndex - 1
     );
   }
 
   function goNext() {
-    if (announcements.length <= 1) {
-      return;
-    }
-
+    if (announcements.length <= 1) return;
     setActiveIndex((currentIndex) =>
       currentIndex >= announcements.length - 1 ? 0 : currentIndex + 1
     );
   }
 
   function openSlide(index: number) {
-    if (index < 0 || index >= announcements.length) {
-      return;
-    }
-
+    if (index < 0 || index >= announcements.length) return;
     setActiveIndex(index);
   }
 
-  function handleTouchStart(event: TouchEvent<HTMLElement>) {
-    const touch = event.touches[0];
-
-    if (!touch) {
-      return;
+  function handleKeyboard(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      goPrevious();
     }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      goNext();
+    }
+  }
 
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY
-    };
-
-    touchCurrentRef.current = {
-      x: touch.clientX,
-      y: touch.clientY
-    };
-
+  function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    touchCurrentRef.current = { x: touch.clientX, y: touch.clientY };
     setIsPaused(true);
   }
 
-  function handleTouchMove(event: TouchEvent<HTMLElement>) {
+  function handleTouchMove(event: TouchEvent<HTMLDivElement>) {
     const touch = event.touches[0];
-
-    if (!touch) {
-      return;
-    }
-
-    touchCurrentRef.current = {
-      x: touch.clientX,
-      y: touch.clientY
-    };
+    if (!touch) return;
+    touchCurrentRef.current = { x: touch.clientX, y: touch.clientY };
   }
 
   function handleTouchEnd() {
     const start = touchStartRef.current;
-
     const current = touchCurrentRef.current;
 
     if (start && current) {
       const horizontalDistance = current.x - start.x;
-
       const verticalDistance = current.y - start.y;
 
       const isHorizontalSwipe =
-        Math.abs(horizontalDistance) >= SWIPE_THRESHOLD &&
+        Math.abs(horizontalDistance) > SWIPE_THRESHOLD &&
         Math.abs(horizontalDistance) > Math.abs(verticalDistance) * 1.2;
 
       if (isHorizontalSwipe) {
@@ -320,73 +229,27 @@ function CustomerDashboardAnnouncements() {
 
     touchStartRef.current = null;
     touchCurrentRef.current = null;
-
     setIsPaused(false);
   }
 
   if (loading) {
-    return <AnnouncementsLoading />;
+    return <DashboardAnnouncementsSkeleton />;
   }
 
-  if (announcements.length === 0 && !error) {
+  if (announcements.length === 0) {
     return null;
   }
 
-  if (announcements.length === 0 && error) {
-    return (
-      <AnnouncementsError
-        message={error}
-        onRetry={() =>
-          void loadAnnouncements({
-            showLoader: true
-          })
-        }
-      />
-    );
-  }
+  const shopPhone = settings.primaryPhone || "8850973399";
 
   return (
-    <section
-      aria-label="Customer dashboard announcements"
-      aria-roledescription="carousel"
-      tabIndex={announcements.length > 1 ? 0 : -1}
-      onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          goPrevious();
-        }
-
-        if (event.key === "ArrowRight") {
-          event.preventDefault();
-          goNext();
-        }
-      }}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onFocusCapture={() => setIsPaused(true)}
-      onBlurCapture={(event) => {
-        const nextFocusedElement = event.relatedTarget as Node | null;
-
-        if (
-          !nextFocusedElement ||
-          !event.currentTarget.contains(nextFocusedElement)
-        ) {
-          setIsPaused(false);
-        }
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
-      className="group relative self-start overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#1f1a12] text-white shadow-[0_24px_70px_-40px_rgba(31,26,18,0.75)] outline-none transition focus-visible:border-[#d6b46a] focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#0c0b09] sm:rounded-[1.75rem]"
-    >
+    <section aria-label="Customer announcements and notices">
       <style>
         {`
           @keyframes dashboardAnnouncementProgress {
             from {
               transform: scaleX(0);
             }
-
             to {
               transform: scaleX(1);
             }
@@ -394,130 +257,147 @@ function CustomerDashboardAnnouncements() {
         `}
       </style>
 
-      {/* Top controls */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-4 sm:p-5">
-        <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/40 px-3 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-sm backdrop-blur-md">
-          <AnnouncementIcon />
+      {/* Section Header */}
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a] sm:text-[11px]">
+            Announcements & Notices
+          </p>
 
-          <span>Shop updates</span>
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-[#1f1a12] dark:text-[#e8e3d8] sm:text-3xl">
+            News from {settings.shopName || "Tanish Electronics"}
+          </h2>
 
-          {refreshing && (
-            <span
-              aria-label="Refreshing announcements"
-              className="ml-1 h-2 w-2 animate-pulse rounded-full bg-[#d6b46a]"
-            />
-          )}
+          <p className="mt-1 hidden text-xs font-semibold text-[#6f6758] dark:text-[#a8a093] sm:block">
+            Service notices, product updates and important shop information.
+          </p>
         </div>
 
         {announcements.length > 1 && (
-          <div className="pointer-events-auto flex items-center gap-2">
-            <span className="hidden rounded-full border border-white/15 bg-black/40 px-3 py-2 text-[10px] font-black tracking-[0.12em] text-white backdrop-blur-md sm:block">
-              {String(activeIndex + 1).padStart(2, "0")}
-
-              <span className="mx-1.5 text-white/45">/</span>
-
-              {String(announcements.length).padStart(2, "0")}
-            </span>
-
-            <button
-              type="button"
-              onClick={goPrevious}
-              aria-label="Previous announcement"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-md transition hover:border-white/40 hover:bg-black/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/20"
-            >
-              <ChevronLeftIcon />
-            </button>
-
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="Next announcement"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white text-[#1f1a12] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#d6b46a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/20"
-            >
-              <ChevronRightIcon />
-            </button>
-          </div>
+          <p className="shrink-0 rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-3 py-1.5 text-[11px] font-black text-[#817867] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#928a7d] lg:hidden">
+            {String(activeIndex + 1).padStart(2, "0")}
+            <span className="mx-1.5 opacity-50">/</span>
+            {String(announcements.length).padStart(2, "0")}
+          </p>
         )}
       </div>
 
-      {error && (
+      {/* Main Carousel Card (Split Layout on Desktop, Swipe Card on Mobile) */}
+      <article
+        tabIndex={announcements.length > 1 ? 0 : -1}
+        aria-label="Customer announcements carousel"
+        aria-roledescription="carousel"
+        onKeyDown={handleKeyboard}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onFocusCapture={() => setIsPaused(true)}
+        onBlurCapture={(event) => {
+          const nextFocusedElement = event.relatedTarget as Node | null;
+          if (
+            !nextFocusedElement ||
+            !event.currentTarget.contains(nextFocusedElement)
+          ) {
+            setIsPaused(false);
+          }
+        }}
+        className="relative overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf8] shadow-[0_20px_50px_-30px_rgba(31,26,18,0.35)] outline-none transition focus-visible:border-[#d6b46a] focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#181612] lg:rounded-[2rem]"
+      >
+        {/* Sliding Track */}
         <div
-          role="alert"
-          className="absolute inset-x-4 top-20 z-30 rounded-xl border border-red-300/20 bg-red-950/80 px-4 py-3 text-xs font-bold text-red-100 shadow-lg backdrop-blur-md sm:inset-x-auto sm:right-5 sm:max-w-sm"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span>{error}</span>
-
-            <button
-              type="button"
-              onClick={() => void loadAnnouncements()}
-              className="shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide transition hover:bg-white/20"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Sliding track */}
-      <div className="overflow-hidden">
-        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           className="flex touch-pan-y transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           style={{
             transform: `translateX(-${activeIndex * 100}%)`
           }}
         >
-          {announcements.map((announcement, index) => (
-            <DashboardAnnouncementSlide
-              key={announcement.announcementId}
-              announcement={announcement}
-              active={activeIndex === index}
-              index={index}
-              total={announcements.length}
-            />
-          ))}
-        </div>
-      </div>
+          {announcements.map((announcement, index) => {
+            const nextIndex =
+              index === announcements.length - 1 ? 0 : index + 1;
 
-      {/* Bottom controls */}
-      {announcements.length > 1 && (
-        <footer className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-between gap-4 px-5 pb-5 sm:px-7 sm:pb-6">
-          <p className="hidden text-[11px] font-bold text-white/60 sm:block"></p>
-
-          <div className="mx-auto flex items-center gap-2 sm:mx-0">
-            {announcements.map((announcement, index) => (
-              <button
+            return (
+              <DashboardAnnouncementSlide
                 key={announcement.announcementId}
-                type="button"
-                onClick={() => openSlide(index)}
-                aria-label={`Open announcement ${index + 1}`}
-                aria-current={activeIndex === index ? "true" : undefined}
-                className={`h-2 rounded-full shadow-sm transition-all duration-300 ${
-                  activeIndex === index
-                    ? "w-8 bg-[#d6b46a]"
-                    : "w-2 bg-white/35 hover:bg-white/75"
-                }`}
+                announcement={announcement}
+                nextAnnouncement={announcements[nextIndex]}
+                active={activeIndex === index}
+                index={index}
+                total={announcements.length}
+                shopPhone={shopPhone}
+                onPrevious={goPrevious}
+                onNext={goNext}
+                onOpenNext={() => openSlide(nextIndex)}
               />
-            ))}
-          </div>
-        </footer>
-      )}
-
-      {/* Automatic progress */}
-      {announcements.length > 1 && !prefersReducedMotion && (
-        <div className="absolute inset-x-0 bottom-0 z-40 h-1 overflow-hidden bg-white/10">
-          <div
-            key={activeIndex}
-            className="h-full origin-left bg-[#d6b46a]"
-            style={{
-              animationName: "dashboardAnnouncementProgress",
-              animationDuration: `${SLIDE_DURATION}ms`,
-              animationTimingFunction: "linear",
-              animationFillMode: "forwards",
-              animationPlayState: isPaused ? "paused" : "running"
-            }}
-          />
+            );
+          })}
         </div>
+
+        {/* Mobile Navigation Bar */}
+        {announcements.length > 1 && (
+          <div className="relative z-20 flex items-center justify-between gap-4 border-t border-[#d8cdb6] bg-[#faf7f0] px-4 py-3.5 dark:border-[#302c24] dark:bg-[#13110e] sm:px-5 lg:hidden">
+            <div className="flex min-w-0 items-center gap-2">
+              {announcements.map((announcement, index) => (
+                <button
+                  key={announcement.announcementId}
+                  type="button"
+                  onClick={() => openSlide(index)}
+                  aria-label={`Open announcement ${index + 1}`}
+                  aria-current={activeIndex === index ? "true" : undefined}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    activeIndex === index
+                      ? "w-7 bg-[#8a6624] dark:bg-[#d6b46a]"
+                      : "w-2 bg-[#d8cdb6] hover:bg-[#b8aa90] dark:bg-[#3a352c] dark:hover:bg-[#5b5346]"
+                  }`}
+                />
+              ))}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={goPrevious}
+                aria-label="Previous announcement"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#d8cdb6] bg-transparent text-[#1f1a12] transition hover:bg-[#f2eadb] active:scale-95 dark:border-[#302c24] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
+              >
+                <ChevronLeftIcon />
+              </button>
+
+              <button
+                type="button"
+                onClick={goNext}
+                aria-label="Next announcement"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#1f1a12] text-white transition hover:bg-[#352f26] active:scale-95 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+              >
+                <ChevronRightIcon />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Automatic Progress Bar */}
+        {announcements.length > 1 && !prefersReducedMotion && (
+          <div className="absolute inset-x-0 bottom-0 z-30 h-1 overflow-hidden bg-[#e8e1d4] dark:bg-[#2b2720]">
+            <div
+              key={activeIndex}
+              className="h-full origin-left bg-[#b88932] dark:bg-[#d6b46a]"
+              style={{
+                animationName: "dashboardAnnouncementProgress",
+                animationDuration: `${SLIDE_DURATION}ms`,
+                animationTimingFunction: "linear",
+                animationFillMode: "forwards",
+                animationPlayState: isPaused ? "paused" : "running"
+              }}
+            />
+          </div>
+        )}
+      </article>
+
+      {announcements.length > 1 && (
+        <p className="mt-2.5 text-center text-[11px] font-semibold text-[#8a8172] dark:text-[#746d61] sm:hidden">
+          Swipe left or right to view more announcements
+        </p>
       )}
     </section>
   );
@@ -525,203 +405,249 @@ function CustomerDashboardAnnouncements() {
 
 function DashboardAnnouncementSlide({
   announcement,
+  nextAnnouncement,
   active,
   index,
-  total
+  total,
+  shopPhone,
+  onPrevious,
+  onNext,
+  onOpenNext
 }: {
   announcement: PublicAnnouncement;
+  nextAnnouncement: PublicAnnouncement;
   active: boolean;
   index: number;
   total: number;
+  shopPhone: string;
+  onPrevious: () => void;
+  onNext: () => void;
+  onOpenNext: () => void;
+}) {
+  const hasAction =
+    Boolean(announcement.buttonText) && Boolean(announcement.buttonLink);
+
+  return (
+    <div
+      aria-hidden={!active}
+      aria-label={`${index + 1} of ${total}`}
+      aria-roledescription="slide"
+      className={`min-w-full ${active ? "" : "pointer-events-none"}`}
+    >
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_250px] xl:grid-cols-[minmax(0,1fr)_270px]">
+        {/* Main Slide Content */}
+        <div className="relative flex min-w-0 flex-col justify-center p-5 sm:p-7 lg:p-8 xl:p-9 min-h-[280px] sm:min-h-[300px] lg:min-h-[320px] overflow-hidden">
+          {/* Subtle ambient decorative backdrop for slides without images */}
+          {!announcement.imageUrl && (
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#d6b46a]/[0.07] blur-3xl dark:bg-[#d6b46a]/[0.05]" />
+          )}
+
+          <div
+            className={`grid w-full items-center gap-6 lg:gap-7 xl:gap-8 ${
+              announcement.imageUrl
+                ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]"
+                : ""
+            }`}
+          >
+            {/* Text Information */}
+            <div className="flex min-w-0 flex-col justify-center">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#f2eadb] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#725522] dark:border-[#302c24] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a] sm:text-[11px]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#d6b46a]" />
+                    {formatAnnouncementType(announcement.announcementType)}
+                  </span>
+
+                  {announcement.priority >= 3 && (
+                    <span className="rounded-full border border-amber-300/40 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
+                      {announcement.priority >= 4 ? "Urgent" : "Important"}
+                    </span>
+                  )}
+
+                  {announcement.endAt && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#817867] dark:text-[#928a7d] sm:text-xs">
+                      <CalendarIcon />
+                      Valid until {formatDate(announcement.endAt)}
+                    </span>
+                  )}
+                </div>
+
+                <h3
+                  className={`mt-3 sm:mt-4 font-black leading-[1.15] tracking-tight text-[#1f1a12] dark:text-[#f1ede5] ${
+                    announcement.imageUrl
+                      ? "text-xl sm:text-2xl lg:text-[1.65rem] xl:text-[1.95rem] max-w-xl"
+                      : "text-2xl sm:text-3xl lg:text-[2.2rem] xl:text-[2.5rem] max-w-2xl xl:max-w-3xl"
+                  }`}
+                >
+                  {announcement.title}
+                </h3>
+
+                <p className="mt-2.5 sm:mt-3 max-w-2xl whitespace-pre-wrap text-xs sm:text-sm lg:text-[15px] font-medium leading-relaxed text-[#6f6758] dark:text-[#a8a093] line-clamp-3 sm:line-clamp-4">
+                  {announcement.message}
+                </p>
+              </div>
+
+              {/* Actions CTA */}
+              <div className="mt-5 flex flex-wrap items-center gap-2.5 sm:mt-6 sm:gap-3">
+                {hasAction && (
+                  <SmartAnnouncementLink
+                    to={announcement.buttonLink!}
+                    tabIndex={active ? 0 : -1}
+                    className="inline-flex h-10 sm:h-11 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-4 sm:px-5 text-xs sm:text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#352f26] hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+                  >
+                    <span>{announcement.buttonText}</span>
+                    <ArrowUpRightIcon />
+                  </SmartAnnouncementLink>
+                )}
+
+                <a
+                  href={`tel:${shopPhone}`}
+                  tabIndex={active ? 0 : -1}
+                  className={`inline-flex h-10 sm:h-11 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-transparent px-4 sm:px-5 text-xs sm:text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#3b372f] dark:text-[#e8e3d8] dark:hover:bg-[#242016] ${
+                    hasAction ? "" : "min-w-36"
+                  }`}
+                >
+                  <PhoneIcon />
+                  <span>Call shop</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Image Thumbnail */}
+            {announcement.imageUrl && (
+              <div className="order-first w-full justify-self-center lg:order-none lg:justify-self-end max-w-[460px]">
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] shadow-sm dark:border-[#302c24] dark:bg-[#11110f] sm:aspect-[16/9] lg:aspect-[16/10] max-h-[230px] sm:max-h-[250px] lg:max-h-[260px]">
+                  <AnnouncementImage
+                    imageUrl={announcement.imageUrl}
+                    title={announcement.title}
+                    active={active}
+                  />
+
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/5" />
+                  <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/20" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Sidebar Navigation */}
+        {total > 1 && (
+          <aside className="hidden flex-col justify-between border-l border-[#d8cdb6] bg-[#faf7f0] p-6 dark:border-[#302c24] dark:bg-[#13110e] lg:flex xl:p-7">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#817867] dark:text-[#928a7d]">
+                  Announcement
+                </p>
+
+                <p className="text-sm font-black text-[#1f1a12] dark:text-[#e8e3d8]">
+                  {String(index + 1).padStart(2, "0")}
+                  <span className="mx-1.5 text-[#b0a795]">/</span>
+                  {String(total).padStart(2, "0")}
+                </p>
+              </div>
+
+              <div className="mt-6 border-t border-[#ddd4c3] pt-5 dark:border-[#302c24]">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#817867] dark:text-[#928a7d]">
+                  Next update
+                </p>
+
+                <button
+                  type="button"
+                  tabIndex={active ? 0 : -1}
+                  onClick={onOpenNext}
+                  className="mt-2 line-clamp-3 text-left text-sm font-black leading-snug text-[#1f1a12] transition hover:text-[#8a6624] focus-visible:outline-none focus-visible:text-[#8a6624] dark:text-[#e8e3d8] dark:hover:text-[#d6b46a] xl:text-base"
+                >
+                  {nextAnnouncement.title}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-2.5 sm:gap-3">
+              <button
+                type="button"
+                tabIndex={active ? 0 : -1}
+                onClick={onPrevious}
+                aria-label="Previous announcement"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d8cdb6] bg-white text-[#1f1a12] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
+              >
+                <ChevronLeftIcon />
+              </button>
+
+              <button
+                type="button"
+                tabIndex={active ? 0 : -1}
+                onClick={onNext}
+                aria-label="Next announcement"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-[#1f1a12] text-white transition hover:bg-[#352f26] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+              >
+                <ChevronRightIcon />
+              </button>
+            </div>
+          </aside>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AnnouncementImage({
+  imageUrl,
+  title,
+  active
+}: {
+  imageUrl: string;
+  title: string;
+  active: boolean;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     setImageFailed(false);
-  }, [announcement.imageUrl]);
+  }, [imageUrl]);
 
-  const hasImage = Boolean(announcement.imageUrl) && !imageFailed;
-
-  const hasAction =
-    Boolean(announcement.buttonText) && Boolean(announcement.buttonLink);
+  if (imageFailed) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-[#f2eadb] text-[#8a6624] dark:bg-[#11110f] dark:text-[#d6b46a]">
+        <div className="text-center">
+          <ImageIcon />
+          <p className="mt-2 text-xs font-black">Image unavailable</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <article
-      aria-hidden={!active}
-      aria-live={active ? "polite" : "off"}
-      aria-label={`Announcement ${index + 1} of ${total}`}
-      aria-roledescription="slide"
-      className={`relative min-h-[410px] min-w-full overflow-hidden sm:min-h-[440px] lg:min-h-[460px] ${
-        active ? "" : "pointer-events-none"
-      }`}
-    >
-      {/* Background image */}
-      <div className="absolute inset-0 bg-[#11110f]">
-        {hasImage ? (
-          <img
-            src={announcement.imageUrl!}
-            alt=""
-            loading={active ? "eager" : "lazy"}
-            decoding="async"
-            onError={() => setImageFailed(true)}
-            className="h-full w-full object-cover object-center"
-          />
-        ) : (
-          <div
-            className="h-full w-full"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 84% 18%, rgba(214,180,106,0.34), transparent 30%), radial-gradient(circle at 12% 90%, rgba(138,102,36,0.34), transparent 36%), linear-gradient(135deg, #1f1a12 0%, #342716 52%, #11110f 100%)"
-            }}
-          />
-        )}
-      </div>
+    <img
+      src={imageUrl}
+      alt={title}
+      loading={active ? "eager" : "lazy"}
+      onError={() => setImageFailed(true)}
+      className="absolute inset-0 h-full w-full object-cover object-center transition duration-700 group-hover:scale-[1.02]"
+    />
+  );
+}
 
-      {/* Only one horizontal overlay */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(90deg, rgba(12,11,9,0.86) 0%, rgba(12,11,9,0.68) 38%, rgba(12,11,9,0.22) 70%, rgba(12,11,9,0.06) 100%)"
-        }}
-      />
-
-      {/* Only one bottom overlay */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(0deg, rgba(12,11,9,0.78) 0%, rgba(12,11,9,0.10) 48%, rgba(12,11,9,0.14) 100%)"
-        }}
-      />
-
-      {/* Subtle edge protection */}
-      <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
-
-      {!hasImage && (
-        <>
-          <div className="pointer-events-none absolute -right-16 top-24 h-56 w-56 rounded-full border border-[#d6b46a]/20" />
-
-          <div className="pointer-events-none absolute right-12 top-36 h-36 w-36 rounded-full border border-[#d6b46a]/15" />
-
-          <div className="pointer-events-none absolute right-24 top-48 h-16 w-16 rounded-full bg-[#d6b46a]/15 blur-xl" />
-        </>
-      )}
-
-      {/* Content */}
-      <div className="relative z-10 flex min-h-[410px] items-end px-5 pb-16 pt-24 sm:min-h-[440px] sm:px-7 sm:pb-20 lg:min-h-[460px] lg:px-9">
-        <div className="max-w-3xl">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#d6b46a]/40 bg-black/35 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#f3d68e] backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#d6b46a]" />
-
-              {formatAnnouncementType(announcement.announcementType)}
-            </span>
-
-            {announcement.priority >= 3 && (
-              <span className="rounded-full border border-amber-300/30 bg-black/35 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-200 backdrop-blur-sm">
-                {announcement.priority >= 4 ? "Urgent" : "Important"}
-              </span>
-            )}
-
-            {announcement.endAt && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/80 sm:text-xs">
-                <CalendarIcon />
-                Available until {formatDate(announcement.endAt)}
-              </span>
-            )}
+function DashboardAnnouncementsSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf8] shadow-sm dark:border-[#302c24] dark:bg-[#181612] lg:rounded-[2rem] animate-pulse">
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_250px] xl:grid-cols-[minmax(0,1fr)_270px]">
+        <div className="p-5 sm:p-7 lg:p-8 min-h-[280px] flex flex-col justify-center">
+          <div className="h-6 w-28 rounded-full bg-[#eee5d4] dark:bg-[#302c24]" />
+          <div className="mt-4 h-8 w-4/5 rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+          <div className="mt-2 h-4 w-full rounded bg-[#f3ebdc] dark:bg-[#242016]" />
+          <div className="mt-2 h-4 w-2/3 rounded bg-[#f3ebdc] dark:bg-[#242016]" />
+          <div className="mt-5 flex gap-3">
+            <div className="h-10 w-32 rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+            <div className="h-10 w-28 rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
           </div>
-
-          <h2 className="mt-5 max-w-3xl text-3xl font-black leading-[1.05] tracking-[-0.035em] text-white drop-shadow-sm sm:text-4xl lg:text-5xl">
-            {announcement.title}
-          </h2>
-
-          <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm font-semibold leading-6 text-white/80 drop-shadow-sm sm:text-base sm:leading-7">
-            {announcement.message}
-          </p>
-
-          {hasAction && (
-            <div className="mt-6">
-              <SmartAnnouncementLink
-                to={announcement.buttonLink!}
-                tabIndex={active ? 0 : -1}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#f7f5ef] px-6 py-3 text-sm font-black text-[#1f1a12] shadow-xl shadow-black/25 transition hover:-translate-y-0.5 hover:bg-[#d6b46a] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25"
-              >
-                {announcement.buttonText}
-
-                <ArrowUpRightIcon />
-              </SmartAnnouncementLink>
-            </div>
-          )}
+        </div>
+        <div className="hidden border-l border-[#d8cdb6] bg-[#faf7f0] p-6 dark:border-[#302c24] dark:bg-[#13110e] lg:flex flex-col justify-between">
+          <div className="h-4 w-24 rounded bg-[#eee5d4] dark:bg-[#302c24]" />
+          <div className="h-11 rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
         </div>
       </div>
-    </article>
-  );
-}
-
-function AnnouncementsLoading() {
-  return (
-    <section
-      aria-label="Loading customer announcements"
-      className="relative min-h-[410px] overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#1f1a12] shadow-xl dark:border-[#302c24] sm:min-h-[440px] sm:rounded-[1.75rem]"
-    >
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 80% 20%, rgba(214,180,106,0.22), transparent 30%), linear-gradient(135deg, #1f1a12, #11110f)"
-        }}
-      />
-
-      <div className="absolute left-4 top-4 h-9 w-28 animate-pulse rounded-full bg-white/10 sm:left-5 sm:top-5" />
-
-      <div className="relative flex min-h-[410px] items-end p-5 pb-16 sm:min-h-[440px] sm:p-8 sm:pb-20">
-        <div className="w-full max-w-2xl">
-          <div className="h-7 w-28 animate-pulse rounded-full bg-white/10" />
-
-          <div className="mt-5 h-10 w-4/5 animate-pulse rounded-xl bg-white/10" />
-
-          <div className="mt-3 h-10 w-3/5 animate-pulse rounded-xl bg-white/10" />
-
-          <div className="mt-5 h-4 w-full animate-pulse rounded bg-white/10" />
-
-          <div className="mt-2 h-4 w-3/4 animate-pulse rounded bg-white/10" />
-
-          <div className="mt-6 h-12 w-36 animate-pulse rounded-xl bg-white/15" />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function AnnouncementsError({
-  message,
-  onRetry
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <section className="relative overflow-hidden rounded-[1.5rem] border border-red-300/20 bg-[#1f1a12] p-6 text-white shadow-xl sm:rounded-[1.75rem]">
-      <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-red-500/10 blur-3xl" />
-
-      <div className="relative flex min-h-40 flex-col justify-center sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-        <div>
-          <p className="text-lg font-black">Shop updates unavailable</p>
-
-          <p className="mt-2 text-sm font-semibold text-white/60">{message}</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-[#1f1a12] transition hover:bg-[#d6b46a] sm:mt-0"
-        >
-          <RefreshIcon />
-          Try again
-        </button>
-      </div>
-    </section>
+    </div>
   );
 }
 
@@ -737,7 +663,6 @@ function SmartAnnouncementLink({
   tabIndex?: number;
 }) {
   const isExternal = to.startsWith("http://") || to.startsWith("https://");
-
   const isSpecial = to.startsWith("tel:") || to.startsWith("mailto:");
 
   if (isExternal) {
@@ -770,59 +695,23 @@ function SmartAnnouncementLink({
 }
 
 function formatAnnouncementType(type: string) {
-  if (type === "ServiceAlert") {
-    return "Service alert";
-  }
-
-  if (type === "ShopNotice") {
-    return "Shop notice";
-  }
-
-  if (type === "RepairReminder") {
-    return "Repair reminder";
-  }
-
-  if (type === "FeedbackHighlight") {
-    return "Customer update";
-  }
-
-  if (type === "Product") {
-    return "New product";
-  }
-
-  if (type === "Offer") {
-    return "Special offer";
-  }
-
+  if (type === "ServiceAlert") return "Service alert";
+  if (type === "ShopNotice") return "Shop notice";
+  if (type === "RepairReminder") return "Repair reminder";
+  if (type === "FeedbackHighlight") return "Customer story";
+  if (type === "Product") return "New product";
+  if (type === "Offer") return "Special offer";
   return type;
 }
 
 function formatDate(date: string) {
   const parsedDate = new Date(date);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "No expiry";
-  }
-
+  if (Number.isNaN(parsedDate.getTime())) return "No expiry";
   return parsedDate.toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric"
   });
-}
-
-function AnnouncementIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
-      <path
-        d="M4 13V9l12-5v14L4 13Zm0 0v5h4v-3.3M18 8.5a4 4 0 0 1 0 5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 function CalendarIcon() {
@@ -844,9 +733,23 @@ function CalendarIcon() {
   );
 }
 
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
+      <path
+        d="M7.5 4.5 10 8l-2 2c1.3 2.7 3.3 4.7 6 6l2-2 3.5 2.5c.3.2.5.6.4 1-.3 1.6-1.7 2.8-3.4 2.5C9.6 18.9 5.1 14.4 4 7.5 3.7 5.8 4.9 4.4 6.5 4.1c.4-.1.8.1 1 .4Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function ChevronLeftIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4 sm:h-5 sm:w-5">
       <path
         d="M15 18l-6-6 6-6"
         stroke="currentColor"
@@ -860,7 +763,7 @@ function ChevronLeftIcon() {
 
 function ChevronRightIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4 sm:h-5 sm:w-5">
       <path
         d="M9 6l6 6-6 6"
         stroke="currentColor"
@@ -886,11 +789,26 @@ function ArrowUpRightIcon() {
   );
 }
 
-function RefreshIcon() {
+function ImageIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className="mx-auto h-7 w-7"
+    >
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="14"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <circle cx="8" cy="10" r="1.5" stroke="currentColor" strokeWidth="1.8" />
       <path
-        d="M20 7v5h-5M4 17v-5h5M6.1 8.2A7 7 0 0 1 18.7 7M17.9 15.8A7 7 0 0 1 5.3 17"
+        d="m5 17 4-4 3 3 2-2 5 3"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"

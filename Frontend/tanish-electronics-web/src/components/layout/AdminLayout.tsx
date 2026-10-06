@@ -19,7 +19,7 @@ import {
 
 import AdminNotificationBell from "../../Pages/admin/AdminNotificationBell";
 
-import { Users, MessageSquare } from "lucide-react";
+import { Users, MessageSquare, BookOpen } from "lucide-react";
 
 import {
   getAdminNotifications,
@@ -196,6 +196,13 @@ function AdminLayout() {
               icon={<MessageSquare className="h-5 w-5" />}
             >
               Chat Logs
+            </AdminNavLink>
+
+            <AdminNavLink
+              to="/admin/store-knowledge"
+              icon={<BookOpen className="h-5 w-5" />}
+            >
+              AI Knowledge Base
             </AdminNavLink>
 
             <AdminNavLink to="/admin/enquiries" icon={<EnquiriesIcon />}>
@@ -448,6 +455,14 @@ function AdminLayout() {
                   onClick={onClose}
                 >
                   Chat Logs
+                </AdminMobileNavLink>
+
+                <AdminMobileNavLink
+                  to="/admin/store-knowledge"
+                  icon={<BookOpen className="h-5 w-5" />}
+                  onClick={onClose}
+                >
+                  AI Knowledge Base
                 </AdminMobileNavLink>
 
                 <AdminMobileNavLink
@@ -729,6 +744,10 @@ function getAdminPageTitle(pathname: string) {
 
   if (pathname.startsWith("/admin/service-requests")) {
     return "Service Requests";
+  }
+
+  if (pathname.startsWith("/admin/store-knowledge")) {
+    return "AI Store Knowledge Base";
   }
 
   if (pathname.startsWith("/admin/enquiries")) {

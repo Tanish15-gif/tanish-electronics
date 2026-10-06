@@ -210,7 +210,7 @@ public partial class ChatbotService
                 yield return new ChatStreamEventDto
                 {
                     Type = "token",
-                    Content = $"✅ **Enquiry Submitted Successfully!**{summaryCard}"
+                    Content = $"**Enquiry Submitted Successfully!**{summaryCard}"
                 };
             }
             else if (!visibleText.Contains("Enquiry Summary", StringComparison.OrdinalIgnoreCase))
@@ -232,7 +232,7 @@ public partial class ChatbotService
                     yield return new ChatStreamEventDto
                     {
                         Type = "token",
-                        Content = $"\n\n💡 **Matching Accessories & Companion Items:**\nWe also have these compatible accessories in stock{pLabel}:"
+                        Content = $"\n\n**Matching Accessories & Companion Items:**\nWe also have these compatible accessories in stock{pLabel}:"
                     };
                 }
                 else
@@ -240,7 +240,7 @@ public partial class ChatbotService
                     yield return new ChatStreamEventDto
                     {
                         Type = "token",
-                        Content = "\n\n💡 **Featured Promotions & Popular Workshop Deals:**\nWhile our team reviews your enquiry, check out these trending items currently in stock:"
+                        Content = "\n\n**Featured Promotions & Popular Workshop Deals:**\nWhile our team reviews your enquiry, check out these trending items currently in stock:"
                     };
                 }
             }
@@ -262,7 +262,7 @@ public partial class ChatbotService
                 yield return new ChatStreamEventDto
                 {
                     Type = "token",
-                    Content = $"\n\n📋 **Official Tracking Number**: `{booking.TrackingNumber}`"
+                    Content = $"\n\n**Official Tracking Number**: `{booking.TrackingNumber}`"
                 };
             }
         }

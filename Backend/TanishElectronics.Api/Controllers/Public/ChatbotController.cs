@@ -26,6 +26,7 @@ public class ChatbotController : ControllerBase
     }
 
     [HttpPost("stream")]
+    [EnableRateLimiting(RateLimitPolicies.ChatMessage)]
     public async Task StreamChat([FromBody] ChatRequestDto request, CancellationToken cancellationToken)
     {
         Response.Headers.ContentType = "text/event-stream";

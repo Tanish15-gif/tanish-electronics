@@ -30,8 +30,11 @@ import {
   EyeOff,
   Check,
   AlertTriangle,
-  ClipboardCheck
+  ClipboardCheck,
+  Copy
 } from "lucide-react";
+import { useRepairTrackingSignalR } from "../../hooks/useRepairTrackingSignalR";
+import type { TrackServiceRequestResult } from "../../Services/serviceRequestService";
 
 export interface ChatProductCardDto {
   productId: number;
@@ -106,18 +109,55 @@ function getInitialGreeting(): string {
   return GREETING;
 }
 
-const SUGGESTIONS = [
-  "Book a repair",
-  "Track my repair",
-  "What repairs do you offer?",
-  "Current offers & deals",
-  "Do you visit my area?"
-];
+function getContextualSuggestions(pathname: string): string[] {
+  const path = pathname.toLowerCase();
+  if (path.includes("/products")) {
+    return [
+      "Do you have 55\" Smart TVs?",
+      "Do you sell TV remotes?",
+      "What refurbished deals are available?",
+      "Book a repair"
+    ];
+  }
+  if (path.includes("/book-repair")) {
+    return [
+      "How does home visit repair work?",
+      "What warranty do you offer on repairs?",
+      "What is the diagnostic charge?",
+      "Track an existing repair"
+    ];
+  }
+  if (path.includes("/track-request")) {
+    return [
+      "How do I find my TE tracking number?",
+      "What does Accepted status mean?",
+      "How long does TV panel repair take?",
+      "Call the workshop"
+    ];
+  }
+  if (path.includes("/customer")) {
+    return [
+      "What is my latest repair status?",
+      "Book another repair",
+      "What products do you have in stock?",
+      "Call the workshop"
+    ];
+  }
+  return [
+    "Book a repair",
+    "Track my repair",
+    "What repairs do you offer?",
+    "Current offers & deals",
+    "Do you visit my area?"
+  ];
+}
 
 const GENERIC_ERROR =
   "Sorry, something went wrong. Please try again or contact the shop directly.";
 const TIMEOUT_ERROR =
   "That took longer than expected. Please check your connection and try again.";
+const RATE_LIMIT_ERROR =
+  "You're sending messages a bit too quickly. Please wait about 30 seconds before sending another message.";
 
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
@@ -493,10 +533,401 @@ function ChatProductList({
   );
 }
 
-function MessageBody({ content, role }: { content: string; role: string }) {
-  const parts = useMemo(() => content.split(URL_PATTERN), [content]);
+const BOOKING_BLOCK_REGEX = /(?:(?:✅|🎉)?\s*\*\*Repair Request Booked Successfully!\*\*\s*)?(?:📋\s*)?\*\*Booking Summary:\*\*[\s\r\n]*(?:[•*-]\s*\*?[*]?[^*:\n]+?\*?[*]?\s*:[^\n]+[\s\r\n]*)+/i;
+const ENQUIRY_BLOCK_REGEX = /(?:(?:✅|🎉)?\s*\*\*Enquiry Submitted Successfully!\*\*\s*)?(?:📋\s*)?\*\*Enquiry Summary:\*\*[\s\r\n]*(?:[•*-]\s*\*?[*]?[^*:\n]+?\*?[*]?\s*:[^\n]+[\s\r\n]*)+/i;
+
+interface ParsedBookingSummary {
+  trackingNumber: string;
+  customer?: string;
+  device?: string;
+  issue?: string;
+  serviceType?: string;
+  status?: string;
+}
+
+interface ParsedEnquirySummary {
+  product?: string;
+  customer?: string;
+  phone?: string;
+  message?: string;
+  status?: string;
+}
+
+function extractBookingSummary(content: string): { before: string; summary: ParsedBookingSummary; after: string } | null {
+  const match = content.match(BOOKING_BLOCK_REGEX);
+  if (!match) return null;
+
+  const fullMatchedText = match[0];
+  const splitIndex = content.indexOf(fullMatchedText);
+  const before = content.slice(0, splitIndex).trim();
+  const after = content.slice(splitIndex + fullMatchedText.length).trim();
+
+  const getField = (name: string) => {
+    const m = fullMatchedText.match(new RegExp(`[•*-]?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` + '`?([^`\\n]+)`?', 'i'));
+    return m ? m[1].trim() : undefined;
+  };
+
+  const trackingNumber = getField("Tracking Number");
+  if (!trackingNumber) return null;
+
+  return {
+    before,
+    after,
+    summary: {
+      trackingNumber,
+      customer: getField("Customer"),
+      device: getField("Device"),
+      issue: getField("Issue"),
+      serviceType: getField("Service Type"),
+      status: getField("Status") || "Received — Technician assigned shortly."
+    }
+  };
+}
+
+function extractEnquirySummary(content: string): { before: string; summary: ParsedEnquirySummary; after: string } | null {
+  const match = content.match(ENQUIRY_BLOCK_REGEX);
+  if (!match) return null;
+
+  const fullMatchedText = match[0];
+  const splitIndex = content.indexOf(fullMatchedText);
+  const before = content.slice(0, splitIndex).trim();
+  const after = content.slice(splitIndex + fullMatchedText.length).trim();
+
+  const getField = (name: string) => {
+    const m = fullMatchedText.match(new RegExp(`[•*-]?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` + '`?([^`\\n]+)`?', 'i'));
+    return m ? m[1].trim() : undefined;
+  };
+
+  return {
+    before,
+    after,
+    summary: {
+      product: getField("Product"),
+      customer: getField("Customer"),
+      phone: getField("Phone"),
+      message: getField("Message"),
+      status: getField("Status") || "Received — Our team will contact you shortly."
+    }
+  };
+}
+
+const TRACKING_BLOCK_REGEX =
+  /(?:(?:📋|🔍|✅)\s*)?\*\*Repair Status Summary:\*\*[\s\r\n]*(?:(?:[•*-]|\s{2,})?\s*\*?[*]?[^*:\n]+?\*?[*]?\s*:[^\n]+[\s\r\n]*)+/i;
+
+interface ParsedTrackingSummary {
+  trackingNumber: string;
+  device?: string;
+  status?: string;
+  estimatedPrice?: string;
+  serviceType?: string;
+}
+
+function extractTrackingSummary(content: string): { before: string; summary: ParsedTrackingSummary; after: string } | null {
+  if (BOOKING_BLOCK_REGEX.test(content) || ENQUIRY_BLOCK_REGEX.test(content)) {
+    return null;
+  }
+
+  // 1. Structured block format
+  const blockMatch = content.match(TRACKING_BLOCK_REGEX);
+  if (blockMatch) {
+    const fullMatchedText = blockMatch[0];
+    const splitIndex = content.indexOf(fullMatchedText);
+    const before = content.slice(0, splitIndex).trim();
+    const after = content.slice(splitIndex + fullMatchedText.length).trim();
+
+    const getField = (name: string) => {
+      const m = fullMatchedText.match(
+        new RegExp(`(?:[•*-]|\\s{2,})?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` + '`?([^`\\n]+)`?', 'i')
+      );
+      return m ? m[1].trim() : undefined;
+    };
+
+    const trackingNumber = getField("Tracking Number");
+    if (trackingNumber) {
+      return {
+        before,
+        after,
+        summary: {
+          trackingNumber,
+          device: getField("Device"),
+          status: getField("Status") || "Pending",
+          estimatedPrice:
+            getField("Estimated Cost") ||
+            getField("Estimated Price") ||
+            getField("Pricing") ||
+            "Pending Assessment",
+          serviceType: getField("Service Type") || "Shop Repair"
+        }
+      };
+    }
+  }
+
+  // 2. Natural language tracking sentence (e.g. from chat history)
+  const trackingNumMatch = content.match(/#?(TE-\d{4}-\d{3,6})/i);
+  if (trackingNumMatch) {
+    const trackingNumber = trackingNumMatch[1].toUpperCase();
+    const isTrackingIntent =
+      content.toLowerCase().includes("your repair") ||
+      content.toLowerCase().includes("repair #") ||
+      content.toLowerCase().includes("repair request") ||
+      content.toLowerCase().includes("is pending") ||
+      content.toLowerCase().includes("is accepted") ||
+      content.toLowerCase().includes("is in progress") ||
+      content.toLowerCase().includes("has been completed") ||
+      content.toLowerCase().includes("technician is being assigned");
+
+    if (isTrackingIntent) {
+      const deviceMatch = content.match(
+        /for\s+(?:the\s+)?([^.]+?)\s+is\s+\*?\*?([A-Za-z\s]+?)\*?\*?(?:\s*–|\s*-|\.|\n|,)/i
+      );
+      const device = deviceMatch ? deviceMatch[1].trim() : undefined;
+      const statusFromDeviceMatch = deviceMatch ? deviceMatch[2].trim() : undefined;
+
+      const statusMatch = content.match(
+        /\b(is\s+)?\*?\*?(Pending|Accepted|Under Inspection|In Progress|Assigned|Diagnosis|Ready|Completed|Delivered|Cancelled)\*?\*?\b/i
+      );
+      const status = statusFromDeviceMatch || (statusMatch ? statusMatch[2].trim() : "Pending");
+
+      const priceMatch = content.match(/₹\s*(\d[\d,]*)/);
+      let estimatedPrice = "Pending Assessment";
+      if (priceMatch) {
+        estimatedPrice = `₹${priceMatch[1]}`;
+      } else if (
+        content.toLowerCase().includes("estimated cost will be confirmed") ||
+        content.toLowerCase().includes("quote before any work")
+      ) {
+        estimatedPrice = "Quote after initial inspection";
+      }
+
+      const serviceType = content.toLowerCase().includes("home visit") ? "Home Visit" : "Shop Repair";
+
+      return {
+        before: content.trim(),
+        after: "",
+        summary: {
+          trackingNumber,
+          device,
+          status,
+          estimatedPrice,
+          serviceType
+        }
+      };
+    }
+  }
+
+  return null;
+}
+
+function BookingConfirmationCard({
+  summary,
+  onTrackClick
+}: {
+  summary: ParsedBookingSummary;
+  onTrackClick?: (url: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!summary.trackingNumber) return;
+    void navigator.clipboard.writeText(summary.trackingNumber).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
-    <span className="whitespace-pre-wrap break-words leading-relaxed">
+    <div className="my-2.5 w-full overflow-hidden rounded-xl border border-[#d8cdb6]/90 bg-[#fbf9f4] text-left shadow-xs transition-all dark:border-[#352f23] dark:bg-[#15120c]">
+      {/* Top Gold Gradient Line */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#d6b46a] to-transparent" />
+
+      {/* Header Bar */}
+      <div className="flex items-center justify-between gap-2 border-b border-[#e8dfcf] px-3.5 py-2.5 dark:border-[#262118]">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+          </span>
+          <span className="truncate text-[11px] font-bold uppercase tracking-wider text-[#6b5839] dark:text-[#d6b46a]">
+            Repair Ticket Confirmed
+          </span>
+        </div>
+        <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-[#8a7f6c] dark:text-[#8e8574]">
+          Santacruz Workshop
+        </span>
+      </div>
+
+      <div className="p-3.5 space-y-3">
+        {/* Tracking Number Stub */}
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#ded5c2] bg-white px-3.5 py-2.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:border-[#2d271e] dark:bg-[#1d1812]">
+          <div className="min-w-0">
+            <p className="text-[9.5px] font-bold uppercase tracking-widest text-[#857964] dark:text-[#a89d87]">
+              Official Tracking ID
+            </p>
+            <p className="font-mono text-[16px] sm:text-[17px] font-black tracking-wider text-[#1a160f] dark:text-[#f8f5ee] truncate select-all mt-0.5">
+              {summary.trackingNumber}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-[#d8cdb6] bg-[#faf7f0] px-2.5 py-1 text-[11px] font-semibold text-[#1f1a12] transition-colors hover:border-[#8a6624] hover:bg-white dark:border-[#383125] dark:bg-[#251f17] dark:text-[#ded8cb] dark:hover:border-[#d6b46a] dark:hover:bg-[#2f271d] cursor-pointer"
+          >
+            {copied ? (
+              <>
+                <Check size={12} className="text-emerald-600 dark:text-emerald-400" />
+                <span className="text-emerald-700 dark:text-emerald-300">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy size={12} />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Specification Table */}
+        <div className="divide-y divide-[#ebe3d3] rounded-lg border border-[#ded5c2] bg-white/70 px-3.5 dark:divide-[#272118] dark:border-[#2d271e] dark:bg-[#18140e]/90 text-xs">
+          {summary.device && (
+            <div className="flex items-center justify-between py-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                Device
+              </span>
+              <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8] text-right truncate max-w-[65%]">
+                {summary.device}
+              </span>
+            </div>
+          )}
+          {summary.serviceType && (
+            <div className="flex items-center justify-between py-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                Service Type
+              </span>
+              <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8]">
+                {summary.serviceType}
+              </span>
+            </div>
+          )}
+          {summary.customer && (
+            <div className="flex items-center justify-between py-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                Customer
+              </span>
+              <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8] truncate max-w-[65%]">
+                {summary.customer}
+              </span>
+            </div>
+          )}
+          {summary.issue && (
+            <div className="flex items-start justify-between py-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482] shrink-0 pt-0.5">
+                Reported Issue
+              </span>
+              <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8] text-right max-w-[65%] leading-snug">
+                {summary.issue}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Button */}
+        {onTrackClick && (
+          <button
+            type="button"
+            onClick={() => onTrackClick(`/track-request?requestNumber=${encodeURIComponent(summary.trackingNumber)}`)}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1f1a12] py-2.5 px-3 text-[12px] font-bold text-white shadow-xs transition-all hover:bg-[#382f21] active:scale-[0.99] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
+          >
+            <Search size={13} strokeWidth={2.5} />
+            <span>Track Repair Live Status</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EnquiryConfirmationCard({
+  summary
+}: {
+  summary: ParsedEnquirySummary;
+}) {
+  return (
+    <div className="my-2.5 w-full overflow-hidden rounded-xl border border-[#d8cdb6]/90 bg-[#fbf9f4] text-left shadow-xs transition-all dark:border-[#352f23] dark:bg-[#15120c]">
+      {/* Top Gold Gradient Line */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#d6b46a] to-transparent" />
+
+      {/* Header Bar */}
+      <div className="flex items-center justify-between gap-2 border-b border-[#e8dfcf] px-3.5 py-2.5 dark:border-[#262118]">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]" />
+          <span className="truncate text-[11px] font-bold uppercase tracking-wider text-[#6b5839] dark:text-[#d6b46a]">
+            Enquiry Recorded
+          </span>
+        </div>
+        <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-[#8a7f6c] dark:text-[#8e8574]">
+          Workshop Notified
+        </span>
+      </div>
+
+      <div className="p-3.5 space-y-3">
+        {/* Product Box */}
+        {summary.product && (
+          <div className="rounded-lg border border-[#ded5c2] bg-white px-3.5 py-2.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:border-[#2d271e] dark:bg-[#1d1812]">
+            <p className="text-[9.5px] font-bold uppercase tracking-widest text-[#857964] dark:text-[#a89d87]">
+              Product / Inquiry Item
+            </p>
+            <p className="text-[14px] font-bold text-[#1a160f] dark:text-[#f8f5ee] mt-0.5 truncate">
+              {summary.product}
+            </p>
+          </div>
+        )}
+
+        {/* Specification Table */}
+        <div className="divide-y divide-[#ebe3d3] rounded-lg border border-[#ded5c2] bg-white/70 px-3.5 dark:divide-[#272118] dark:border-[#2d271e] dark:bg-[#18140e]/90 text-xs">
+          {summary.customer && (
+            <div className="flex items-center justify-between py-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                Customer
+              </span>
+              <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8] truncate max-w-[65%]">
+                {summary.customer}
+              </span>
+            </div>
+          )}
+          {summary.phone && (
+            <div className="flex items-center justify-between py-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                Contact
+              </span>
+              <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8]">
+                {summary.phone}
+              </span>
+            </div>
+          )}
+          {summary.message && (
+            <div className="flex items-start justify-between py-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482] shrink-0 pt-0.5">
+                Note / Offer
+              </span>
+              <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8] text-right max-w-[65%] leading-snug">
+                {summary.message}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <p className="text-[11px] text-[#786d5b] dark:text-[#9c917f] italic pt-0.5">
+          Our workshop technician in Santacruz West will follow up with you shortly.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function InlineFormattedText({ text, role }: { text: string; role: string }) {
+  const parts = useMemo(() => text.split(URL_PATTERN), [text]);
+  return (
+    <>
       {parts.map((part, i) =>
         URL_PATTERN.test(part) ? (
           <a
@@ -507,7 +938,7 @@ function MessageBody({ content, role }: { content: string; role: string }) {
             className={
               role === "user"
                 ? "font-semibold underline underline-offset-2 text-white decoration-white/60 hover:decoration-white dark:text-[#11110f] dark:decoration-[#11110f]/50 dark:hover:decoration-[#11110f]"
-                : "font-semibold underline underline-offset-2 text-[#1f1a12] decoration-[#1f1a12]/50 hover:decoration-[#1f1a12] dark:text-[#d6b46a] dark:decoration-[#d6b46a]/50 dark:hover:decoration-[#d6b46a]"
+                : "font-semibold underline underline-offset-2 text-[#8a6624] decoration-[#8a6624]/50 hover:decoration-[#8a6624] dark:text-[#d6b46a] dark:decoration-[#d6b46a]/50 dark:hover:decoration-[#d6b46a]"
             }
           >
             {part}
@@ -516,19 +947,475 @@ function MessageBody({ content, role }: { content: string; role: string }) {
           <FormattedText key={i} text={part} />
         )
       )}
-    </span>
+    </>
+  );
+}
+
+function FormattedBlock({
+  text,
+  role,
+  isStreaming
+}: {
+  text: string;
+  role: string;
+  isStreaming?: boolean;
+}) {
+  const lines = useMemo(() => text.split("\n"), [text]);
+
+  return (
+    <div className="space-y-1.5 leading-relaxed text-[13.5px] sm:text-[14px]">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        const isLastLine = idx === lines.length - 1;
+
+        if (!trimmed) {
+          return <div key={idx} className="h-1.5" />;
+        }
+
+        // Headings: ### or ##
+        if (trimmed.startsWith("### ") || trimmed.startsWith("## ")) {
+          const headingText = trimmed.replace(/^#+\s*/, "");
+          return (
+            <p
+              key={idx}
+              className="mt-2.5 mb-1 text-[14px] font-black tracking-tight text-[#1f1a12] dark:text-[#f7f5ef]"
+            >
+              <InlineFormattedText text={headingText} role={role} />
+            </p>
+          );
+        }
+
+        // Bullet point lines: • or - or *
+        if (
+          trimmed.startsWith("• ") ||
+          trimmed.startsWith("- ") ||
+          trimmed.startsWith("* ")
+        ) {
+          const bulletContent = trimmed.slice(2);
+          return (
+            <div key={idx} className="flex items-start gap-2 my-0.5 pl-1 text-left">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8a6624] dark:bg-[#d6b46a]" />
+              <div className="flex-1 min-w-0">
+                <InlineFormattedText text={bulletContent} role={role} />
+                {isStreaming && isLastLine && (
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3.5 w-1.5 ml-1 rounded-xs bg-[#8a6624] dark:bg-[#d6b46a] animate-pulse align-middle"
+                  />
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // Numbered list items
+        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+        if (numMatch) {
+          return (
+            <div key={idx} className="flex items-start gap-2 my-0.5 pl-1 text-left">
+              <span className="shrink-0 text-xs font-black text-[#8a6624] dark:text-[#d6b46a] mt-0.5">
+                {numMatch[1]}.
+              </span>
+              <div className="flex-1 min-w-0">
+                <InlineFormattedText text={numMatch[2]} role={role} />
+                {isStreaming && isLastLine && (
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3.5 w-1.5 ml-1 rounded-xs bg-[#8a6624] dark:bg-[#d6b46a] animate-pulse align-middle"
+                  />
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="break-words text-left">
+            <InlineFormattedText text={line} role={role} />
+            {isStreaming && isLastLine && (
+              <span
+                aria-hidden="true"
+                className="inline-block h-3.5 w-1.5 ml-1 rounded-xs bg-[#8a6624] dark:bg-[#d6b46a] animate-pulse align-middle"
+              />
+            )}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function RepairTrackingCard({
+  summary,
+  beforeText,
+  afterText,
+  isStreaming,
+  onTrackClick
+}: {
+  summary: ParsedTrackingSummary;
+  beforeText?: string;
+  afterText?: string;
+  isStreaming?: boolean;
+  onTrackClick?: (url: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [liveData, setLiveData] = useState<{
+    status?: string;
+    estimatedPrice?: string;
+    device?: string;
+    serviceType?: string;
+  }>({});
+
+  const handleLiveUpdate = useCallback((updated: TrackServiceRequestResult) => {
+    setLiveData({
+      status: updated.currentStatus,
+      estimatedPrice:
+        updated.finalPrice != null
+          ? `₹${updated.finalPrice.toLocaleString("en-IN")}`
+          : updated.estimatedPrice != null
+          ? `₹${updated.estimatedPrice.toLocaleString("en-IN")}`
+          : undefined,
+      device: updated.deviceName,
+      serviceType: updated.serviceType
+    });
+  }, []);
+
+  const { isLiveConnected } = useRepairTrackingSignalR(
+    summary.trackingNumber,
+    handleLiveUpdate
+  );
+
+  const displayStatus = liveData.status || summary.status || "Pending";
+  const displayDevice = liveData.device || summary.device;
+  const displayPrice = liveData.estimatedPrice || summary.estimatedPrice || "Pending Assessment";
+  const displayServiceType = liveData.serviceType || summary.serviceType || "Shop Repair";
+
+  const handleCopy = () => {
+    if (!summary.trackingNumber) return;
+    void navigator.clipboard.writeText(summary.trackingNumber).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const statusLower = displayStatus.toLowerCase();
+  const isCompleted =
+    statusLower.includes("completed") ||
+    statusLower.includes("ready") ||
+    statusLower.includes("delivered");
+  const isInProgress =
+    statusLower.includes("progress") ||
+    statusLower.includes("diagnosis") ||
+    statusLower.includes("under inspection");
+  const isAccepted =
+    statusLower.includes("accepted") ||
+    statusLower.includes("assigned");
+  const isCancelled = statusLower.includes("cancel");
+
+  // Synchronize introductory status text so live updates and the card remain 100% in agreement
+  const adjustedBeforeText = useMemo(() => {
+    if (!beforeText?.trim()) return null;
+
+    let text = beforeText;
+
+    // Pattern 1: (is currently / is) [STATUS] -> sync to displayStatus
+    text = text.replace(
+      /(\bis\s+(?:currently\s+)?)\*?\*?(?:Pending|Accepted|Under Inspection|In Progress|Assigned|Diagnosis|Ready|Completed|Delivered|Cancelled)\*?\*?/gi,
+      `$1**${displayStatus}**`
+    );
+
+    // Pattern 2: (repair has been) [STATUS] -> sync to displayStatus
+    text = text.replace(
+      /(repair\s+has\s+been\s+)\*?\*?(?:completed|accepted|delivered|approved|cancelled)\*?\*?/gi,
+      (_, prefix) => `${prefix}**${displayStatus.toLowerCase()}**`
+    );
+
+    return text;
+  }, [beforeText, displayStatus]);
+
+  return (
+    <div className="w-full">
+      {adjustedBeforeText && (
+        <div className="mb-2">
+          <FormattedBlock text={adjustedBeforeText} role="assistant" />
+        </div>
+      )}
+
+      <div className="my-2.5 w-full overflow-hidden rounded-xl border border-[#d8cdb6]/90 bg-[#fbf9f4] text-left shadow-xs transition-all dark:border-[#352f23] dark:bg-[#15120c]">
+        {/* Top Gold Gradient Line */}
+        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#d6b46a] to-transparent" />
+
+        {/* Header Bar */}
+        <div className="flex items-center justify-between gap-2 border-b border-[#e8dfcf] px-3.5 py-2.5 dark:border-[#262118]">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${
+                  isCompleted
+                    ? "bg-emerald-400"
+                    : isInProgress
+                    ? "bg-blue-400"
+                    : isAccepted
+                    ? "bg-sky-400"
+                    : isCancelled
+                    ? "bg-rose-400"
+                    : "bg-amber-400"
+                }`}
+              />
+              <span
+                className={`relative inline-flex h-2 w-2 rounded-full ${
+                  isCompleted
+                    ? "bg-emerald-500"
+                    : isInProgress
+                    ? "bg-blue-500"
+                    : isAccepted
+                    ? "bg-sky-500"
+                    : isCancelled
+                    ? "bg-rose-500"
+                    : "bg-amber-500"
+                }`}
+              />
+            </span>
+            <span className="truncate text-[11px] font-bold uppercase tracking-wider text-[#6b5839] dark:text-[#d6b46a]">
+              Repair Status: {displayStatus}
+            </span>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            {isLiveConnected && (
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-600 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+                Live Sync
+              </span>
+            )}
+            <span
+              className={`${
+                isLiveConnected ? "hidden sm:inline" : ""
+              } whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-[#8a7f6c] dark:text-[#8e8574]`}
+            >
+              Santacruz Workshop
+            </span>
+          </div>
+        </div>
+
+        <div className="p-3.5 space-y-3">
+          {/* Tracking Number Stub */}
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-[#ded5c2] bg-white px-3.5 py-2.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:border-[#2d271e] dark:bg-[#1d1812]">
+            <div className="min-w-0">
+              <p className="text-[9.5px] font-bold uppercase tracking-widest text-[#857964] dark:text-[#a89d87]">
+                Official Tracking ID
+              </p>
+              <p className="font-mono text-[16px] sm:text-[17px] font-black tracking-wider text-[#1a160f] dark:text-[#f8f5ee] truncate select-all mt-0.5">
+                {summary.trackingNumber}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-[#d8cdb6] bg-[#faf7f0] px-2.5 py-1 text-[11px] font-semibold text-[#1f1a12] transition-colors hover:border-[#8a6624] hover:bg-white dark:border-[#383125] dark:bg-[#251f17] dark:text-[#ded8cb] dark:hover:border-[#d6b46a] dark:hover:bg-[#2f271d] cursor-pointer"
+            >
+              {copied ? (
+                <>
+                  <Check size={12} className="text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-emerald-700 dark:text-emerald-300">Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={12} />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Specification Table */}
+          <div className="divide-y divide-[#ebe3d3] rounded-lg border border-[#ded5c2] bg-white/70 px-3.5 dark:divide-[#272118] dark:border-[#2d271e] dark:bg-[#18140e]/90 text-xs">
+            {displayDevice && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                  Device
+                </span>
+                <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8] text-right truncate max-w-[65%]">
+                  {displayDevice}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between py-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                Current Status
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                  isCompleted
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                    : isInProgress
+                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                    : isAccepted
+                    ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/20"
+                    : isCancelled
+                    ? "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                    : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                }`}
+              >
+                {displayStatus}
+              </span>
+            </div>
+            {displayPrice && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                  Estimated Pricing
+                </span>
+                <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8]">
+                  {displayPrice}
+                </span>
+              </div>
+            )}
+            {displayServiceType && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-[#857964] dark:text-[#9e9482]">
+                  Service Mode
+                </span>
+                <span className="font-semibold text-[#1a160f] dark:text-[#f0ebd8]">
+                  {displayServiceType}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Primary Action Button */}
+          {onTrackClick && (
+            <button
+              type="button"
+              onClick={() => onTrackClick(`/track-request?requestNumber=${encodeURIComponent(summary.trackingNumber)}`)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1f1a12] py-2.5 px-3 text-[12px] font-bold text-white shadow-xs transition-all hover:bg-[#382f21] active:scale-[0.99] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
+            >
+              <Search size={13} strokeWidth={2.5} />
+              <span>Track Live Details</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {afterText && (
+        <div className="mt-2">
+          <FormattedBlock text={afterText} role="assistant" isStreaming={isStreaming} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MessageBody({
+  content,
+  role,
+  isStreaming,
+  onActionClick
+}: {
+  content: string;
+  role: string;
+  isStreaming?: boolean;
+  onActionClick?: (url: string) => void;
+}) {
+  if (role === "user") {
+    return (
+      <span className="whitespace-pre-wrap break-words leading-relaxed">
+        <InlineFormattedText text={content} role="user" />
+      </span>
+    );
+  }
+
+  // Assistant message: Check for booking summary
+  const booking = extractBookingSummary(content);
+  if (booking) {
+    return (
+      <div className="w-full">
+        {booking.before && (
+          <div className="mb-2">
+            <FormattedBlock text={booking.before} role="assistant" />
+          </div>
+        )}
+        <BookingConfirmationCard
+          summary={booking.summary}
+          onTrackClick={onActionClick}
+        />
+        {booking.after && (
+          <div className="mt-2">
+            <FormattedBlock
+              text={booking.after}
+              role="assistant"
+              isStreaming={isStreaming}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Assistant message: Check for tracking summary
+  const tracking = extractTrackingSummary(content);
+  if (tracking) {
+    return (
+      <div className="w-full">
+        <RepairTrackingCard
+          summary={tracking.summary}
+          beforeText={tracking.before}
+          afterText={tracking.after}
+          isStreaming={isStreaming}
+          onTrackClick={onActionClick}
+        />
+      </div>
+    );
+  }
+
+  // Assistant message: Check for enquiry summary
+  const enquiry = extractEnquirySummary(content);
+  if (enquiry) {
+    return (
+      <div className="w-full">
+        {enquiry.before && (
+          <div className="mb-2">
+            <FormattedBlock text={enquiry.before} role="assistant" />
+          </div>
+        )}
+        <EnquiryConfirmationCard summary={enquiry.summary} />
+        {enquiry.after && (
+          <div className="mt-2">
+            <FormattedBlock
+              text={enquiry.after}
+              role="assistant"
+              isStreaming={isStreaming}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <FormattedBlock
+      text={content}
+      role="assistant"
+      isStreaming={isStreaming}
+    />
   );
 }
 
 export default function ChatWidget() {
   const navigate = useNavigate();
 
-  // Stable session UUID for this browser tab — persisted across reloads, sent to backend for chat logging
+  // Stable session UUID for this browser tab/session — persisted across reloads, sent to backend for chat logging
   const [sessionKey, setSessionKey] = useState<string>(() => {
     try {
-      const existing = sessionStorage.getItem("te_chat_session_key");
-      if (existing) return existing;
+      const existing =
+        localStorage.getItem("te_chat_session_key") ||
+        sessionStorage.getItem("te_chat_session_key");
+      if (existing) {
+        localStorage.setItem("te_chat_session_key", existing);
+        sessionStorage.setItem("te_chat_session_key", existing);
+        return existing;
+      }
       const newKey = crypto.randomUUID();
+      localStorage.setItem("te_chat_session_key", newKey);
       sessionStorage.setItem("te_chat_session_key", newKey);
       return newKey;
     } catch {
@@ -543,6 +1430,11 @@ export default function ChatWidget() {
       return false;
     }
   });
+
+  const currentSuggestions = useMemo(
+    () => getContextualSuggestions(window.location.pathname),
+    [isOpen]
+  );
 
   // Default to full sidebar on desktop, small widget on mobile
   const [isSidebar, setIsSidebar] = useState<boolean>(() => {
@@ -667,7 +1559,9 @@ export default function ChatWidget() {
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
-      const saved = sessionStorage.getItem("te_chat_messages");
+      const saved =
+        localStorage.getItem("te_chat_messages") ||
+        sessionStorage.getItem("te_chat_messages");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -682,6 +1576,9 @@ export default function ChatWidget() {
       }
     ];
   });
+
+  const [isThinking, setIsThinking] = useState(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -703,7 +1600,9 @@ export default function ChatWidget() {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem("te_chat_messages", JSON.stringify(messages));
+      const json = JSON.stringify(messages);
+      localStorage.setItem("te_chat_messages", json);
+      sessionStorage.setItem("te_chat_messages", json);
     } catch {}
   }, [messages]);
 
@@ -916,9 +1815,12 @@ export default function ChatWidget() {
         content: cleanMsg,
         at: Date.now()
       };
+      const assistantMsgId = uid();
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setIsLoading(true);
+      setIsThinking(true);
+      setStreamingMessageId(assistantMsgId);
       lastActiveTimestampRef.current = Date.now();
 
       const controller = new AbortController();
@@ -927,7 +1829,6 @@ export default function ChatWidget() {
         REQUEST_TIMEOUT_MS
       );
 
-      const assistantMsgId = uid();
       let accumulatedReply = "";
       let hasAddedAssistantMsg = false;
 
@@ -953,6 +1854,10 @@ export default function ChatWidget() {
               .map(({ role, content }) => ({ role, content }))
           })
         });
+
+        if (response.status === 429) {
+          throw new Error("RATE_LIMIT_EXCEEDED");
+        }
 
         if (!response.ok)
           throw new Error(`Request failed with ${response.status}`);
@@ -987,6 +1892,7 @@ export default function ChatWidget() {
               };
 
               if (evt.type === "token" && evt.content) {
+                setIsThinking(false);
                 accumulatedReply += evt.content;
                 if (!hasAddedAssistantMsg) {
                   hasAddedAssistantMsg = true;
@@ -1054,16 +1960,23 @@ export default function ChatWidget() {
             }
           ]);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         const isAbort =
           err instanceof DOMException && err.name === "AbortError";
+        const isRateLimit =
+          (err instanceof Error && err.message === "RATE_LIMIT_EXCEEDED") ||
+          (err instanceof Error && err.message.includes("429"));
         if (!hasAddedAssistantMsg) {
           setMessages((prev) => [
             ...prev,
             {
               id: uid(),
               role: "error",
-              content: isAbort ? TIMEOUT_ERROR : GENERIC_ERROR,
+              content: isRateLimit
+                ? RATE_LIMIT_ERROR
+                : isAbort
+                ? TIMEOUT_ERROR
+                : GENERIC_ERROR,
               at: Date.now()
             }
           ]);
@@ -1072,6 +1985,8 @@ export default function ChatWidget() {
       } finally {
         clearTimeout(timeoutId);
         setIsLoading(false);
+        setIsThinking(false);
+        setStreamingMessageId(null);
       }
     },
     [messages, sessionKey]
@@ -1382,14 +2297,23 @@ export default function ChatWidget() {
                     const newSessionKey = crypto.randomUUID();
                     setSessionKey(newSessionKey);
                     try {
+                      localStorage.setItem(
+                        "te_chat_messages",
+                        JSON.stringify(fresh)
+                      );
                       sessionStorage.setItem(
                         "te_chat_messages",
                         JSON.stringify(fresh)
+                      );
+                      localStorage.setItem(
+                        "te_chat_session_key",
+                        newSessionKey
                       );
                       sessionStorage.setItem(
                         "te_chat_session_key",
                         newSessionKey
                       );
+                      localStorage.removeItem("te_chat_user_count");
                       sessionStorage.removeItem("te_chat_user_count");
                     } catch {}
                   }}
@@ -1473,7 +2397,7 @@ export default function ChatWidget() {
                       className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
                         msg.role === "user"
                           ? "rounded-br-xs bg-[#1f1a12] text-[#f7f5ef] font-semibold dark:bg-[#d6b46a] dark:text-[#11110f]"
-                          : "w-fit max-w-[90%] rounded-bl-xs border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
+                          : "w-full max-w-[95%] sm:max-w-[92%] rounded-bl-xs border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
                       }`}
                     >
                       <MessageBody
@@ -1482,26 +2406,40 @@ export default function ChatWidget() {
                           "Thank you! How else can I help you today?"
                         }
                         role={msg.role}
+                        isStreaming={streamingMessageId === msg.id}
+                        onActionClick={(url) =>
+                          handleActionClick({ preventDefault: () => {} } as any, url)
+                        }
                       />
                     </div>
                   )}
 
                   {/* Contextual Action Buttons */}
-                  {msg.actions && msg.actions.length > 0 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5 pt-0.5">
-                      {msg.actions.map((act, i) => (
-                        <a
-                          key={i}
-                          href={act.url}
-                          onClick={(e) => handleActionClick(e, act.url)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-3.5 py-1.5 text-[12px] font-bold text-[#1f1a12] shadow-sm transition-all hover:border-[#1f1a12] hover:bg-[#1f1a12] hover:text-[#f7f5ef] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#d6b46a] dark:hover:border-[#d6b46a] dark:hover:bg-[#d6b46a] dark:hover:text-[#11110f]"
-                        >
-                          <ActionIcon name={act.icon} />
-                          <span>{act.label}</span>
-                        </a>
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    const hasBookingCard = Boolean(extractBookingSummary(msg.content));
+                    const hasTrackingCard = Boolean(extractTrackingSummary(msg.content));
+                    const filteredActions = (hasBookingCard || hasTrackingCard)
+                      ? msg.actions?.filter((act) => !act.label.toLowerCase().includes("track"))
+                      : msg.actions;
+
+                    if (!filteredActions || filteredActions.length === 0) return null;
+
+                    return (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {filteredActions.map((act, i) => (
+                          <a
+                            key={i}
+                            href={act.url}
+                            onClick={(e) => handleActionClick(e, act.url)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-3.5 py-1.5 text-[12px] font-bold text-[#1f1a12] shadow-sm transition-all hover:border-[#1f1a12] hover:bg-[#1f1a12] hover:text-[#f7f5ef] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#d6b46a] dark:hover:border-[#d6b46a] dark:hover:bg-[#d6b46a] dark:hover:text-[#11110f]"
+                          >
+                            <ActionIcon name={act.icon} />
+                            <span>{act.label}</span>
+                          </a>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   {/* 2. PRODUCT LIST (Horizontal Hammer Lifestyle Layout + Pagination) */}
                   {msg.products && msg.products.length > 0 && (
@@ -1519,11 +2457,11 @@ export default function ChatWidget() {
               );
             })}
 
-            {isLoading && <HammerThinkingLoader />}
+            {isThinking && <HammerThinkingLoader />}
 
             {messages.length === 1 && !isLoading && (
               <div className="flex flex-wrap gap-2 pt-1.5 pb-1">
-                {SUGGESTIONS.map((s) => (
+                {currentSuggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => send(s)}

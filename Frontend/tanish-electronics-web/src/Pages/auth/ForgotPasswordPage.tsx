@@ -177,11 +177,7 @@ function ForgotPasswordPage() {
       });
     } catch (caughtError) {
       setInformation("");
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to send the reset code."
-      );
+      setError(getErrorMessage(caughtError, "Unable to send the reset code."));
     } finally {
       setBusyAction(null);
     }
@@ -1244,13 +1240,39 @@ function AuthMessage({
       ? "border-red-200 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
       : "border-[#d6b46a]/40 bg-[#fff8e7] text-[#765313] dark:border-[#d6b46a]/20 dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]";
 
+  const showWorkshopHelp =
+    type === "error" &&
+    (message.toLowerCase().includes("workshop") ||
+      message.toLowerCase().includes("unable to send") ||
+      message.toLowerCase().includes("unable to deliver") ||
+      message.toLowerCase().includes("verification code"));
+
   return (
-    <p
+    <div
       role={type === "error" ? "alert" : "status"}
       className={`mt-5 rounded-xl border px-4 py-3 text-xs font-semibold leading-5 ${className}`}
     >
-      {message}
-    </p>
+      <p>{message}</p>
+      {showWorkshopHelp && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-red-200/60 pt-2 text-[11px] font-bold dark:border-red-400/20">
+          <a
+            href="tel:+919820532906"
+            className="inline-flex items-center gap-1 text-red-800 underline transition hover:text-red-950 dark:text-red-200 dark:hover:text-white"
+          >
+            📞 Call Workshop: +91 98205 32906
+          </a>
+          <span className="opacity-40">•</span>
+          <a
+            href="https://wa.me/919820532906"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-red-800 underline transition hover:text-red-950 dark:text-red-200 dark:hover:text-white"
+          >
+            💬 WhatsApp Support
+          </a>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1285,7 +1307,28 @@ function formatSeconds(totalSeconds: number) {
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback;
+  const rawMessage =
+    error instanceof Error && error.message ? error.message : fallback;
+
+  const technicalKeywords = [
+    "app password",
+    "smtp",
+    "mailkit",
+    "authentication failed",
+    "badcredentials",
+    "exception",
+    "stacktrace",
+    "internal server error",
+    "535",
+    "username and password not accepted"
+  ];
+
+  const lower = rawMessage.toLowerCase();
+  if (technicalKeywords.some((keyword) => lower.includes(keyword))) {
+    return "We were unable to deliver your verification code at this moment. Please try again shortly or contact our workshop.";
+  }
+
+  return rawMessage;
 }
 
 function isValidEmail(value: string) {

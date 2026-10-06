@@ -42,6 +42,7 @@ import SessionWatcher from "./components/auth/SessionWatcher";
 import AdminUsersPage from "./Pages/admin/AdminUsersPage";
 import AdminUserDetailsPage from "./Pages/admin/AdminUserDetailsPage";
 import AdminChatLogsPage from "./Pages/admin/AdminChatLogsPage";
+import AdminStoreKnowledgePage from "./Pages/admin/AdminStoreKnowledgePage";
 
 function App() {
   return (
@@ -121,6 +122,10 @@ function App() {
             <Route
               path="/admin/announcements"
               element={<AdminAnnouncementsPage />}
+            />
+            <Route
+              path="/admin/store-knowledge"
+              element={<AdminStoreKnowledgePage />}
             />
 
             <Route

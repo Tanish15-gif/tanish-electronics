@@ -32,6 +32,7 @@ import UserAccountMenu from "../auth/UserAccountMenu";
 import { useShopSettings } from "../../hooks/useShopSettings";
 import { getCachedShopSettings } from "../../Services/publicShopSettingsService";
 import TanishElectronicsLogo from "../common/TanishElectronicsLogo";
+import ChatWidget from "../common/ChatWidget";
 
 function CustomerLayout() {
   const { settings } = useShopSettings();
@@ -278,6 +279,13 @@ function CustomerLayout() {
                   ? formatAddress(defaultAddress)
                   : "No default address saved."}
               </p>
+
+              <Link
+                to="/customer/profile"
+                className="mt-2 inline-flex items-center gap-1 text-[11px] font-black text-[#8a6624] hover:underline dark:text-[#d6b46a]"
+              >
+                Manage address →
+              </Link>
             </div>
           </div>
         </div>
@@ -317,7 +325,7 @@ function CustomerLayout() {
               </p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
               <CustomerNotificationBell />
 
               <UserAccountMenu
@@ -336,7 +344,7 @@ function CustomerLayout() {
                 aria-label="Open customer menu"
                 aria-expanded={menuOpen}
                 aria-controls="customer-mobile-menu"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016] lg:hidden"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016] lg:hidden"
               >
                 <MenuIcon />
               </button>
@@ -349,6 +357,8 @@ function CustomerLayout() {
         </main>
       </div>
 
+      <ChatWidget />
+
       {typeof document !== "undefined" &&
         createPortal(
           <CustomerMobileDrawer
@@ -359,6 +369,7 @@ function CustomerLayout() {
             displayEmail={displayEmail}
             unreadNotificationCount={unreadNotificationCount}
             closeButtonRef={closeButtonRef}
+            shopPhone={settings.primaryPhone || "8850973399"}
             onClose={closeMenu}
           />,
           document.body
@@ -375,6 +386,7 @@ type CustomerMobileDrawerProps = {
   displayEmail: string;
   unreadNotificationCount: number;
   closeButtonRef: RefObject<HTMLButtonElement | null>;
+  shopPhone?: string;
   onClose: () => void;
 };
 
@@ -382,6 +394,7 @@ function CustomerMobileDrawer({
   open,
   profile,
   closeButtonRef,
+  shopPhone = "8850973399",
   onClose
 }: CustomerMobileDrawerProps) {
   const defaultAddress =
@@ -498,7 +511,7 @@ function CustomerMobileDrawer({
               </CustomerMobileActionLink>
 
               <a
-                href="tel:8850973399"
+                href={`tel:${shopPhone}`}
                 className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#4f4638] transition hover:bg-[#fffaf0] dark:text-[#a8a093] dark:hover:bg-[#1a1712]"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f2eadb] text-[#8a6624] dark:bg-[#242016] dark:text-[#d6b46a]">
@@ -533,6 +546,14 @@ function CustomerMobileDrawer({
                     ? formatAddress(defaultAddress)
                     : "No default address saved."}
                 </p>
+
+                <Link
+                  to="/customer/profile"
+                  onClick={onClose}
+                  className="mt-2 inline-flex items-center gap-1 text-[11px] font-black text-[#8a6624] hover:underline dark:text-[#d6b46a]"
+                >
+                  Manage address →
+                </Link>
               </div>
             </div>
           </section>

@@ -20,6 +20,9 @@ public class PasswordRecoveryService : IPasswordRecoveryService
     private readonly OtpSettings _otpSettings;
     private readonly IEmailService _emailService;
     private readonly IPasswordResetTokenService _passwordResetTokenService;
+    private readonly IWebHostEnvironment _environment;
+    private readonly ILogger<PasswordRecoveryService> _logger;
+
     public PasswordRecoveryService
     (
         ICustomAuthRepository authRepository,
@@ -28,7 +31,9 @@ public class PasswordRecoveryService : IPasswordRecoveryService
         IOtpSecurityService otpSecurityService,
         IOptions<OtpSettings> options,
         IEmailService emailService,
-        IPasswordResetTokenService passwordResetTokenService
+        IPasswordResetTokenService passwordResetTokenService,
+        IWebHostEnvironment environment,
+        ILogger<PasswordRecoveryService> logger
     )
     {
         _authRepository = authRepository;
@@ -38,6 +43,8 @@ public class PasswordRecoveryService : IPasswordRecoveryService
         _otpSettings = options.Value;
         _emailService = emailService;
         _passwordResetTokenService = passwordResetTokenService;
+        _environment = environment;
+        _logger = logger;
     }
     public async Task RequestForgotPasswordOtpAsync(ForgotPasswordRequestDto dto)
     {
@@ -82,6 +89,8 @@ public class PasswordRecoveryService : IPasswordRecoveryService
         };
 
         await _authRepository.AddOtpAsync(otpEntity);
+
+        _logger.LogInformation("🔑 [OTP] Generated Forgot Password OTP for {Email}: {Code}", user.Email, plainCode);
 
         try
         {
@@ -138,11 +147,22 @@ public class PasswordRecoveryService : IPasswordRecoveryService
                 user.Email,
                 "Your Tanish Electronics password reset code",
                 htmlBody,
-                textBody)
-            ;
+                textBody
+            );
         }
-        catch
+        catch (Exception ex)
         {
+            if (_environment.IsDevelopment())
+            {
+                _logger.LogWarning(
+                    ex,
+                    "⚠️ [DEV MODE] SMTP delivery failed ({Message}). Environment is Development, so OTP is preserved for local testing: {Code}",
+                    ex.Message,
+                    plainCode
+                );
+                return;
+            }
+
             await _authRepository.InvalidateActiveOtpsAsync(normalizedEmail, purpose);
             throw;
         }

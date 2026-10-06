@@ -134,14 +134,22 @@ function CustomerRepairsPage() {
 
   if (loading) {
     return (
-      <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div>
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
-            <p className="mt-4 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-              Loading repair requests...
-            </p>
+      <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8 animate-pulse">
+        <div className="rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 dark:border-[#302c24] dark:bg-[#1a1712]">
+          <div className="h-3.5 w-32 rounded bg-[#e8e0ce] dark:bg-[#28231a]" />
+          <div className="mt-3 h-10 w-48 rounded-xl bg-[#e8e0ce] dark:bg-[#28231a]" />
+          <div className="mt-6 flex gap-3">
+            <div className="h-10 w-24 rounded-xl bg-[#e8e0ce] dark:bg-[#28231a]" />
+            <div className="h-10 w-24 rounded-xl bg-[#e8e0ce] dark:bg-[#28231a]" />
           </div>
+        </div>
+        <div className="mt-6 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-44 rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
+            />
+          ))}
         </div>
       </main>
     );
@@ -238,21 +246,6 @@ function CustomerRepairsPage() {
               placeholder="Filter repair status"
               className="sm:hidden"
             />
-
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-              className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8a6624] dark:text-[#d6b46a]"
-            >
-              <path
-                d="M6 9l6 6 6-6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
           </div>
 
           {/* Desktop buttons */}
@@ -334,19 +327,19 @@ export function RepairListCard({
             <StatusBadge status={repair.currentStatus} />
           </div>
 
-          <h2 className="font-display mt-4 text-4xl font-bold leading-none">
+          <h2 className="font-display mt-3 text-2xl font-bold leading-tight sm:text-3xl">
             {repair.serviceCategory}
           </h2>
 
-          <p className="mt-3 text-sm font-black text-[#6f6758] dark:text-[#a8a093]">
+          <p className="mt-2 text-sm font-black text-[#6f6758] dark:text-[#a8a093]">
             {deviceText}
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:items-center sm:gap-3">
           <Link
             to={`/customer/repairs/${repair.serviceRequestId}`}
-            className="inline-flex w-fit justify-center rounded-2xl bg-[#1f1a12] px-5 py-3 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f]"
+            className="inline-flex justify-center items-center rounded-xl bg-[#1f1a12] px-4 py-3 text-center text-xs sm:text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f]"
           >
             View Details
           </Link>
@@ -355,7 +348,7 @@ export function RepairListCard({
             to={`/track-request?requestNumber=${encodeURIComponent(
               repair.requestNumber
             )}&phoneNumber=${encodeURIComponent(phoneNumber)}`}
-            className="inline-flex w-fit justify-center rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] px-5 py-3 text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
+            className="inline-flex justify-center items-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-4 py-3 text-center text-xs sm:text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
           >
             Track Request
           </Link>

@@ -154,14 +154,20 @@ function CustomerRepairDetailsPage() {
 
   if (loading) {
     return (
-      <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div>
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
-            <p className="mt-4 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-              Loading repair details...
-            </p>
+      <main className="te-sheet-bg px-4 py-8 sm:px-6 lg:px-8 animate-pulse">
+        <div className="rounded-[2.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 dark:border-[#302c24] dark:bg-[#1a1712] sm:p-8">
+          <div className="h-4 w-32 rounded bg-[#e8e0ce] dark:bg-[#28231a]" />
+          <div className="mt-4 h-10 w-3/4 max-w-md rounded-xl bg-[#e8e0ce] dark:bg-[#28231a]" />
+          <div className="mt-4 h-4 w-1/2 max-w-sm rounded bg-[#e8e0ce] dark:bg-[#28231a]" />
+          <div className="mt-6 flex gap-3">
+            <div className="h-12 w-36 rounded-2xl bg-[#e8e0ce] dark:bg-[#28231a]" />
+            <div className="h-12 w-36 rounded-2xl bg-[#e8e0ce] dark:bg-[#28231a]" />
           </div>
+        </div>
+
+        <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_380px]">
+          <div className="h-72 rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]" />
+          <div className="h-72 rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]" />
         </div>
       </main>
     );
@@ -210,7 +216,7 @@ function CustomerRepairDetailsPage() {
               Repair Details
             </p>
 
-            <h1 className="font-display mt-4 text-5xl font-bold leading-[0.95] sm:text-6xl">
+            <h1 className="font-display mt-4 text-3xl font-bold leading-[1.05] xs:text-4xl sm:text-5xl lg:text-6xl">
               {repair.serviceCategory}
             </h1>
 
@@ -227,8 +233,8 @@ function CustomerRepairDetailsPage() {
               </Link>
 
               <a
-                href="tel:8850973399"
-                className="inline-flex min-w-[148px] justify-center rounded-2xl border border-[#d8cdb6]/40 bg-transparent px-6 py-4 text-sm font-black text-[#e8e3d8] transition hover:border-[#d6b46a] hover:bg-[#fffaf0]/10 hover:text-[#f7f5ef]"
+                href={settings.primaryPhone ? `tel:${settings.primaryPhone}` : "tel:8850973399"}
+                className="inline-flex min-w-[148px] justify-center items-center rounded-2xl border border-[#d8cdb6] bg-[#fffaf0] px-6 py-4 text-sm font-black text-[#1f1a12] transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
               >
                 Call Shop
               </a>
@@ -241,9 +247,9 @@ function CustomerRepairDetailsPage() {
                 Current Status
               </p>
               {isLiveConnected && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
-                  LIVE
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[10px] font-black tracking-wide text-emerald-800 shadow-xs dark:border-emerald-700/60 dark:bg-emerald-950/70 dark:text-emerald-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
+                  Live Sync Active
                 </span>
               )}
             </div>

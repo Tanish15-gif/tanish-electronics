@@ -521,7 +521,7 @@ function ProductsPage() {
                 </div>
               )}
 
-              {/* Product Grid */}
+              {/* Product Grid / Mobile Horizontal Listing */}
               <div className="mt-4">
                 {visibleProducts.length === 0 ? (
                   <EmptyProducts
@@ -529,7 +529,7 @@ function ProductsPage() {
                     hasActiveFilters={hasActiveFilters}
                   />
                 ) : (
-                  <div className="grid gap-5 sm:gap-6 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))] sm:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+                  <div className="flex flex-col gap-3 sm:grid sm:gap-6 sm:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
                     {visibleProducts.map((product) => (
                       <ProductCard
                         key={product.productId}
@@ -570,10 +570,10 @@ function ProductCard({
   return (
     <Link
       to={`/products/${product.productId}`}
-      className="group flex min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-[#c8b98f] hover:shadow-2xl hover:shadow-[#d8cdb6]/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:shadow-black/40"
+      className="group flex min-w-0 flex-row sm:flex-col overflow-hidden rounded-2xl sm:rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-xs sm:shadow-sm transition duration-300 hover:border-[#c8b98f] hover:shadow-lg hover:shadow-[#d8cdb6]/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:shadow-black/40"
     >
-      {/* Product image */}
-      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden border-b border-[#d8cdb6] bg-gradient-to-b from-[#f3efe6] to-[#eae3d1] p-6 dark:border-[#302c24] dark:from-[#0f0e0c] dark:to-[#151310]">
+      {/* Product image - compact square thumbnail on mobile, 4/3 hero on desktop */}
+      <div className="relative flex aspect-square sm:aspect-[4/3] w-[125px] xs:w-[145px] sm:w-full shrink-0 items-center justify-center overflow-hidden border-r sm:border-r-0 sm:border-b border-[#d8cdb6] bg-gradient-to-b from-[#f3efe6] to-[#eae3d1] p-2.5 sm:p-6 dark:border-[#302c24] dark:from-[#0f0e0c] dark:to-[#151310]">
         {product.primaryImageUrl ? (
           <img
             src={getProductImageUrl(product.primaryImageUrl)}
@@ -583,22 +583,22 @@ function ProductCard({
             className="h-full w-full object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.05]"
           />
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 p-4 text-center">
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-1 shadow-sm dark:border-[#383124] dark:bg-[#161410]">
-              <TanishElectronicsLogo className="h-full w-full rounded-xl object-cover" />
+          <div className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2 sm:p-4 text-center">
+            <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-1 shadow-sm dark:border-[#383124] dark:bg-[#161410]">
+              <TanishElectronicsLogo className="h-full w-full rounded-lg sm:rounded-xl object-cover" />
             </div>
-            <span className="text-[11px] font-bold text-[#817867] dark:text-[#928a7d]">
+            <span className="text-[9px] sm:text-[11px] font-bold text-[#817867] dark:text-[#928a7d]">
               Workshop Verified
             </span>
           </div>
         )}
 
-        <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
+        {/* Desktop Badges (hidden on mobile to keep the left image thumbnail clean) */}
+        <div className="absolute inset-x-3 top-3 hidden sm:flex items-center justify-between gap-2">
           <span className="min-w-0 max-w-[55%] truncate rounded-full border border-[#d8cdb6] bg-[#fffdf7]/95 px-3 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#725522] shadow-sm backdrop-blur dark:border-[#302c24] dark:bg-[#1a1712]/95 dark:text-[#d6b46a]">
             {product.categoryName}
           </span>
 
-          {/* Dynamic Availability & Stock Urgency */}
           {isInStock ? (
             isLowStock ? (
               <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-[10px] font-black text-amber-700 shadow-sm backdrop-blur dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300">
@@ -619,50 +619,81 @@ function ProductCard({
           )}
         </div>
 
-        {/* Featured Product Badge */}
+        {/* Featured Product Badge - compact on mobile, full on desktop */}
         {product.isFeatured && (
-          <div className="absolute left-3 bottom-3">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b46a]/60 bg-[#1f1a12]/90 px-2.5 py-1 text-[10px] font-black text-[#d6b46a] shadow-md backdrop-blur">
-              <Sparkles size={11} className="text-[#d6b46a]" />
-              Featured
+          <div className="absolute left-1.5 top-1.5 sm:left-3 sm:bottom-3 sm:top-auto">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b46a]/60 bg-[#1f1a12]/90 px-1.5 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] font-black text-[#d6b46a] shadow-md backdrop-blur">
+              <Sparkles size={10} className="text-[#d6b46a]" />
+              <span className="hidden xs:inline">Featured</span>
             </span>
           </div>
         )}
       </div>
 
-      {/* Product information */}
-      <div className="flex flex-1 flex-col p-5 sm:p-6">
-        <div className="flex items-center gap-2">
-          <Badge>{product.conditionName}</Badge>
-          {product.brand && (
-            <span className="text-[11px] font-black uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
-              {product.brand}
+      {/* Product information - horizontal right column on mobile, bottom on desktop */}
+      <div className="flex flex-1 min-w-0 flex-col justify-between p-3 xs:p-3.5 sm:p-6">
+        <div>
+          {/* Category, Condition & Brand */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <span className="sm:hidden rounded-full border border-[#d8cdb6] bg-[#f2eadb] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#725522] dark:border-[#383124] dark:bg-[#242016] dark:text-[#d6b46a]">
+              {product.categoryName}
             </span>
-          )}
+            <Badge>{product.conditionName}</Badge>
+            {product.brand && (
+              <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
+                {product.brand}
+              </span>
+            )}
+          </div>
+
+          {/* Product Title */}
+          <h2 className="mt-1 sm:mt-3 line-clamp-2 text-sm xs:text-base sm:text-2xl font-black leading-snug tracking-tight text-[#1f1a12] transition group-hover:text-[#8a6624] dark:text-[#f7f5ef] dark:group-hover:text-[#d6b46a]">
+            {product.productName}
+          </h2>
+
+          {/* Model / Subtitle */}
+          <p className="mt-0.5 sm:mt-2 line-clamp-1 text-[11px] sm:text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
+            {productDetails}
+          </p>
+
+          {/* Mobile Stock status indicator */}
+          <div className="mt-1.5 sm:hidden">
+            {isInStock ? (
+              isLowStock ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-700 dark:text-amber-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Only {product.stockQuantity} left
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 dark:text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  In Stock
+                </span>
+              )
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 dark:text-rose-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                Out of Stock
+              </span>
+            )}
+          </div>
         </div>
 
-        <h2 className="mt-3 line-clamp-2 text-xl font-black leading-snug tracking-tight transition group-hover:text-[#8a6624] dark:group-hover:text-[#d6b46a] sm:text-2xl">
-          {product.productName}
-        </h2>
-
-        <p className="mt-2 truncate text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-          {productDetails}
-        </p>
-
-        <div className="mt-auto flex items-end justify-between gap-3 border-t border-[#e4dac5] pt-5 dark:border-[#302c24]">
+        {/* Price & Action footer */}
+        <div className="mt-2.5 sm:mt-auto flex items-center sm:items-end justify-between gap-2 border-t border-[#e4dac5] pt-2 sm:pt-5 dark:border-[#302c24]">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#8a6624] dark:text-[#d6b46a]">
+            <p className="hidden sm:block text-[10px] font-black uppercase tracking-[0.15em] text-[#8a6624] dark:text-[#d6b46a]">
               Price
             </p>
 
-            <p className="mt-1 text-xl font-black tabular-nums tracking-tight sm:text-2xl">
+            <p className="text-base xs:text-lg sm:text-2xl font-black tabular-nums tracking-tight text-[#1f1a12] dark:text-[#f7f5ef]">
               {formatPrice(product.price)}
             </p>
           </div>
 
-          <span className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#1f1a12] px-3.5 text-xs font-black text-[#f7f5ef] transition group-hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:group-hover:bg-[#d6b46a]">
-            View
-            <ArrowRightIcon />
+          <span className="inline-flex h-8 sm:h-10 shrink-0 items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-[#1f1a12] px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-black text-[#f7f5ef] transition group-hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:group-hover:bg-[#d6b46a]">
+            <span>View</span>
+            <ArrowRightIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           </span>
         </div>
       </div>
@@ -734,19 +765,21 @@ function FilterGroup({
 
 function ProductsLoading() {
   return (
-    <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:ml-[284px] 2xl:grid-cols-3">
+    <div className="mt-6 flex flex-col gap-3 sm:grid sm:gap-6 sm:grid-cols-2 lg:ml-[284px] 2xl:grid-cols-3">
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
+          className="flex flex-row sm:flex-col overflow-hidden rounded-2xl sm:rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
         >
-          <div className="aspect-[4/3] animate-pulse bg-[#eee5d4] dark:bg-[#242016]" />
+          <div className="w-[125px] xs:w-[145px] sm:w-full shrink-0 aspect-square sm:aspect-[4/3] animate-pulse bg-[#eee5d4] dark:bg-[#242016]" />
 
-          <div className="p-5 sm:p-6">
-            <div className="h-5 w-20 animate-pulse rounded-full bg-[#eee5d4] dark:bg-[#302c24]" />
-            <div className="mt-4 h-7 w-4/5 animate-pulse rounded-lg bg-[#eee5d4] dark:bg-[#302c24]" />
-            <div className="mt-3 h-4 w-1/2 animate-pulse rounded-lg bg-[#eee5d4] dark:bg-[#302c24]" />
-            <div className="mt-8 h-12 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
+          <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-6">
+            <div>
+              <div className="h-4 sm:h-5 w-20 animate-pulse rounded-full bg-[#eee5d4] dark:bg-[#302c24]" />
+              <div className="mt-2 sm:mt-4 h-5 sm:h-7 w-4/5 animate-pulse rounded-lg bg-[#eee5d4] dark:bg-[#302c24]" />
+              <div className="mt-1.5 sm:mt-3 h-3.5 sm:h-4 w-1/2 animate-pulse rounded-lg bg-[#eee5d4] dark:bg-[#302c24]" />
+            </div>
+            <div className="mt-3 sm:mt-8 h-8 sm:h-12 animate-pulse rounded-xl bg-[#eee5d4] dark:bg-[#302c24]" />
           </div>
         </div>
       ))}
@@ -836,9 +869,9 @@ function CheckIcon() {
   );
 }
 
-function ArrowRightIcon() {
+function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
       <path
         d="m9 6 6 6-6 6"
         stroke="currentColor"
