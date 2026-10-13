@@ -92,6 +92,11 @@ canvas {
   background: #d6b46a;
   color: #11110f;
 }
+
+.te-sheet-bg :where(a, button):focus-visible {
+  outline: 3px solid #d6b46a;
+  outline-offset: 3px;
+}
 input,
 textarea,
 select {
@@ -215,8 +220,7 @@ select option:checked {
 }
 
 .announcement-enter {
-  animation: announcement-enter 520ms
-    cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: announcement-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .announcement-progress {
@@ -253,6 +257,28 @@ select option:checked {
 
 .home-soft-float {
   animation: home-soft-float 6s ease-in-out infinite;
+}
+
+.home-product-hero {
+  animation: home-soft-float 7s ease-in-out infinite;
+  transform-origin: 50% 60%;
+}
+
+.home-product-stage {
+  perspective: 1200px;
+}
+
+.home-product-tilt {
+  transform-style: preserve-3d;
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-product-stage:hover .home-product-tilt {
+    transform: rotateX(1.5deg) rotateY(-2.5deg) translate3d(0, -4px, 18px)
+      scale(1.012);
+  }
 }
 
 .home-orb {
@@ -308,10 +334,16 @@ select option:checked {
   }
 
   .home-soft-float,
+  .home-product-hero,
   .home-orb,
   .home-orb-delayed,
   .home-status-dot {
     animation: none;
+  }
+
+  .home-product-tilt {
+    transition: none;
+    transform: none;
   }
 }
 

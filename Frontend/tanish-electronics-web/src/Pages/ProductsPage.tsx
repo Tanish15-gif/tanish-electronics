@@ -89,7 +89,7 @@ function AmazonSortSelect({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-xl border border-[#d8cdb6] bg-[#fffdf7] py-1 shadow-xl dark:border-[#302c24] dark:bg-[#1a1712]">
+        <div className="absolute right-0 top-full z-[100] mt-2 min-w-[200px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-[#d8cdb6] bg-[#fffdf7] py-1 shadow-[0_20px_45px_-18px_rgba(31,26,18,0.55)] dark:border-[#40392d] dark:bg-[#1a1712] dark:shadow-black/60">
           <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#817867] dark:text-[#928a7d]">
             Sort by
           </div>
@@ -137,7 +137,7 @@ function ProductsPage() {
     return () => {
       document.title = `${settings.shopName}`;
     };
-  });
+  }, [settings.shopName]);
 
   useEffect(() => {
     void loadProducts();
@@ -289,30 +289,30 @@ function ProductsPage() {
 
   return (
     <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-      <section className="mx-auto w-full max-w-[1720px] px-4 pt-3 pb-12 sm:px-8 sm:pt-4 lg:px-12 xl:px-16 2xl:px-20 lg:pt-5">
-        {/* Amazon-style Straightforward Header: Search Bar + Mobile Category Strip */}
+      <section className="mx-auto w-full max-w-[1720px] px-4 pb-14 pt-5 sm:px-8 sm:pt-6 lg:px-12 lg:pt-7 xl:px-16 2xl:px-20">
+        {/* Search Bar + Mobile Category Strip */}
         <div className="space-y-3">
           {/* Search Input */}
-          <div className="relative">
+          <div className="relative rounded-2xl border border-[#c7b98e] bg-[#fffdf7] p-1.5 shadow-sm transition focus-within:border-[#b88932] focus-within:ring-4 focus-within:ring-[#d6b46a]/15 dark:border-[#4b4234] dark:bg-[#15130f] dark:focus-within:border-[#d6b46a]/70">
             <label htmlFor="product-search" className="sr-only">
               Search products
             </label>
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#817867] dark:text-[#928a7d]">
-              <Search className="h-4 w-4" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-[#817867] dark:text-[#928a7d]">
+              <Search className="h-5 w-5" />
             </div>
             <input
               id="product-search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search products, brands, or models (e.g. Sony, Magic Remote)..."
-              className="h-11 sm:h-12 w-full rounded-xl border border-[#d8cdb6] bg-[#fffaf0] pl-10 pr-10 text-sm font-semibold text-[#1f1a12] outline-none transition placeholder:text-[#9b907d] focus:border-[#d6b46a] focus:ring-4 focus:ring-[#d6b46a]/15 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:placeholder:text-[#817a6e]"
+              className="h-12 w-full rounded-xl border-0 bg-transparent pl-12 pr-11 text-sm font-semibold text-[#1f1a12] outline-none placeholder:text-[#8f8574] dark:text-[#e8e3d8] dark:placeholder:text-[#817a6e] sm:h-14 sm:text-base"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
                 aria-label="Clear product search"
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-[#817867] hover:text-[#1f1a12] dark:text-[#928a7d] dark:hover:text-[#e8e3d8] cursor-pointer"
+                className="absolute inset-y-0 right-0 flex min-w-11 items-center justify-center text-[#817867] hover:text-[#1f1a12] dark:text-[#928a7d] dark:hover:text-[#e8e3d8] cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -370,13 +370,18 @@ function ProductsPage() {
         )}
 
         {!loading && !error && (
-          <div className="mt-4 sm:mt-6 grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
+          <div className="mt-6 grid items-start gap-7 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
             {/* Desktop Left Filters Sidebar */}
-            <aside className="sticky top-28 hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] lg:block">
+            <aside className="sticky top-24 hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7]/95 p-5 shadow-[0_18px_50px_-42px_rgba(31,26,18,0.7)] backdrop-blur dark:border-[#302c24] dark:bg-[#15130f]/95 lg:block">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-black uppercase tracking-wider text-[#1f1a12] dark:text-[#f7f5ef]">
-                  Filters
-                </h2>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6624] dark:text-[#d6b46a]">
+                    Catalog tools
+                  </p>
+                  <h2 className="mt-1 text-lg font-black text-[#1f1a12] dark:text-[#f7f5ef]">
+                    Refine products
+                  </h2>
+                </div>
 
                 {hasActiveFilters && (
                   <button
@@ -413,9 +418,12 @@ function ProductsPage() {
             {/* Right Section: Amazon-style Results & Sort Bar + Product Grid */}
             <section className="min-w-0">
               {/* Amazon-style Toolbar: Results Count on Left, Sort by on Right */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8cdb6]/60 pb-3 dark:border-[#302c24]">
+              <div className="relative z-30 flex flex-wrap items-center justify-between gap-3 overflow-visible rounded-2xl border border-[#d8cdb6] bg-[#fffdf7]/80 p-3 shadow-sm backdrop-blur dark:border-[#302c24] dark:bg-[#15130f]/80 sm:px-4">
                 <div>
-                  <p className="text-xs sm:text-sm font-bold text-[#1f1a12] dark:text-[#e8e3d8]">
+                  <p
+                    aria-live="polite"
+                    className="text-xs sm:text-sm font-bold text-[#1f1a12] dark:text-[#e8e3d8]"
+                  >
                     {search.trim() ? (
                       <span>
                         {visibleProducts.length}{" "}
@@ -522,14 +530,14 @@ function ProductsPage() {
               )}
 
               {/* Product Grid / Mobile Horizontal Listing */}
-              <div className="mt-4">
+              <div className="relative z-0 mt-4">
                 {visibleProducts.length === 0 ? (
                   <EmptyProducts
                     onClear={clearFilters}
                     hasActiveFilters={hasActiveFilters}
                   />
                 ) : (
-                  <div className="flex flex-col gap-3 sm:grid sm:gap-6 sm:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+                  <div className="flex flex-col gap-3 sm:grid sm:grid-cols-2 sm:gap-5 2xl:grid-cols-3">
                     {visibleProducts.map((product) => (
                       <ProductCard
                         key={product.productId}
@@ -570,10 +578,10 @@ function ProductCard({
   return (
     <Link
       to={`/products/${product.productId}`}
-      className="group flex min-w-0 flex-row sm:flex-col overflow-hidden rounded-2xl sm:rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-xs sm:shadow-sm transition duration-300 hover:border-[#c8b98f] hover:shadow-lg hover:shadow-[#d8cdb6]/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:shadow-black/40"
+      className="group flex min-w-0 flex-row overflow-hidden rounded-2xl border border-[#d8cdb6] bg-[#fffdf7]/95 shadow-[0_14px_40px_-34px_rgba(31,26,18,0.7)] transition duration-300 hover:-translate-y-1 hover:border-[#c8b98f] hover:shadow-[0_24px_55px_-36px_rgba(31,26,18,0.65)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d6b46a]/20 dark:border-[#302c24] dark:bg-[#15130f]/95 dark:hover:border-[#5a4e3a] dark:hover:shadow-black/50 sm:flex-col sm:rounded-[1.5rem]"
     >
       {/* Product image - compact square thumbnail on mobile, 4/3 hero on desktop */}
-      <div className="relative flex aspect-square sm:aspect-[4/3] w-[125px] xs:w-[145px] sm:w-full shrink-0 items-center justify-center overflow-hidden border-r sm:border-r-0 sm:border-b border-[#d8cdb6] bg-gradient-to-b from-[#f3efe6] to-[#eae3d1] p-2.5 sm:p-6 dark:border-[#302c24] dark:from-[#0f0e0c] dark:to-[#151310]">
+      <div className="relative flex aspect-square w-[125px] shrink-0 items-center justify-center overflow-hidden border-r border-[#d8cdb6] bg-[radial-gradient(circle_at_50%_42%,#fffdf7_0%,#eee7d8_72%)] p-2.5 dark:border-[#302c24] dark:bg-[radial-gradient(circle_at_50%_42%,#211e18_0%,#0f0e0c_72%)] xs:w-[145px] sm:aspect-[5/4] sm:w-full sm:border-b sm:border-r-0 sm:p-5">
         {product.primaryImageUrl ? (
           <img
             src={getProductImageUrl(product.primaryImageUrl)}
@@ -631,7 +639,7 @@ function ProductCard({
       </div>
 
       {/* Product information - horizontal right column on mobile, bottom on desktop */}
-      <div className="flex flex-1 min-w-0 flex-col justify-between p-3 xs:p-3.5 sm:p-6">
+      <div className="flex flex-1 min-w-0 flex-col justify-between p-3 xs:p-3.5 sm:p-5">
         <div>
           {/* Category, Condition & Brand */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
@@ -647,7 +655,7 @@ function ProductCard({
           </div>
 
           {/* Product Title */}
-          <h2 className="mt-1 sm:mt-3 line-clamp-2 text-sm xs:text-base sm:text-2xl font-black leading-snug tracking-tight text-[#1f1a12] transition group-hover:text-[#8a6624] dark:text-[#f7f5ef] dark:group-hover:text-[#d6b46a]">
+          <h2 className="mt-1 line-clamp-2 text-sm font-black leading-snug tracking-tight text-[#1f1a12] transition group-hover:text-[#8a6624] dark:text-[#f7f5ef] dark:group-hover:text-[#d6b46a] xs:text-base sm:mt-3 sm:text-xl">
             {product.productName}
           </h2>
 
@@ -686,13 +694,13 @@ function ProductCard({
               Price
             </p>
 
-            <p className="text-base xs:text-lg sm:text-2xl font-black tabular-nums tracking-tight text-[#1f1a12] dark:text-[#f7f5ef]">
+            <p className="text-base xs:text-lg sm:text-[1.65rem] font-black tabular-nums tracking-tight text-[#1f1a12] dark:text-[#f7f5ef]">
               {formatPrice(product.price)}
             </p>
           </div>
 
           <span className="inline-flex h-8 sm:h-10 shrink-0 items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-[#1f1a12] px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-black text-[#f7f5ef] transition group-hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:group-hover:bg-[#d6b46a]">
-            <span>View</span>
+            <span>Details</span>
             <ArrowRightIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           </span>
         </div>
@@ -871,7 +879,12 @@ function CheckIcon() {
 
 function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
       <path
         d="m9 6 6 6-6 6"
         stroke="currentColor"

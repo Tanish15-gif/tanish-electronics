@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type MouseEvent
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   X,
   Send,
@@ -113,7 +113,7 @@ function getContextualSuggestions(pathname: string): string[] {
   const path = pathname.toLowerCase();
   if (path.includes("/products")) {
     return [
-      "Do you have 55\" Smart TVs?",
+      'Do you have 55" Smart TVs?',
       "Do you sell TV remotes?",
       "What refurbished deals are available?",
       "Book a repair"
@@ -533,8 +533,10 @@ function ChatProductList({
   );
 }
 
-const BOOKING_BLOCK_REGEX = /(?:(?:✅|🎉)?\s*\*\*Repair Request Booked Successfully!\*\*\s*)?(?:📋\s*)?\*\*Booking Summary:\*\*[\s\r\n]*(?:[•*-]\s*\*?[*]?[^*:\n]+?\*?[*]?\s*:[^\n]+[\s\r\n]*)+/i;
-const ENQUIRY_BLOCK_REGEX = /(?:(?:✅|🎉)?\s*\*\*Enquiry Submitted Successfully!\*\*\s*)?(?:📋\s*)?\*\*Enquiry Summary:\*\*[\s\r\n]*(?:[•*-]\s*\*?[*]?[^*:\n]+?\*?[*]?\s*:[^\n]+[\s\r\n]*)+/i;
+const BOOKING_BLOCK_REGEX =
+  /(?:(?:✅|🎉)?\s*\*\*Repair Request Booked Successfully!\*\*\s*)?(?:📋\s*)?\*\*Booking Summary:\*\*[\s\r\n]*(?:[•*-]\s*\*?[*]?[^*:\n]+?\*?[*]?\s*:[^\n]+[\s\r\n]*)+/i;
+const ENQUIRY_BLOCK_REGEX =
+  /(?:(?:✅|🎉)?\s*\*\*Enquiry Submitted Successfully!\*\*\s*)?(?:📋\s*)?\*\*Enquiry Summary:\*\*[\s\r\n]*(?:[•*-]\s*\*?[*]?[^*:\n]+?\*?[*]?\s*:[^\n]+[\s\r\n]*)+/i;
 
 interface ParsedBookingSummary {
   trackingNumber: string;
@@ -553,7 +555,9 @@ interface ParsedEnquirySummary {
   status?: string;
 }
 
-function extractBookingSummary(content: string): { before: string; summary: ParsedBookingSummary; after: string } | null {
+function extractBookingSummary(
+  content: string
+): { before: string; summary: ParsedBookingSummary; after: string } | null {
   const match = content.match(BOOKING_BLOCK_REGEX);
   if (!match) return null;
 
@@ -563,7 +567,12 @@ function extractBookingSummary(content: string): { before: string; summary: Pars
   const after = content.slice(splitIndex + fullMatchedText.length).trim();
 
   const getField = (name: string) => {
-    const m = fullMatchedText.match(new RegExp(`[•*-]?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` + '`?([^`\\n]+)`?', 'i'));
+    const m = fullMatchedText.match(
+      new RegExp(
+        `[•*-]?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` + "`?([^`\\n]+)`?",
+        "i"
+      )
+    );
     return m ? m[1].trim() : undefined;
   };
 
@@ -584,7 +593,9 @@ function extractBookingSummary(content: string): { before: string; summary: Pars
   };
 }
 
-function extractEnquirySummary(content: string): { before: string; summary: ParsedEnquirySummary; after: string } | null {
+function extractEnquirySummary(
+  content: string
+): { before: string; summary: ParsedEnquirySummary; after: string } | null {
   const match = content.match(ENQUIRY_BLOCK_REGEX);
   if (!match) return null;
 
@@ -594,7 +605,12 @@ function extractEnquirySummary(content: string): { before: string; summary: Pars
   const after = content.slice(splitIndex + fullMatchedText.length).trim();
 
   const getField = (name: string) => {
-    const m = fullMatchedText.match(new RegExp(`[•*-]?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` + '`?([^`\\n]+)`?', 'i'));
+    const m = fullMatchedText.match(
+      new RegExp(
+        `[•*-]?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` + "`?([^`\\n]+)`?",
+        "i"
+      )
+    );
     return m ? m[1].trim() : undefined;
   };
 
@@ -606,7 +622,8 @@ function extractEnquirySummary(content: string): { before: string; summary: Pars
       customer: getField("Customer"),
       phone: getField("Phone"),
       message: getField("Message"),
-      status: getField("Status") || "Received — Our team will contact you shortly."
+      status:
+        getField("Status") || "Received — Our team will contact you shortly."
     }
   };
 }
@@ -622,7 +639,9 @@ interface ParsedTrackingSummary {
   serviceType?: string;
 }
 
-function extractTrackingSummary(content: string): { before: string; summary: ParsedTrackingSummary; after: string } | null {
+function extractTrackingSummary(
+  content: string
+): { before: string; summary: ParsedTrackingSummary; after: string } | null {
   if (BOOKING_BLOCK_REGEX.test(content) || ENQUIRY_BLOCK_REGEX.test(content)) {
     return null;
   }
@@ -637,7 +656,11 @@ function extractTrackingSummary(content: string): { before: string; summary: Par
 
     const getField = (name: string) => {
       const m = fullMatchedText.match(
-        new RegExp(`(?:[•*-]|\\s{2,})?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` + '`?([^`\\n]+)`?', 'i')
+        new RegExp(
+          `(?:[•*-]|\\s{2,})?\\s*\\*?\\*?${name}\\*?\\*?\\s*:\\s*` +
+            "`?([^`\\n]+)`?",
+          "i"
+        )
       );
       return m ? m[1].trim() : undefined;
     };
@@ -681,12 +704,16 @@ function extractTrackingSummary(content: string): { before: string; summary: Par
         /for\s+(?:the\s+)?([^.]+?)\s+is\s+\*?\*?([A-Za-z\s]+?)\*?\*?(?:\s*–|\s*-|\.|\n|,)/i
       );
       const device = deviceMatch ? deviceMatch[1].trim() : undefined;
-      const statusFromDeviceMatch = deviceMatch ? deviceMatch[2].trim() : undefined;
+      const statusFromDeviceMatch = deviceMatch
+        ? deviceMatch[2].trim()
+        : undefined;
 
       const statusMatch = content.match(
         /\b(is\s+)?\*?\*?(Pending|Accepted|Under Inspection|In Progress|Assigned|Diagnosis|Ready|Completed|Delivered|Cancelled)\*?\*?\b/i
       );
-      const status = statusFromDeviceMatch || (statusMatch ? statusMatch[2].trim() : "Pending");
+      const status =
+        statusFromDeviceMatch ||
+        (statusMatch ? statusMatch[2].trim() : "Pending");
 
       const priceMatch = content.match(/₹\s*(\d[\d,]*)/);
       let estimatedPrice = "Pending Assessment";
@@ -699,7 +726,9 @@ function extractTrackingSummary(content: string): { before: string; summary: Par
         estimatedPrice = "Quote after initial inspection";
       }
 
-      const serviceType = content.toLowerCase().includes("home visit") ? "Home Visit" : "Shop Repair";
+      const serviceType = content.toLowerCase().includes("home visit")
+        ? "Home Visit"
+        : "Shop Repair";
 
       return {
         before: content.trim(),
@@ -774,8 +803,13 @@ function BookingConfirmationCard({
           >
             {copied ? (
               <>
-                <Check size={12} className="text-emerald-600 dark:text-emerald-400" />
-                <span className="text-emerald-700 dark:text-emerald-300">Copied</span>
+                <Check
+                  size={12}
+                  className="text-emerald-600 dark:text-emerald-400"
+                />
+                <span className="text-emerald-700 dark:text-emerald-300">
+                  Copied
+                </span>
               </>
             ) : (
               <>
@@ -834,7 +868,11 @@ function BookingConfirmationCard({
         {onTrackClick && (
           <button
             type="button"
-            onClick={() => onTrackClick(`/track-request?requestNumber=${encodeURIComponent(summary.trackingNumber)}`)}
+            onClick={() =>
+              onTrackClick(
+                `/track-request?requestNumber=${encodeURIComponent(summary.trackingNumber)}`
+              )
+            }
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1f1a12] py-2.5 px-3 text-[12px] font-bold text-white shadow-xs transition-all hover:bg-[#382f21] active:scale-[0.99] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
           >
             <Search size={13} strokeWidth={2.5} />
@@ -917,7 +955,8 @@ function EnquiryConfirmationCard({
         </div>
 
         <p className="text-[11px] text-[#786d5b] dark:text-[#9c917f] italic pt-0.5">
-          Our workshop technician in Santacruz West will follow up with you shortly.
+          Our workshop technician in Santacruz West will follow up with you
+          shortly.
         </p>
       </div>
     </div>
@@ -993,7 +1032,10 @@ function FormattedBlock({
         ) {
           const bulletContent = trimmed.slice(2);
           return (
-            <div key={idx} className="flex items-start gap-2 my-0.5 pl-1 text-left">
+            <div
+              key={idx}
+              className="flex items-start gap-2 my-0.5 pl-1 text-left"
+            >
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8a6624] dark:bg-[#d6b46a]" />
               <div className="flex-1 min-w-0">
                 <InlineFormattedText text={bulletContent} role={role} />
@@ -1012,7 +1054,10 @@ function FormattedBlock({
         const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
         if (numMatch) {
           return (
-            <div key={idx} className="flex items-start gap-2 my-0.5 pl-1 text-left">
+            <div
+              key={idx}
+              className="flex items-start gap-2 my-0.5 pl-1 text-left"
+            >
               <span className="shrink-0 text-xs font-black text-[#8a6624] dark:text-[#d6b46a] mt-0.5">
                 {numMatch[1]}.
               </span>
@@ -1073,8 +1118,8 @@ function RepairTrackingCard({
         updated.finalPrice != null
           ? `₹${updated.finalPrice.toLocaleString("en-IN")}`
           : updated.estimatedPrice != null
-          ? `₹${updated.estimatedPrice.toLocaleString("en-IN")}`
-          : undefined,
+            ? `₹${updated.estimatedPrice.toLocaleString("en-IN")}`
+            : undefined,
       device: updated.deviceName,
       serviceType: updated.serviceType
     });
@@ -1087,8 +1132,10 @@ function RepairTrackingCard({
 
   const displayStatus = liveData.status || summary.status || "Pending";
   const displayDevice = liveData.device || summary.device;
-  const displayPrice = liveData.estimatedPrice || summary.estimatedPrice || "Pending Assessment";
-  const displayServiceType = liveData.serviceType || summary.serviceType || "Shop Repair";
+  const displayPrice =
+    liveData.estimatedPrice || summary.estimatedPrice || "Pending Assessment";
+  const displayServiceType =
+    liveData.serviceType || summary.serviceType || "Shop Repair";
 
   const handleCopy = () => {
     if (!summary.trackingNumber) return;
@@ -1108,8 +1155,7 @@ function RepairTrackingCard({
     statusLower.includes("diagnosis") ||
     statusLower.includes("under inspection");
   const isAccepted =
-    statusLower.includes("accepted") ||
-    statusLower.includes("assigned");
+    statusLower.includes("accepted") || statusLower.includes("assigned");
   const isCancelled = statusLower.includes("cancel");
 
   // Synchronize introductory status text so live updates and the card remain 100% in agreement
@@ -1154,12 +1200,12 @@ function RepairTrackingCard({
                   isCompleted
                     ? "bg-emerald-400"
                     : isInProgress
-                    ? "bg-blue-400"
-                    : isAccepted
-                    ? "bg-sky-400"
-                    : isCancelled
-                    ? "bg-rose-400"
-                    : "bg-amber-400"
+                      ? "bg-blue-400"
+                      : isAccepted
+                        ? "bg-sky-400"
+                        : isCancelled
+                          ? "bg-rose-400"
+                          : "bg-amber-400"
                 }`}
               />
               <span
@@ -1167,12 +1213,12 @@ function RepairTrackingCard({
                   isCompleted
                     ? "bg-emerald-500"
                     : isInProgress
-                    ? "bg-blue-500"
-                    : isAccepted
-                    ? "bg-sky-500"
-                    : isCancelled
-                    ? "bg-rose-500"
-                    : "bg-amber-500"
+                      ? "bg-blue-500"
+                      : isAccepted
+                        ? "bg-sky-500"
+                        : isCancelled
+                          ? "bg-rose-500"
+                          : "bg-amber-500"
                 }`}
               />
             </span>
@@ -1216,8 +1262,13 @@ function RepairTrackingCard({
             >
               {copied ? (
                 <>
-                  <Check size={12} className="text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-emerald-700 dark:text-emerald-300">Copied</span>
+                  <Check
+                    size={12}
+                    className="text-emerald-600 dark:text-emerald-400"
+                  />
+                  <span className="text-emerald-700 dark:text-emerald-300">
+                    Copied
+                  </span>
                 </>
               ) : (
                 <>
@@ -1249,12 +1300,12 @@ function RepairTrackingCard({
                   isCompleted
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
                     : isInProgress
-                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/20"
-                    : isAccepted
-                    ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/20"
-                    : isCancelled
-                    ? "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/20"
-                    : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                      : isAccepted
+                        ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/20"
+                        : isCancelled
+                          ? "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20"
                 }`}
               >
                 {displayStatus}
@@ -1286,7 +1337,11 @@ function RepairTrackingCard({
           {onTrackClick && (
             <button
               type="button"
-              onClick={() => onTrackClick(`/track-request?requestNumber=${encodeURIComponent(summary.trackingNumber)}`)}
+              onClick={() =>
+                onTrackClick(
+                  `/track-request?requestNumber=${encodeURIComponent(summary.trackingNumber)}`
+                )
+              }
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1f1a12] py-2.5 px-3 text-[12px] font-bold text-white shadow-xs transition-all hover:bg-[#382f21] active:scale-[0.99] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
             >
               <Search size={13} strokeWidth={2.5} />
@@ -1298,7 +1353,11 @@ function RepairTrackingCard({
 
       {afterText && (
         <div className="mt-2">
-          <FormattedBlock text={afterText} role="assistant" isStreaming={isStreaming} />
+          <FormattedBlock
+            text={afterText}
+            role="assistant"
+            isStreaming={isStreaming}
+          />
         </div>
       )}
     </div>
@@ -1392,16 +1451,13 @@ function MessageBody({
   }
 
   return (
-    <FormattedBlock
-      text={content}
-      role="assistant"
-      isStreaming={isStreaming}
-    />
+    <FormattedBlock text={content} role="assistant" isStreaming={isStreaming} />
   );
 }
 
 export default function ChatWidget() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Stable session UUID for this browser tab/session — persisted across reloads, sent to backend for chat logging
   const [sessionKey, setSessionKey] = useState<string>(() => {
@@ -1432,8 +1488,8 @@ export default function ChatWidget() {
   });
 
   const currentSuggestions = useMemo(
-    () => getContextualSuggestions(window.location.pathname),
-    [isOpen]
+    () => getContextualSuggestions(location.pathname),
+    [location.pathname]
   );
 
   // Default to full sidebar on desktop, small widget on mobile
@@ -1578,7 +1634,9 @@ export default function ChatWidget() {
   });
 
   const [isThinking, setIsThinking] = useState(false);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     try {
@@ -1633,32 +1691,27 @@ export default function ChatWidget() {
   }, [authFlowStage]);
   const [userMsgCount, setUserMsgCount] = useState<number>(() => {
     try {
-      return parseInt(sessionStorage.getItem("te_chat_user_count") || "0", 10);
+      const savedMessages =
+        localStorage.getItem("te_chat_messages") ||
+        sessionStorage.getItem("te_chat_messages");
+      if (savedMessages) {
+        const parsed = JSON.parse(savedMessages);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((m: { role: string }) => m.role === "user")
+            .length;
+        }
+      }
+      const savedCount = parseInt(
+        sessionStorage.getItem("te_chat_user_count") || "0",
+        10
+      );
+      return Number.isFinite(savedCount) && savedCount >= 0 ? savedCount : 0;
     } catch {
       return 0;
     }
   });
 
-  const wasInactiveOrClosedRef = useRef<boolean>(false);
-  const lastActiveTimestampRef = useRef<number>(Date.now());
   const pendingMessageRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      const now = Date.now();
-      const inactiveDuration = now - lastActiveTimestampRef.current;
-      if (
-        inactiveDuration > 120_000 ||
-        sessionStorage.getItem("te_chat_was_closed") === "true"
-      ) {
-        wasInactiveOrClosedRef.current = true;
-      }
-      sessionStorage.removeItem("te_chat_was_closed");
-    } else {
-      sessionStorage.setItem("te_chat_was_closed", "true");
-      lastActiveTimestampRef.current = Date.now();
-    }
-  }, [isOpen]);
 
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -1669,12 +1722,16 @@ export default function ChatWidget() {
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (
+      isOpen ||
+      location.pathname === "/" ||
+      location.pathname.startsWith("/products")
+    ) {
       setShowPrompt(false);
       return;
     }
     const timer = setTimeout(() => {
-      const path = window.location.pathname;
+      const path = location.pathname;
       let msg = "Have a question about our repairs or products?";
       if (path.startsWith("/products/")) {
         msg = "Need help with features or price for this item?";
@@ -1690,7 +1747,7 @@ export default function ChatWidget() {
     }, 12_000);
 
     return () => clearTimeout(timer);
-  }, [isOpen]);
+  }, [isOpen, location.pathname]);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -1821,7 +1878,6 @@ export default function ChatWidget() {
       setIsLoading(true);
       setIsThinking(true);
       setStreamingMessageId(assistantMsgId);
-      lastActiveTimestampRef.current = Date.now();
 
       const controller = new AbortController();
       const timeoutId = setTimeout(
@@ -1975,8 +2031,8 @@ export default function ChatWidget() {
               content: isRateLimit
                 ? RATE_LIMIT_ERROR
                 : isAbort
-                ? TIMEOUT_ERROR
-                : GENERIC_ERROR,
+                  ? TIMEOUT_ERROR
+                  : GENERIC_ERROR,
               at: Date.now()
             }
           ]);
@@ -1996,7 +2052,6 @@ export default function ChatWidget() {
     setShowAuthPrompt(false);
     setAuthFlowStage("idle");
     setAuthEmail("");
-    wasInactiveOrClosedRef.current = false;
     const pending = pendingMessageRef.current;
     if (pending) {
       pendingMessageRef.current = null;
@@ -2140,11 +2195,9 @@ export default function ChatWidget() {
 
       const isUnauthenticated = !isAuthenticated && !getStoredAuthUser();
       const shouldTriggerAuth =
-        isUnauthenticated &&
-        (nextCount % 5 === 0 || wasInactiveOrClosedRef.current);
+        isUnauthenticated && nextCount > 0 && nextCount % 5 === 0;
 
       if (shouldTriggerAuth) {
-        wasInactiveOrClosedRef.current = false;
         // Hold user's message on hold!
         pendingMessageRef.current = cleanMsg;
         setInput("");
@@ -2408,7 +2461,10 @@ export default function ChatWidget() {
                         role={msg.role}
                         isStreaming={streamingMessageId === msg.id}
                         onActionClick={(url) =>
-                          handleActionClick({ preventDefault: () => {} } as any, url)
+                          handleActionClick(
+                            { preventDefault: () => {} } as any,
+                            url
+                          )
                         }
                       />
                     </div>
@@ -2416,13 +2472,21 @@ export default function ChatWidget() {
 
                   {/* Contextual Action Buttons */}
                   {(() => {
-                    const hasBookingCard = Boolean(extractBookingSummary(msg.content));
-                    const hasTrackingCard = Boolean(extractTrackingSummary(msg.content));
-                    const filteredActions = (hasBookingCard || hasTrackingCard)
-                      ? msg.actions?.filter((act) => !act.label.toLowerCase().includes("track"))
-                      : msg.actions;
+                    const hasBookingCard = Boolean(
+                      extractBookingSummary(msg.content)
+                    );
+                    const hasTrackingCard = Boolean(
+                      extractTrackingSummary(msg.content)
+                    );
+                    const filteredActions =
+                      hasBookingCard || hasTrackingCard
+                        ? msg.actions?.filter(
+                            (act) => !act.label.toLowerCase().includes("track")
+                          )
+                        : msg.actions;
 
-                    if (!filteredActions || filteredActions.length === 0) return null;
+                    if (!filteredActions || filteredActions.length === 0)
+                      return null;
 
                     return (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5 pt-0.5">
@@ -2542,7 +2606,6 @@ export default function ChatWidget() {
                           setShowAuthPrompt(false);
                           setAuthFlowStage("idle");
                           setAuthEmail("");
-                          wasInactiveOrClosedRef.current = false;
                           const authUser = getStoredAuthUser();
                           const firstName = authUser?.fullName
                             ? ` ${authUser.fullName.trim().split(" ")[0]}`
@@ -2730,7 +2793,7 @@ export default function ChatWidget() {
             aria-expanded={isOpen}
             aria-label="Open AI Assistant"
             title="Ask AI Assistant"
-            className="cursor-pointer group fixed bottom-22 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] shadow-[0_8px_30px_rgba(0,0,0,0.15)] transition-all duration-300 hover:scale-105 hover:border-[#d6b46a] active:scale-95 focus-visible:outline-none sm:bottom-24 sm:right-6 sm:h-15 sm:w-15 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#d6b46a] dark:hover:border-[#d6b46a]/60 dark:shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
+            className="cursor-pointer group fixed bottom-22 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] shadow-[0_8px_30px_rgba(0,0,0,0.15)] transition-all duration-300 hover:scale-105 hover:border-[#d6b46a] active:scale-95 focus-visible:outline-none sm:bottom-24 sm:right-6 sm:h-16 sm:w-16 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#d6b46a] dark:hover:border-[#d6b46a]/60 dark:shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
           >
             <span
               className="chat-ping-ring absolute inset-0 rounded-full border border-[#8a6624]/30 dark:border-[#d6b46a]/40"

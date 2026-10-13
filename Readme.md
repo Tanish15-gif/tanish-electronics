@@ -188,7 +188,7 @@ TanishElectronics\
 ## Prerequisites
 
 - [.NET SDK](https://dotnet.microsoft.com/download) (version 10.0 or higher)
-- [Node.js](https://nodejs.org/) (version 10.9 or higher) and npm
+- [Node.js](https://nodejs.org/) (version 18.0 or higher / LTS) and npm
 - [SQL Server](https://www.microsoft.com/sql-server)
 
 ## Database
@@ -233,7 +233,7 @@ The API should now be running at `http://localhost:XXXX`.
 ### Frontend Setup
 
 ```bash
-cd tanish-electronics-web
+cd Frontend/tanish-electronics-web
 npm install
 npm run dev
 ```
@@ -349,9 +349,14 @@ Full route list generated from the live OpenAPI spec (`/openapi/v1.json`).
 | POST   | `/admin/announcements`            | Create an announcement       |
 | PUT    | `/admin/announcements/{id}`       | Update an announcement       |
 | DELETE | `/admin/announcements/{id}`       | Delete an announcement       |
-| POST   | `/admin/announcements/{id}/image` | Upload an announcement image |
-| GET    | `/admin/settings`                 | Get shop settings            |
-| PUT    | `/admin/settings`                 | Update shop settings         |
+| GET    | `/admin/store-knowledge`                 | List store knowledge articles with search & category |
+| POST   | `/admin/store-knowledge`                 | Create a new store knowledge article                 |
+| GET    | `/admin/store-knowledge/{id}`            | Get store knowledge article details                  |
+| PUT    | `/admin/store-knowledge/{id}`            | Update a store knowledge article                     |
+| DELETE | `/admin/store-knowledge/{id}`            | Delete a store knowledge article                     |
+| POST   | `/admin/store-knowledge/test-similarity` | Test semantic vector cosine similarity search        |
+| GET    | `/admin/settings`                        | Get shop settings                                    |
+| PUT    | `/admin/settings`                        | Update shop settings                                 |
 
 </details>
 
@@ -366,6 +371,9 @@ Full route list generated from the live OpenAPI spec (`/openapi/v1.json`).
 | PATCH  | `/admin/users/{appUserId}/status`              | Activate or deactivate a user         |
 | POST   | `/admin/users/{appUserId}/unlock`              | Unlock a locked user account          |
 | POST   | `/admin/users/{appUserId}/sessions/revoke-all` | Force logout a user from all sessions |
+| GET    | `/admin/chat-logs`                             | List chatbot conversation transcripts |
+| GET    | `/admin/chat-logs/{sessionId}`                 | Get specific session chat messages    |
+| GET    | `/admin/chat-logs/stats`                       | Get chatbot telemetry and token stats |
 | GET    | `/admin/dashboard/summary`                     | Get admin dashboard overview          |
 | GET    | `/admin/analytics/summary`                     | Get analytics summary                 |
 | GET    | `/admin/analytics/website-visits`              | Get website visit analytics           |

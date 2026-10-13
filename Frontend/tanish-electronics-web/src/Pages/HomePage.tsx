@@ -4,7 +4,6 @@ import HomeFeedbackSection from "../components/public/HomeFeedbackSection";
 import HomeAnnouncementPopup from "../components/public/HomeAnnouncementPopup";
 import HomeAnnouncementStrip from "../components/public/HomeAnnouncementStrip";
 import { useShopSettings } from "../hooks/useShopSettings";
-import TanishElectronicsLogo from "../components/common/TanishElectronicsLogo";
 
 type ServiceIconType = "tv" | "theatre" | "remote" | "speaker";
 
@@ -196,7 +195,7 @@ function HomePage() {
       <HomeAnnouncementPopup />
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
+      <section className="relative flex min-h-[calc(100svh-4rem)] items-center overflow-hidden border-b border-[#d8cdb6] bg-transparent dark:border-[#302c24] lg:min-h-[calc(100svh-72px)]">
         <div
           aria-hidden="true"
           className="home-orb pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-[#d6b46a]/15 blur-3xl dark:bg-[#d6b46a]/8"
@@ -207,7 +206,7 @@ function HomePage() {
           className="home-orb-delayed pointer-events-none absolute right-0 top-0 h-96 w-96 rounded-full bg-[#8a6624]/10 blur-3xl dark:bg-[#6f5a33]/15"
         />
 
-        <div className="relative mx-auto grid w-full max-w-[1720px] gap-8 px-4 pt-4 pb-12 sm:px-8 sm:pt-6 sm:pb-16 lg:grid-cols-[minmax(0,1.15fr)_440px] xl:grid-cols-[minmax(0,1.25fr)_460px] 2xl:grid-cols-[minmax(0,1.35fr)_480px] lg:items-center lg:px-12 xl:px-16 2xl:px-20 lg:pt-6 lg:pb-16">
+        <div className="relative mx-auto grid w-full max-w-[1720px] gap-8 px-4 pt-4 pb-12 sm:px-8 sm:pt-6 sm:pb-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(440px,0.95fr)] xl:grid-cols-[minmax(0,1fr)_minmax(540px,1fr)] 2xl:grid-cols-[minmax(0,0.95fr)_minmax(620px,1.05fr)] lg:items-center lg:px-12 xl:px-16 2xl:px-20 lg:pt-8 lg:pb-16">
           <Reveal>
             <div className="min-w-0">
               <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#d6b46a]/40 bg-[#fff8e7] px-4 py-2 text-xs font-black text-[#6f4e12] shadow-sm dark:border-[#d6b46a]/25 dark:bg-[#1a1712] dark:text-[#d6b46a] sm:text-sm">
@@ -266,8 +265,8 @@ function HomePage() {
             </div>
           </Reveal>
 
-          <Reveal delay={140}>
-            <ServiceBookingPanel whatsappUrl={whatsappUrl} />
+          <Reveal delay={140} className="min-w-0">
+            <HeroProductVisual />
           </Reveal>
         </div>
       </section>
@@ -291,7 +290,7 @@ function HomePage() {
       </section>
 
       {/* Services */}
-      <section className="mx-auto w-full max-w-[1720px] px-4 py-14 sm:px-8 sm:py-16 lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
+      <section className="relative mx-auto w-full max-w-[1720px] px-4 py-14 sm:px-8 sm:py-16 lg:px-12 xl:px-16 2xl:px-20 lg:py-24">
         <Reveal>
           <SectionHeading
             eyebrow="Repair services"
@@ -300,16 +299,16 @@ function HomePage() {
             action={
               <Link
                 to="/book-repair"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-5 text-sm font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#d8cdb6] bg-[#fffaf0] px-6 text-sm font-black shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#c7b98e] hover:bg-[#f2eadb] dark:border-[#3b352b] dark:bg-[#1a1712] dark:hover:border-[#5b503d] dark:hover:bg-[#242016]"
               >
-                Book repair
-                <ArrowRightIcon />
+                Book a repair
+                <ArrowRightIcon className="transition-transform duration-300 group-hover:translate-x-1" />
               </Link>
             }
           />
         </Reveal>
 
-        <div className="mt-9 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-4 2xl:gap-6">
           {services.map((service, index) => (
             <Reveal key={service.title} delay={index * 80} className="h-full">
               <ServiceCard service={service} whatsappUrl={whatsappUrl} />
@@ -320,99 +319,66 @@ function HomePage() {
 
       {/* About and benefits */}
       <section className="border-y border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
-        <div className="mx-auto grid w-full max-w-[1720px] gap-6 px-4 py-14 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
+        <div className="mx-auto w-full max-w-[1720px] px-4 py-14 sm:px-8 sm:py-16 lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
           <Reveal>
-            <article className="h-full rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-sm dark:border-[#302c24] dark:bg-[#11110f] sm:p-8">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
-                About {settings.shopName}
-              </p>
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)] lg:items-center lg:gap-14 xl:gap-20">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
+                  About {settings.shopName}
+                </p>
 
-              <h2 className="font-display mt-4 max-w-3xl text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl">
-                Local repair experience built on{" "}
-                <span className="text-[#8a6624] dark:text-[#d6b46a]">
-                  practical work and trust.
-                </span>
-              </h2>
-
-              <p className="mt-6 text-base font-semibold leading-8 text-[#6f6758] dark:text-[#a8a093]">
-                {settings.shopName} is a family-run repair and electronics-sales
-                business based in {settings.area || "Santacruz West"},{" "}
-                {settings.city || "Mumbai"}.
-              </p>
-
-              <p className="mt-4 text-sm font-semibold leading-7 text-[#6f6758] dark:text-[#a8a093]">
-                The business is handled by {settings.ownerName || "the founder"}
-                , who has around 20 years of hands-on electronics-repair
-                experience. The focus is on clear guidance, reasonable pricing
-                and dependable local service.
-              </p>
-
-              <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                <AboutMetric value="20+" label="Years of experience" />
-
-                <AboutMetric value="LED/Smart" label="TV specialisation" />
-
-                <AboutMetric
-                  value={settings.city || "Mumbai"}
-                  label="Local service area"
-                />
+                <h2 className="font-display mt-4 max-w-3xl text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl">
+                  Local repair experience built on{" "}
+                  <span className="text-[#8a6624] dark:text-[#d6b46a]">
+                    practical work and trust.
+                  </span>
+                </h2>
               </div>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  to="/book-repair"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-6 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
-                >
-                  Book TV Repair
-                  <ArrowRightIcon />
-                </Link>
+              <div className="border-l-0 border-[#d8cdb6] dark:border-[#3a342a] lg:border-l lg:pl-10 xl:pl-14">
+                <p className="text-base font-semibold leading-8 text-[#6f6758] dark:text-[#b5ada0]">
+                  {settings.shopName} is a family-run repair and
+                  electronics-sales business based in{" "}
+                  {settings.area || "Santacruz West"},{" "}
+                  {settings.city || "Mumbai"}.
+                </p>
 
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-6 text-sm font-black text-white shadow-sm transition hover:bg-[#1ebe5d]"
-                >
-                  <WhatsAppIcon />
-                  WhatsApp Us
-                </a>
+                <p className="mt-4 text-sm font-semibold leading-7 text-[#6f6758] dark:text-[#a8a093]">
+                  The business is handled by{" "}
+                  {settings.ownerName || "the founder"}, with around 20 years of
+                  hands-on electronics-repair experience. Customers receive
+                  clear guidance before work continues, local home-visit support
+                  where available and online repair updates.
+                </p>
+
+                <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm font-black">
+                  <AboutPoint text="Clear pricing guidance" />
+                  <AboutPoint text="Local home visits" />
+                  <AboutPoint text="Online status tracking" />
+                </div>
+
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    to="/book-repair"
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-6 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+                  >
+                    Book TV Repair
+                    <ArrowRightIcon />
+                  </Link>
+
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-600/35 bg-emerald-50 px-6 text-sm font-black text-emerald-900 shadow-sm transition hover:border-[#25D366] hover:bg-[#25D366] hover:text-[#052e1b] dark:border-emerald-400/40 dark:bg-[#063f32] dark:text-[#8ff5d2] dark:hover:bg-[#25D366] dark:hover:text-[#052e1b]"
+                  >
+                    <WhatsAppIcon />
+                    WhatsApp Us
+                  </a>
+                </div>
               </div>
-            </article>
+            </div>
           </Reveal>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Reveal delay={80}>
-              <BenefitCard
-                icon="price"
-                title="Reasonable pricing"
-                description="Clear guidance and pricing discussion before repair work continues."
-              />
-            </Reveal>
-
-            <Reveal delay={140}>
-              <BenefitCard
-                icon="home"
-                title="Home visit support"
-                description="Home visits are available for supported TV repairs in nearby locations."
-              />
-            </Reveal>
-
-            <Reveal delay={200}>
-              <BenefitCard
-                icon="track"
-                title="Repair tracking"
-                description="Customers can check status, estimated price and final updates online."
-              />
-            </Reveal>
-
-            <Reveal delay={260}>
-              <BenefitCard
-                icon="experience"
-                title="Practical experience"
-                description="Repairs are handled with years of hands-on electronics knowledge."
-              />
-            </Reveal>
-          </div>
         </div>
       </section>
 
@@ -457,9 +423,9 @@ function HomePage() {
               href={whatsappUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-6 text-sm font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-50 px-6 text-sm font-black text-emerald-900 transition hover:border-[#25D366] hover:bg-[#25D366] hover:text-[#052e1b] dark:border-emerald-400/40 dark:bg-[#063f32] dark:text-[#8ff5d2] dark:hover:bg-[#25D366] dark:hover:text-[#052e1b]"
             >
-              <WhatsAppIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <WhatsAppIcon className="h-4 w-4" />
               <span>Ask on WhatsApp</span>
             </a>
           </div>
@@ -571,7 +537,7 @@ function HomePage() {
                   href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#1ebe5d]"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 text-sm font-black text-[#052e1b] shadow-sm transition hover:bg-[#48df7f]"
                 >
                   <WhatsAppIcon />
                   WhatsApp the Shop
@@ -591,155 +557,28 @@ function HomePage() {
           </Reveal>
         </div>
       </section>
-
-      {/* Final CTA */}
-      <section className="px-4 pb-14 sm:px-8 sm:pb-16 lg:px-12 xl:px-16 2xl:px-20 lg:pb-20">
-        <Reveal>
-          <div className="relative mx-auto w-full max-w-[1720px] overflow-hidden rounded-[1.75rem] border border-[#302c24] bg-[#1f1a12] p-6 text-[#f7f5ef] shadow-2xl shadow-black/20 dark:bg-[#1a1712] sm:p-9 lg:p-12">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-[#d6b46a]/15 blur-3xl"
-            />
-
-            <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#d6b46a]">
-                  Start your repair request
-                </p>
-
-                <h2 className="font-display mt-4 max-w-3xl text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl">
-                  Need help with your TV or electronics?
-                </h2>
-
-                <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[#d8cdb6] dark:text-[#a8a093]">
-                  Book online and track service updates without calling
-                  repeatedly.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Link
-                  to="/book-repair"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#f7f5ef] px-6 text-sm font-black text-[#1f1a12] transition hover:bg-[#d6b46a]"
-                >
-                  Book Repair
-                  <ArrowRightIcon />
-                </Link>
-
-                <Link
-                  to="/track-request"
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/20 px-6 text-sm font-black transition hover:bg-white/10"
-                >
-                  Track Request
-                </Link>
-
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-6 text-sm font-black text-white shadow-sm transition hover:bg-[#1ebe5d]"
-                >
-                  <WhatsAppIcon />
-                  WhatsApp
-                </a>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </section>
     </main>
   );
 }
 
-function ServiceBookingPanel({ whatsappUrl }: { whatsappUrl?: string }) {
+function HeroProductVisual() {
   return (
-    <aside className="home-soft-float rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] p-3 shadow-2xl shadow-[#d8cdb6]/35 dark:border-[#302c24] dark:bg-[#1a1712] dark:shadow-black/30">
-      <div className="rounded-[1.35rem] border border-[#d8cdb6] bg-[#fffaf0] p-5 dark:border-[#302c24] dark:bg-[#11110f] sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a6624] dark:text-[#d6b46a]">
-              Local repair support
-            </p>
+    <div className="home-product-stage relative mx-auto flex min-h-[360px] w-full max-w-[760px] items-center justify-center py-2 sm:min-h-[430px] lg:min-h-[500px]">
+      <div
+        aria-hidden="true"
+        className="absolute bottom-[10%] left-[8%] right-[5%] h-12 rounded-[50%] bg-black/25 blur-2xl dark:bg-black/55"
+      />
 
-            <h2 className="mt-2 text-2xl font-black leading-tight">
-              Need your device checked?
-            </h2>
-          </div>
-
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-0.5 shadow-xs dark:border-[#383124] dark:bg-[#161410]">
-            <TanishElectronicsLogo className="h-full w-full rounded-lg object-cover" />
-          </span>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          <ServiceFeature
-            title="TV repair"
-            text="LED, LCD, Smart TV and box TV"
-          />
-
-          <ServiceFeature
-            title="Home visit"
-            text="Available within supported local areas"
-          />
-
-          <ServiceFeature
-            title="Online tracking"
-            text="View repair status and price updates"
-          />
-
-          <ServiceFeature
-            title="Shop repair"
-            text="Bring smaller devices directly to the shop"
-          />
-        </div>
-
-        <div className="mt-5 rounded-xl border border-[#d8cdb6] bg-[#fff8e7] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#817867] dark:text-[#928a7d]">
-            Primary service area
-          </p>
-
-          <p className="mt-2 text-sm font-black">
-            Santacruz West and nearby supported locations
-          </p>
-        </div>
-
-        <Link
-          to="/book-repair"
-          className="group mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-5 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f]"
-        >
-          Start Repair Booking
-          <ArrowRightIcon className="transition-transform group-hover:translate-x-1" />
-        </Link>
-
-        {whatsappUrl && (
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-400/30 px-5 text-xs font-black transition hover:bg-[#25D366] hover:text-white dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-[#25D366] dark:hover:text-white"
-          >
-            <WhatsAppIcon className="h-3.5 w-3.5" />
-            Quick Message on WhatsApp
-          </a>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function ServiceFeature({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-[#eadfca] bg-[#fffdf7] p-3 dark:border-[#302c24] dark:bg-[#1a1712]">
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-black text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-        ✓
-      </span>
-
-      <div>
-        <p className="text-sm font-black">{title}</p>
-
-        <p className="mt-0.5 text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
-          {text}
-        </p>
+      <div className="home-product-tilt relative z-10 w-full">
+        <img
+          src="/images/hero/tv-remote-speaker-hero-v3.png"
+          alt="Two modern televisions, a remote control and a premium speaker"
+          width="1727"
+          height="911"
+          fetchPriority="high"
+          decoding="async"
+          className="home-product-hero h-auto w-full object-contain drop-shadow-[0_28px_34px_rgba(0,0,0,0.32)]"
+        />
       </div>
     </div>
   );
@@ -831,16 +670,18 @@ function ServiceCard({
   whatsappUrl?: string;
 }) {
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#c7b98e] hover:shadow-xl dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:shadow-black/25">
-      <div className="relative flex h-44 items-center justify-center overflow-hidden border-b border-[#d8cdb6] bg-[#fff8e7] dark:border-[#302c24] dark:bg-[#11110f]">
+    <article className="group flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7]/95 shadow-[0_10px_30px_rgba(47,38,22,0.06)] transition duration-300 hover:-translate-y-1.5 hover:border-[#c7b98e] hover:shadow-[0_22px_50px_rgba(47,38,22,0.14)] dark:border-[#302c24] dark:bg-[#161410]/95 dark:hover:border-[#5a4e3a] dark:hover:shadow-[0_22px_55px_rgba(0,0,0,0.35)]">
+      <div className="relative flex h-48 items-center justify-center overflow-hidden bg-[#fff8e7] sm:h-52 dark:bg-[#11110f]">
         {service.imageUrl ? (
           <>
             <img
               src={service.imageUrl}
-              alt={service.title}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              alt={`${service.title} service`}
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover saturate-[0.9] transition duration-700 group-hover:scale-[1.045] group-hover:saturate-100"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-70" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-black/15" />
           </>
         ) : (
           <>
@@ -854,40 +695,44 @@ function ServiceCard({
             </span>
           </>
         )}
-      </div>
 
-      <div className="flex flex-1 flex-col p-5">
-        <span className="w-fit rounded-full border border-[#d6b46a]/40 bg-[#fff4cc] px-3 py-1 text-[10px] font-black text-[#7a570f] dark:border-[#d6b46a]/25 dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
+        <span className="absolute left-4 top-4 z-10 w-fit rounded-full border border-white/15 bg-[#11110f]/75 px-3 py-1.5 text-[10px] font-black text-[#f2d785] shadow-lg backdrop-blur-md">
           {service.badge}
         </span>
 
-        <h3 className="mt-4 text-xl font-black leading-tight">
+        <span className="absolute bottom-4 right-4 z-10 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-[#11110f]/70 text-[#f2d785] shadow-lg backdrop-blur-md transition duration-300 group-hover:-translate-y-0.5 group-hover:bg-[#d6b46a] group-hover:text-[#11110f]">
+          <ServiceIcon type={service.icon} />
+        </span>
+      </div>
+
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
+        <h3 className="text-xl font-black leading-tight sm:text-[1.35rem]">
           {service.title}
         </h3>
 
-        <p className="mt-3 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
+        <p className="mt-3 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#b2aa9d]">
           {service.description}
         </p>
 
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-5 flex flex-wrap gap-2">
           {service.highlights.map((highlight) => (
             <li
               key={highlight}
-              className="flex items-start gap-2 text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]"
+              className="inline-flex items-center gap-2 rounded-full border border-[#e6dbc5] bg-[#fff9ed] px-3 py-1.5 text-[11px] font-bold leading-4 text-[#665d4e] dark:border-[#343027] dark:bg-[#1d1a15] dark:text-[#b8b0a3]"
             >
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#d6b46a]" />
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#b7862f] dark:bg-[#d6b46a]" />
               {highlight}
             </li>
           ))}
         </ul>
 
-        <div className="mt-6 flex items-center gap-2 border-t border-[#eadfca] pt-4 dark:border-[#2b271f]">
+        <div className="mt-auto flex items-center gap-2 pt-6">
           <Link
             to={`/book-repair?category=${encodeURIComponent(service.categoryParam)}`}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#1f1a12] py-2.5 px-3 text-xs font-black text-[#f7f5ef] shadow-sm transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+            className="group/action inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#1f1a12] px-3 py-2.5 text-xs font-black text-[#f7f5ef] shadow-sm transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
           >
             <span>Book Repair</span>
-            <ArrowRightIcon className="h-3.5 w-3.5" />
+            <ArrowRightIcon className="h-3.5 w-3.5 transition-transform group-hover/action:translate-x-0.5" />
           </Link>
 
           {whatsappUrl && (
@@ -896,7 +741,7 @@ function ServiceCard({
               target="_blank"
               rel="noreferrer"
               title={`Enquire about ${service.title} on WhatsApp`}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 py-2.5 px-3 text-xs font-bold text-emerald-800 transition hover:bg-[#25D366] hover:text-white dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-[#25D366] dark:hover:text-white"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-emerald-600/30 bg-emerald-50 px-3 py-2.5 text-xs font-black text-emerald-900 transition hover:border-[#25D366] hover:bg-[#25D366] hover:text-[#052e1b] dark:border-emerald-400/45 dark:bg-[#063f32] dark:text-[#8ff5d2] dark:hover:bg-[#25D366] dark:hover:text-[#052e1b]"
             >
               <WhatsAppIcon className="h-3.5 w-3.5" />
               <span>Enquiry</span>
@@ -908,41 +753,14 @@ function ServiceCard({
   );
 }
 
-function AboutMetric({ value, label }: { value: string; label: string }) {
+function AboutPoint({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-[#d8cdb6] bg-[#fff8e7] p-4 dark:border-[#302c24] dark:bg-[#1a1712]">
-      <p className="text-2xl font-black text-[#8a6624] dark:text-[#d6b46a]">
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
-        {label}
-      </p>
-    </div>
-  );
-}
-
-function BenefitCard({
-  icon,
-  title,
-  description
-}: {
-  icon: "price" | "home" | "track" | "experience";
-  title: string;
-  description: string;
-}) {
-  return (
-    <article className="group h-full rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#c7b98e] hover:shadow-lg dark:border-[#302c24] dark:bg-[#11110f] dark:hover:border-[#50483b]">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff4cc] text-[#8a6624] transition group-hover:scale-105 dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-        <FeatureIcon type={icon} />
+    <span className="inline-flex items-center gap-2 text-[#514838] dark:text-[#d5cec2]">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[10px] text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300">
+        ✓
       </span>
-
-      <h3 className="mt-5 text-lg font-black">{title}</h3>
-
-      <p className="mt-2 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-        {description}
-      </p>
-    </article>
+      {text}
+    </span>
   );
 }
 
@@ -1013,7 +831,7 @@ function ProductCategoryCard({
           target="_blank"
           rel="noreferrer"
           title={`Enquire about ${category.title} on WhatsApp`}
-          className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 transition hover:bg-[#25D366] hover:text-white dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-[#25D366] dark:hover:text-white"
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-emerald-600/25 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-900 transition hover:border-[#25D366] hover:bg-[#25D366] hover:text-[#052e1b] dark:border-emerald-400/40 dark:bg-[#063f32] dark:text-[#8ff5d2] dark:hover:bg-[#25D366] dark:hover:text-[#052e1b]"
         >
           <WhatsAppIcon className="h-3 w-3" />
           <span>Enquire</span>
@@ -1239,7 +1057,7 @@ function ServiceIcon({ type }: { type: ServiceIconType }) {
 function FeatureIcon({
   type
 }: {
-  type: "experience" | "location" | "home" | "track" | "price";
+  type: "experience" | "location" | "home" | "track";
 }) {
   if (type === "location") {
     return (
@@ -1298,25 +1116,6 @@ function FeatureIcon({
           stroke="currentColor"
           strokeWidth="1.8"
           strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-
-  if (type === "price") {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true"
-        className="h-5 w-5"
-      >
-        <path
-          d="M5 5h14v14H5V5Zm4 4h6M9 12h4a2 2 0 1 1 0 4H9M12 8v8"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
         />
       </svg>
     );

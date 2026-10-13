@@ -21,7 +21,6 @@ import {
 import { useShopSettings } from "../hooks/useShopSettings";
 import TanishElectronicsLogo from "../components/common/TanishElectronicsLogo";
 
-const SHOP_PHONE = "8850973399";
 const SWIPE_THRESHOLD = 50;
 
 function ProductDetailsPage() {
@@ -47,10 +46,6 @@ function ProductDetailsPage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    void loadProduct();
-  }, [id]);
-  useEffect(() => {
     const previousTitle = document.title;
     if (product) {
       document.title = `${product.productName} | ${settings.shopName}`;
@@ -61,7 +56,7 @@ function ProductDetailsPage() {
     return () => {
       document.title = previousTitle;
     };
-  }, [product]);
+  }, [product, settings.shopName]);
 
   useEffect(() => {
     async function autoFillCustomerDetails() {
@@ -134,6 +129,15 @@ function ProductDetailsPage() {
     }
   }
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    // This route change intentionally starts the product request.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadProduct();
+    // Product loading is intentionally keyed to the route identifier.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   async function handleEnquiry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -205,6 +209,8 @@ function ProductDetailsPage() {
   function getWhatsAppLink() {
     if (!product) return "#";
 
+    const whatsappNumber = settings.whatsAppNumber.replace(/\D/g, "");
+
     const messageText = [
       `Hello ${settings.shopName},`,
       `I am interested in ${product.productName}.`,
@@ -213,10 +219,13 @@ function ProductDetailsPage() {
       "Please confirm availability and condition."
     ].join("\n");
 
-    return `https://wa.me/91${SHOP_PHONE}?text=${encodeURIComponent(
+    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
       messageText
     )}`;
   }
+
+  const shopPhone = settings.primaryPhone || "8850973399";
+  const shopPhoneHref = `tel:${shopPhone.replace(/\D/g, "")}`;
 
   if (loading) {
     return <ProductDetailsLoading />;
@@ -296,7 +305,7 @@ function ProductDetailsPage() {
             getProductImageUrl={getProductImageUrl}
           />
 
-          <section className="min-w-0 lg:sticky lg:top-24">
+          <section className="min-w-0 rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7]/90 p-6 shadow-[0_24px_70px_-50px_rgba(31,26,18,0.7)] backdrop-blur dark:border-[#302c24] dark:bg-[#15130f]/90 sm:p-8 lg:sticky lg:top-24">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="category">{product.categoryName}</Badge>
               <Badge variant="condition">{product.conditionName}</Badge>
@@ -330,7 +339,7 @@ function ProductDetailsPage() {
               Product #{product.productId}
             </p>
 
-            <h1 className="mt-2 text-4xl font-black leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-6xl">
+            <h1 className="font-display mt-2 text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl">
               {product.productName}
             </h1>
 
@@ -338,7 +347,7 @@ function ProductDetailsPage() {
               {productMeta}
             </p>
 
-            <div className="mt-7 border-y border-[#d8cdb6] py-6 dark:border-[#302c24]">
+            <div className="mt-7 rounded-2xl border border-[#d8cdb6] bg-[#fff8e7] p-5 dark:border-[#3a342a] dark:bg-[#1d1a15]">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#817867] dark:text-[#928a7d]">
                 Listed price
               </p>
@@ -367,22 +376,22 @@ function ProductDetailsPage() {
                 href={getWhatsAppLink()}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-transparent px-6 py-3.5 text-sm font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:hover:bg-[#242016]"
+                className="inline-flex min-h-13 items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-50 px-6 py-3.5 text-sm font-black text-emerald-900 transition hover:border-[#25D366] hover:bg-[#25D366] hover:text-[#052e1b] dark:border-emerald-400/40 dark:bg-[#063f32] dark:text-[#8ff5d2] dark:hover:bg-[#25D366] dark:hover:text-[#052e1b]"
               >
-                <WhatsAppIcon className="h-5 w-5 text-[#00c26e]" />
+                <WhatsAppIcon className="h-5 w-5" />
                 WhatsApp
               </a>
             </div>
 
             <a
-              href={`tel:${SHOP_PHONE}`}
+              href={shopPhoneHref}
               className="mt-3 inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-5 py-3 text-sm font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:bg-[#11110f] dark:hover:bg-[#242016]"
             >
               <PhoneIcon />
-              Call shop: {SHOP_PHONE}
+              Call shop: {shopPhone}
             </a>
 
-            <div className="mt-7 grid grid-cols-3 gap-2 border-t border-[#d8cdb6] pt-6 dark:border-[#302c24]">
+            <div className="mt-6 grid grid-cols-3 gap-2 rounded-2xl border border-[#d8cdb6] bg-[#fffaf0]/70 p-4 dark:border-[#302c24] dark:bg-[#11110f]/70">
               <ServicePoint
                 icon={<StoreIcon />}
                 title="Local pickup"
@@ -677,9 +686,9 @@ function ProductDetailsPage() {
             target="_blank"
             rel="noreferrer"
             aria-label="Chat on WhatsApp about this product"
-            className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#00c26e] text-white shadow-sm transition active:scale-95 hover:bg-[#00b866]"
+            className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-[#052e1b] shadow-sm transition active:scale-95 hover:bg-[#48df7f]"
           >
-            <WhatsAppIcon className="h-6 w-6 text-white" />
+            <WhatsAppIcon className="h-6 w-6" />
           </a>
 
           <button
@@ -802,7 +811,7 @@ function ProductImageGallery({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
-          className={`relative flex aspect-square touch-pan-y items-center justify-center overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#f3efe6] p-5 dark:border-[#302c24] dark:bg-[#0f0e0c] ${
+          className={`relative flex aspect-square touch-pan-y items-center justify-center overflow-hidden rounded-[2rem] border border-[#d8cdb6] bg-[radial-gradient(circle_at_50%_42%,#fffdf7_0%,#eee7d8_72%)] p-6 shadow-[0_24px_70px_-50px_rgba(31,26,18,0.7)] dark:border-[#302c24] dark:bg-[radial-gradient(circle_at_50%_42%,#211e18_0%,#0f0e0c_72%)] sm:p-8 ${
             hasMultipleImages ? "order-1 sm:order-2" : "order-1"
           }`}
         >
