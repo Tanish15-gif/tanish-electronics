@@ -37,6 +37,12 @@ public static class CsvExportHelper
             return "";
         }
 
+        // Spreadsheet applications can interpret formulas even after leading whitespace.
+        var significant = value.TrimStart();
+        if (value[0] is '\t' or '\r' or '\n' ||
+            (significant.Length > 0 && significant[0] is '=' or '+' or '-' or '@'))
+            value = "'" + value;
+
         var escapedValue = value.Replace("\"", "\"\"");
 
         if (
