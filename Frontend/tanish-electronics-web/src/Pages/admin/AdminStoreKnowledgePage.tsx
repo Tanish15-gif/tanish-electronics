@@ -1,4 +1,11 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  type ReactNode
+} from "react";
 import {
   BrainCircuit,
   BookOpen,
@@ -10,20 +17,18 @@ import {
   Trash2,
   RefreshCw,
   X,
-  Tag,
   CheckCircle2,
   AlertTriangle,
   Download,
   Zap,
   ShieldCheck,
   Wrench,
-  Activity,
+  MoreHorizontal,
   Copy,
   Check,
   ChevronDown,
   ChevronUp,
   FileText,
-  XCircle,
   Lightbulb,
   EyeOff
 } from "lucide-react";
@@ -74,12 +79,12 @@ export default function AdminStoreKnowledgePage() {
 
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = `Store Information | ${settings.shopName}`;
+    document.title = `AI Knowledge | ${settings.shopName}`;
 
     return () => {
       document.title = previousTitle;
     };
-  }, []);
+  }, [settings.shopName]);
 
   // Interactive Card Expansion
   const [expandedCardIds, setExpandedCardIds] = useState<Set<number>>(
@@ -126,8 +131,8 @@ export default function AdminStoreKnowledgePage() {
 
   const statusFilterOptions: DropdownOption<StatusFilterType>[] = [
     { value: "All", label: "All Statuses" },
-    { value: "Active", label: "Active in AI Grounding" },
-    { value: "Inactive", label: "Inactive (Draft)" }
+    { value: "Active", label: "Active in AI" },
+    { value: "Inactive", label: "Drafts" }
   ];
 
   const modalCategoryOptions = useMemo<DropdownOption<string>[]>(
@@ -138,8 +143,11 @@ export default function AdminStoreKnowledgePage() {
     [categories]
   );
 
-  // Fetch articles
+  const articleRequest = useRef(0);
+
+  // Ignore superseded requests when filters change quickly.
   const fetchArticles = useCallback(async () => {
+    const request = ++articleRequest.current;
     setIsLoading(true);
     setError(null);
     try {
@@ -162,16 +170,26 @@ export default function AdminStoreKnowledgePage() {
         isActive: isActiveParam
       });
 
+      if (request !== articleRequest.current) return;
+      const lastPage = Math.max(
+        1,
+        Math.ceil((res.totalRecords ?? res.totalCount ?? 0) / pageSize)
+      );
+      if (page > lastPage) {
+        setPage(lastPage);
+        return;
+      }
       setArticles(res.items || []);
       setTotalRecords(res.totalRecords ?? res.totalCount ?? 0);
     } catch (err: unknown) {
+      if (request !== articleRequest.current) return;
       setError(
         err instanceof Error
           ? err.message
           : "Failed to load store knowledge articles."
       );
     } finally {
-      setIsLoading(false);
+      if (request === articleRequest.current) setIsLoading(false);
     }
   }, [getToken, page, pageSize, search, selectedCategory, statusFilter]);
 
@@ -189,11 +207,18 @@ export default function AdminStoreKnowledgePage() {
   }, [getToken]);
 
   useEffect(() => {
-    void fetchArticles();
+    // Debounce typing and cancel scheduled requests during cleanup.
+    const timer = window.setTimeout(() => void fetchArticles(), 200);
+    return () => {
+      window.clearTimeout(timer);
+      articleRequest.current += 1;
+    };
   }, [fetchArticles]);
 
   useEffect(() => {
-    void fetchCategories();
+    // Scheduling lets StrictMode cleanup cancel a redundant initial request.
+    const timer = window.setTimeout(() => void fetchCategories(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchCategories]);
 
   // Toast Helper
@@ -206,15 +231,11 @@ export default function AdminStoreKnowledgePage() {
   const stats = useMemo(() => {
     const total = totalRecords;
     const activeOnScreen = articles.filter((a) => a.isActive).length;
-    const activeRate =
-      articles.length > 0
-        ? Math.round((activeOnScreen / articles.length) * 100)
-        : 100;
     return {
       total,
       active: activeOnScreen,
-      categoriesCount: categories.length,
-      activeRate
+      drafts: articles.length - activeOnScreen,
+      categoriesCount: categories.length
     };
   }, [totalRecords, articles, categories]);
 
@@ -289,12 +310,10 @@ export default function AdminStoreKnowledgePage() {
           editingArticle.storeKnowledgeId,
           payload
         );
-        showToast(`Article "${payload.title}" updated and re-vectorized!`);
+        showToast(`Article "${payload.title}" updated.`);
       } else {
         await createStoreKnowledge(token, payload);
-        showToast(
-          `Article "${payload.title}" created & indexed into AI chatbot!`
-        );
+        showToast(`Article "${payload.title}" created.`);
       }
 
       setIsModalOpen(false);
@@ -324,6 +343,7 @@ export default function AdminStoreKnowledgePage() {
         )
       );
 
+      if (statusFilter !== "All") void fetchArticles();
       showToast(
         res.message ||
           (res.isActive ? "Article activated in AI." : "Article deactivated.")
@@ -363,10 +383,16 @@ export default function AdminStoreKnowledgePage() {
   };
 
   // Copy Content to Clipboard
-  const handleCopy = (id: number, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const handleCopy = async (id: number, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      setError(
+        "Could not copy this article. Please check clipboard access and try again."
+      );
+    }
   };
 
   // Client-side CSV Exporter
@@ -406,7 +432,7 @@ export default function AdminStoreKnowledgePage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("Knowledge Base exported as CSV!");
+    showToast("Articles on this page exported as CSV.");
   };
 
   // Category Color Badges
@@ -452,46 +478,40 @@ export default function AdminStoreKnowledgePage() {
     };
   };
 
-  // Single compact sort parser for the middle of each card (matching the image)
-  const renderCompactContent = (rawText: string, isExpanded: boolean) => {
-    const labelPattern =
-      /(Symptom:|Root Cause:|Solution:|Honest Technical Advice:|Scope:|Conditions:|Coverage Area:|Process:|Visit Charge:)/gi;
-    const parts = rawText.split(labelPattern);
-
-    if (parts.length > 1) {
+  const renderArticleContent = (rawText: string, isExpanded: boolean) => {
+    if (!isExpanded)
       return (
-        <p
-          className={`text-xs leading-relaxed text-[#403728] dark:text-[#c4bba8] ${isExpanded ? "" : "line-clamp-2"}`}
-        >
-          {parts.map((segment, idx) => {
-            const isLabel =
-              /(Symptom:|Root Cause:|Solution:|Honest Technical Advice:|Scope:|Conditions:|Coverage Area:|Process:|Visit Charge:)/i.test(
-                segment
-              );
-            if (isLabel) {
-              return (
-                <strong
-                  key={idx}
-                  className="font-bold text-[#1a160f] dark:text-[#f8f5ee] mr-1"
-                >
-                  {segment}
-                </strong>
-              );
-            }
-            return <span key={idx}>{segment} </span>;
-          })}
+        <p className="line-clamp-2 text-[13px] leading-6 text-[#716958] dark:text-[#b3aa99]">
+          {rawText}
         </p>
       );
-    }
-
+    const parts = rawText.split(
+      /(Symptom:|Root Cause:|Solution:|Honest Technical Advice:|Scope:|Conditions:|Coverage Area:|Process:|Visit Charge:)/gi
+    );
     return (
-      <p
-        className={`text-xs leading-relaxed text-[#403728] dark:text-[#c4bba8] ${isExpanded ? "" : "line-clamp-2"}`}
-      >
-        {rawText}
-      </p>
+      <div className="grid gap-4 text-[13px] leading-6 text-[#514938] dark:text-[#c4bba8] sm:grid-cols-2">
+        {parts[0].trim() && (
+          <p className="whitespace-pre-wrap sm:col-span-2">{parts[0]}</p>
+        )}
+        {parts.slice(1).map((part, index, all) =>
+          index % 2 === 0 ? (
+            <div key={index}>
+              <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
+                {part.replace(/:$/, "")}
+              </h4>
+              <p className="whitespace-pre-wrap">{all[index + 1]?.trim()}</p>
+            </div>
+          ) : null
+        )}
+      </div>
     );
   };
+  const formatDate = (value: string) =>
+    new Date(value).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
   const hasActiveFilters =
@@ -507,153 +527,111 @@ export default function AdminStoreKnowledgePage() {
   };
 
   return (
-    <main className="te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-        {/* ── Signature Executive Header Banner ────────────────────────────── */}
-        <header className="overflow-hidden rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-sm transition-all dark:border-[#302c24] dark:bg-[#1a1712] sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            {/* Title & Context */}
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b46a]/40 bg-[#fff5d6] px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#8a6624] dark:border-[#d6b46a]/30 dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-                  <Sparkles
-                    size={12}
-                    className="text-[#8a6624] dark:text-[#d6b46a]"
-                  />
-                  AI Grounding & Vector Store
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-400/30 dark:text-emerald-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live RAG Active
-                </span>
-              </div>
-
-              <h1 className="font-display mt-3 text-3xl font-extrabold tracking-tight text-[#1a160f] dark:text-[#f8f5ee] sm:text-4xl lg:text-5xl">
-                Store Knowledge Base
+    <div className="knowledge-page te-sheet-bg min-h-screen overflow-x-hidden bg-[#f7f5ef] text-[#1f1a12] dark:bg-[#11110f] dark:text-[#e8e3d8]">
+      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <header className="mb-6">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.16em] text-[#8a6624] dark:text-[#d6b46a]">
+            <BrainCircuit size={15} /> AI workspace{" "}
+            <span className="text-[#b8ad99]">/</span> Knowledge
+          </div>
+          <div className="mt-3 flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
+            <div className="max-w-xl">
+              <h1 className="font-display text-[32px] font-semibold leading-tight text-[#241e14] dark:text-[#f8f5ee] sm:text-[38px]">
+                Store knowledge base
               </h1>
-
-              <p className="mt-3 text-sm font-semibold leading-relaxed text-[#6f6758] dark:text-[#a8a093] sm:text-base">
-                Authoritative repair diagnosis, shop warranties, and store
-                policies grounding Subhash's AI assistant in real-time across
-                Mumbai.
+              <p className="mt-2 max-w-lg text-[13px] leading-6 text-[#716958] dark:text-[#b3aa99]">
+                Manage the repair advice, warranties, and store policies your AI
+                assistant uses to help customers.
               </p>
             </div>
-
-            {/* Quick Actions */}
-            <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => void fetchArticles()}
                 disabled={isLoading}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#d8cdb6] bg-white px-4 py-2.5 text-xs font-black text-[#1f1a12] shadow-xs transition hover:bg-[#faf7f0] active:scale-95 disabled:opacity-50 dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#e8e3d8] dark:hover:bg-[#201a13] cursor-pointer"
-                title="Refresh and sync index"
+                className="kb-button kb-button-quiet"
+                aria-label="Refresh articles"
+                title="Reload articles"
               >
                 <RefreshCw
-                  size={14}
-                  className={isLoading ? "animate-spin text-[#8a6624]" : ""}
-                />
-                <span>Refresh Index</span>
+                  size={15}
+                  className={isLoading ? "animate-spin" : ""}
+                />{" "}
+                Refresh
               </button>
-
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#d8cdb6] bg-white px-4 py-2.5 text-xs font-black text-[#1f1a12] shadow-xs transition hover:bg-[#faf7f0] active:scale-95 dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#e8e3d8] dark:hover:bg-[#201a13] cursor-pointer"
-                title="Export Knowledge Articles to CSV"
+                disabled={isLoading || articles.length === 0}
+                className="kb-button"
+                title="Export articles on this page"
               >
-                <Download size={14} />
-                <span>Export CSV</span>
+                <Download size={15} /> Export CSV
               </button>
-
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1f1a12] px-5 py-2.5 text-xs font-black text-[#f8f5ee] shadow-md transition hover:bg-[#382f21] active:scale-95 dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
+                className="kb-button kb-button-primary"
               >
-                <Plus size={16} strokeWidth={3} />
-                <span>Add Knowledge Article</span>
+                <Plus size={16} /> Add article
               </button>
             </div>
           </div>
-
-          {/* ── KPI Summary Cards ────────────────────────────────────────── */}
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-            {/* Total Articles */}
-            <div className="rounded-2xl border border-[#d8cdb6] bg-[#fbf9f4] p-4 shadow-2xs dark:border-[#302c24] dark:bg-[#14110d]">
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-[#786d5b] dark:text-[#a89d87]">
-                <span>Total Articles</span>
-                <BookOpen
-                  size={15}
-                  className="text-[#8a6624] dark:text-[#d6b46a]"
-                />
-              </div>
-              <p className="mt-2 text-3xl font-black text-[#1a160f] dark:text-[#f8f5ee]">
-                {stats.total}
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-[#8a7f6c] dark:text-[#8e8574]">
-                Indexed in SQL Server
-              </p>
-            </div>
-
-            {/* Live in AI Vector Space */}
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50/50 p-4 shadow-2xs dark:border-emerald-400/20 dark:bg-emerald-950/20">
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
-                <span>Vector Grounding</span>
-                <Zap
-                  size={15}
-                  className="text-emerald-600 dark:text-emerald-400"
-                />
-              </div>
-              <p className="mt-2 text-3xl font-black text-emerald-700 dark:text-emerald-400">
-                {stats.active}
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-emerald-700/80 dark:text-emerald-400/80">
-                Active in RAG Cosine Search
-              </p>
-            </div>
-
-            {/* Topics / Categories */}
-            <div className="rounded-2xl border border-[#d8cdb6] bg-[#fbf9f4] p-4 shadow-2xs dark:border-[#302c24] dark:bg-[#14110d]">
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-[#786d5b] dark:text-[#a89d87]">
-                <span>Topic Buckets</span>
-                <Layers
-                  size={15}
-                  className="text-[#8a6624] dark:text-[#d6b46a]"
-                />
-              </div>
-              <p className="mt-2 text-3xl font-black text-[#1a160f] dark:text-[#f8f5ee]">
-                {stats.categoriesCount}
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-[#8a7f6c] dark:text-[#8e8574]">
-                Troubleshooting, Warranty, Policies
-              </p>
-            </div>
-
-            {/* Sync Rate */}
-            <div className="rounded-2xl border border-[#d8cdb6] bg-[#fbf9f4] p-4 shadow-2xs dark:border-[#302c24] dark:bg-[#14110d]">
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-[#786d5b] dark:text-[#a89d87]">
-                <span>Coverage Health</span>
-                <Activity
-                  size={15}
-                  className="text-[#8a6624] dark:text-[#d6b46a]"
-                />
-              </div>
-              <p className="mt-2 text-3xl font-black text-[#1a160f] dark:text-[#f8f5ee]">
-                {stats.activeRate}%
-              </p>
-              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#ded5c2] dark:bg-[#2e261b]">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                  style={{ width: `${stats.activeRate}%` }}
-                />
-              </div>
-            </div>
-          </div>
         </header>
+        <div
+          className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+          aria-label="Knowledge overview"
+          aria-busy={isLoading}
+        >
+          {[
+            {
+              label: hasActiveFilters ? "Matching articles" : "Total articles",
+              value: stats.total,
+              note: hasActiveFilters
+                ? "Across your filtered results"
+                : "Across your knowledge base",
+              icon: BookOpen
+            },
+            {
+              label: "Active in AI",
+              value: stats.active,
+              note: "Articles on this page",
+              icon: Sparkles
+            },
+            {
+              label: "Categories",
+              value: stats.categoriesCount,
+              note: "Available topic categories",
+              icon: Layers
+            },
+            {
+              label: "Draft articles",
+              value: stats.drafts,
+              note: "Inactive articles on this page",
+              icon: FileText
+            }
+          ].map(({ label, value, note, icon: Icon }) => (
+            <div key={label} className="kb-metric">
+              <div className="kb-metric-label">
+                <span>{label}</span>
+                <Icon
+                  size={16}
+                  className="text-[#a4803e] dark:text-[#d6b46a]"
+                />
+              </div>
+              <p className="kb-metric-value">
+                {isLoading || error ? "..." : value}
+              </p>
+              <p className="kb-metric-note">{note}</p>
+            </div>
+          ))}
+        </div>
 
-        {/* ── Toast Alert ─────────────────────────────────────────────────── */}
         {successToast && (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3.5 text-xs font-bold text-emerald-800 shadow-sm animate-in fade-in slide-in-from-top-2 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300">
+          <div
+            role="status"
+            className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3.5 text-xs font-bold text-emerald-800 shadow-sm animate-in fade-in slide-in-from-top-2 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300"
+          >
             <div className="flex items-center gap-2">
               <CheckCircle2
                 size={16}
@@ -664,6 +642,7 @@ export default function AdminStoreKnowledgePage() {
             <button
               type="button"
               onClick={() => setSuccessToast(null)}
+              aria-label="Dismiss notification"
               className="text-emerald-700 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-white"
             >
               <X size={14} />
@@ -671,346 +650,372 @@ export default function AdminStoreKnowledgePage() {
           </div>
         )}
 
-        {/* ── Filter & Search Section with Custom UniversalDropdown ───────── */}
-        <section className="mt-6 rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_240px_240px_auto] lg:items-end">
-            {/* Search Input */}
-            <div>
-              <label className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]">
-                Search Knowledge
-              </label>
-              <div className="relative">
-                <Search
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8a7f6c] dark:text-[#a89d87]"
-                  size={16}
-                />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Search symptom, root cause, or tag..."
-                  className="flex min-h-12 w-full items-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] py-3 pl-10 pr-9 text-sm font-bold text-[#1f1a12] placeholder-[#8a7f6c] outline-none transition focus:border-[#d6b46a] focus:ring-4 focus:ring-[#d6b46a]/15 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:placeholder-[#6b6251]"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
+        <section className="mt-7" aria-labelledby="knowledge-library-title">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <h2
+                id="knowledge-library-title"
+                className="text-base font-semibold"
+              >
+                Article library
+              </h2>
+              <span className="rounded-full border border-[#e4ddce] bg-[#fffdf8] px-2 py-0.5 text-[11px] tabular-nums text-[#716958] dark:border-[#363025] dark:bg-[#1a1712] dark:text-[#b3aa99]">
+                {isLoading || error ? "..." : totalRecords}
+              </span>
+            </div>
+            <p className="text-xs text-[#716958] dark:text-[#b3aa99]">
+              Only active articles are used by the assistant
+            </p>
+          </div>
+          <div className="mb-4 rounded-xl border border-[#e4ddce] bg-[#fffdf8] p-4 dark:border-[#363025] dark:bg-[#1a1712]">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_200px_180px]">
+              <div className="sm:col-span-2 xl:col-span-1">
+                <label
+                  htmlFor="knowledge-search"
+                  className="mb-2 block text-xs font-medium text-[#716958] dark:text-[#b3aa99]"
+                >
+                  Search articles
+                </label>
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8a7f6c]"
+                    size={16}
+                  />
+                  <input
+                    id="knowledge-search"
+                    type="search"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
                       setPage(1);
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-[#8a7f6c] hover:text-[#1a160f] dark:hover:text-white"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
+                    placeholder="Search titles, symptoms, or tags..."
+                    className="h-11 w-full rounded-lg border border-[#d8cdb6] bg-transparent pl-10 pr-3 text-[13px] outline-none placeholder:text-[#8a7f6c] dark:border-[#363025]"
+                  />
+                </div>
               </div>
+              <UniversalDropdown<string>
+                menuClassName="kb-dropdown-menu"
+                className="kb-filter"
+                label="Category"
+                options={categoryFilterOptions}
+                value={selectedCategory}
+                onChange={(value) => {
+                  setSelectedCategory(value);
+                  setPage(1);
+                }}
+              />
+              <UniversalDropdown<StatusFilterType>
+                menuClassName="kb-dropdown-menu"
+                className="kb-filter"
+                label="AI status"
+                options={statusFilterOptions}
+                value={statusFilter}
+                onChange={(value) => {
+                  setStatusFilter(value);
+                  setPage(1);
+                }}
+              />
             </div>
-
-            {/* Custom Category UniversalDropdown */}
-            <UniversalDropdown<string>
-              label="Topic Category"
-              options={categoryFilterOptions}
-              value={selectedCategory}
-              onChange={(value) => {
-                setSelectedCategory(value);
-                setPage(1);
-              }}
-              placeholder="All Categories"
-            />
-
-            {/* Custom Status UniversalDropdown */}
-            <UniversalDropdown<StatusFilterType>
-              label="Vector Grounding Status"
-              options={statusFilterOptions}
-              value={statusFilter}
-              onChange={(value) => {
-                setStatusFilter(value);
-                setPage(1);
-              }}
-              placeholder="All Statuses"
-            />
-
-            {/* Reset Button */}
             {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="flex h-12 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-5 text-xs font-black text-[#1f1a12] transition hover:bg-[#faf7f0] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:bg-[#1a1712] cursor-pointer"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        </section>
-
-        {/* ── Compact Row View Content Area ────────────────────────────── */}
-        <section className="mt-6">
-          {error ? (
-            <div className="flex items-center gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm font-bold text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-400">
-              <AlertTriangle size={18} className="shrink-0" />
-              <span>{error}</span>
-            </div>
-          ) : isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div
-                  key={i}
-                  className="h-24 animate-pulse rounded-2xl border border-[#ded5c2] bg-white/70 dark:border-[#302c24] dark:bg-[#1a1712]/70"
-                />
-              ))}
-            </div>
-          ) : articles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[2rem] border border-dashed border-[#ded5c2] bg-[#fffdf7] p-16 text-center dark:border-[#302c24] dark:bg-[#1a1712]">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#ded5c2] bg-[#fbf9f4] text-[#8a6624] dark:border-[#302c24] dark:bg-[#12100d] dark:text-[#d6b46a]">
-                <BookOpen size={28} />
-              </div>
-              <h3 className="mt-4 text-base font-black text-[#1a160f] dark:text-[#f8f5ee]">
-                No Knowledge Articles Found
-              </h3>
-              <p className="mt-1.5 max-w-md text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                {hasActiveFilters
-                  ? "No articles matched your active filters. Try searching for symptoms like 'backlight', 'lines', 'home visit', or click Reset."
-                  : "Start grounding your AI assistant by adding your first technical troubleshooting article or shop policy."}
-              </p>
-              <div className="mt-5 flex gap-2">
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="rounded-xl border border-[#ded5c2] bg-white px-4 py-2 text-xs font-black text-[#1f1a12] transition hover:bg-[#faf7f0] dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#f8f5ee] cursor-pointer"
-                  >
-                    Reset Filters
-                  </button>
-                )}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#e4ddce] pt-3 text-xs text-[#716958] dark:border-[#363025] dark:text-[#b3aa99]">
+                <span>
+                  {isLoading
+                    ? "Finding articles..."
+                    : totalRecords +
+                      " matching article" +
+                      (totalRecords === 1 ? "" : "s")}
+                  {selectedCategory !== "All" ? " / " + selectedCategory : ""}
+                  {statusFilter !== "All"
+                    ? " / " +
+                      (statusFilter === "Active" ? "Active in AI" : "Drafts")
+                    : ""}
+                </span>
                 <button
                   type="button"
-                  onClick={openCreateModal}
-                  className="rounded-xl bg-[#1f1a12] px-4 py-2 text-xs font-black text-white transition hover:bg-[#382f21] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
+                  onClick={clearFilters}
+                  className="inline-flex min-h-8 items-center gap-1 font-semibold text-[#8a6624] dark:text-[#d6b46a]"
                 >
-                  + Add New Article
+                  <X size={13} /> Clear filters
                 </button>
               </div>
-            </div>
-          ) : (
-            /* ── Compact Row Layout ───────────────────────────────────────── */
-            <div className="space-y-3">
-              {articles.map((art) => {
-                const isExpanded = expandedCardIds.has(art.storeKnowledgeId);
-                const theme = getCategoryTheme(art.category);
-                const isToggling = togglingIds.has(art.storeKnowledgeId);
-                const isCopied = copiedId === art.storeKnowledgeId;
-
-                return (
+            )}
+          </div>
+          <div aria-busy={isLoading}>
+            {error ? (
+              <div
+                role="alert"
+                className="flex items-center gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm font-bold text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-400"
+              >
+                <AlertTriangle size={18} className="shrink-0" />
+                <span className="flex-1">{error}</span>
+                <button
+                  type="button"
+                  className="kb-button"
+                  onClick={() => void fetchArticles()}
+                >
+                  Try again
+                </button>
+              </div>
+            ) : isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
                   <div
-                    key={art.storeKnowledgeId}
-                    className={`overflow-hidden rounded-2xl border transition-all duration-200 ${
-                      art.isActive
-                        ? "border-[#d8cdb6] bg-[#fffdf7] shadow-xs hover:border-[#8a6624]/50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#d6b46a]/40"
-                        : "border-dashed border-[#ded5c2] bg-[#fbf9f4]/60 opacity-80 dark:border-[#302c24] dark:bg-[#14110d]/60"
-                    }`}
+                    key={i}
+                    className="h-24 animate-pulse rounded-2xl border border-[#ded5c2] bg-white/70 dark:border-[#302c24] dark:bg-[#1a1712]/70"
+                  />
+                ))}
+              </div>
+            ) : articles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#ded5c2] bg-[#fffdf7] p-16 text-center dark:border-[#302c24] dark:bg-[#1a1712]">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#ded5c2] bg-[#fbf9f4] text-[#8a6624] dark:border-[#302c24] dark:bg-[#12100d] dark:text-[#d6b46a]">
+                  <BookOpen size={28} />
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-[#1a160f] dark:text-[#f8f5ee]">
+                  No articles found
+                </h3>
+                <p className="mt-1.5 max-w-md text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
+                  {hasActiveFilters
+                    ? "Try a different search or clear your filters to see more articles."
+                    : "Add your first repair guide, warranty detail, or store policy to help your assistant answer customers."}
+                </p>
+                <div className="mt-5 flex gap-2">
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="rounded-xl border border-[#ded5c2] bg-white px-4 py-2 text-xs font-semibold text-[#1f1a12] transition hover:bg-[#faf7f0] dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#f8f5ee] cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="rounded-xl bg-[#1f1a12] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#382f21] dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
                   >
-                    {/* Header Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#ded5c2] bg-[#fbf9f4] text-[#8a6624] dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#d6b46a]">
-                          <FileText size={17} />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-bold text-[#1a160f] dark:text-[#f8f5ee] truncate">
-                              {art.title}
-                            </h3>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${theme.badge}`}
-                            >
-                              {theme.icon}
-                              <span>{art.category}</span>
-                            </span>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                                art.isActive
-                                  ? "bg-emerald-500/15 text-emerald-700 border border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20"
-                                  : "bg-neutral-500/15 text-neutral-600 border border-neutral-500/20 dark:bg-neutral-500/10 dark:text-neutral-400"
-                              }`}
-                            >
-                              {art.isActive ? (
-                                <Sparkles
-                                  size={10}
-                                  className="text-emerald-600 dark:text-emerald-400 shrink-0"
-                                />
-                              ) : (
-                                <EyeOff
-                                  size={10}
-                                  className="text-neutral-500 dark:text-neutral-400 shrink-0"
-                                />
-                              )}
-                              <span>
-                                {art.isActive
-                                  ? "Active in AI"
-                                  : "Inactive (Draft)"}
-                              </span>
-                            </span>
+                    + Add New Article
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {articles.map((art) => {
+                  const isExpanded = expandedCardIds.has(art.storeKnowledgeId);
+                  const theme = getCategoryTheme(art.category);
+                  const tags = (art.tags || "")
+                    .split(",")
+                    .map((tag) => tag.trim())
+                    .filter(Boolean);
+                  const contentId = "article-content-" + art.storeKnowledgeId;
+                  return (
+                    <article key={art.storeKnowledgeId} className="kb-article">
+                      <div className="p-4 sm:px-5 sm:pt-5">
+                        <div className="flex items-start gap-3">
+                          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e8dfca] bg-[#f6f0e3] text-[#947035] dark:border-[#423724] dark:bg-[#2b2418] dark:text-[#d6b46a] sm:flex">
+                            <FileText size={18} />
                           </div>
-
-                          {/* Tags Chips */}
-                          {art.tags && (
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                              <Tag
-                                size={11}
-                                className="text-[#8a7f6c] dark:text-[#8e8574] shrink-0"
-                              />
-                              {art.tags.split(",").map((t, idx) => (
-                                <span
-                                  key={idx}
-                                  className="rounded bg-[#f0ebd8] px-1.5 py-0.5 text-[9.5px] font-semibold text-[#5e533f] dark:bg-[#251f17] dark:text-[#b8ad96]"
-                                >
-                                  #{t.trim()}
-                                </span>
-                              ))}
+                          <div className="min-w-0 flex-1 break-words">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <span
+                                className={
+                                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-medium " +
+                                  theme.badge
+                                }
+                              >
+                                {theme.icon}
+                                {art.category}
+                              </span>
+                              <span
+                                className={
+                                  "inline-flex items-center gap-1.5 text-[11px] font-medium " +
+                                  (art.isActive
+                                    ? "text-emerald-700 dark:text-emerald-400"
+                                    : "text-[#716958] dark:text-[#b3aa99]")
+                                }
+                              >
+                                {art.isActive ? (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" />
+                                ) : (
+                                  <EyeOff size={12} />
+                                )}
+                                {art.isActive ? "Active in AI" : "Draft"}
+                              </span>
                             </div>
-                          )}
+                            <h3 className="text-[15px] font-semibold leading-6 text-[#292218] dark:text-[#f2eadc]">
+                              <button
+                                type="button"
+                                className="text-left hover:text-[#8a6624] dark:hover:text-[#d6b46a]"
+                                aria-expanded={isExpanded}
+                                aria-controls={contentId}
+                                onClick={() =>
+                                  toggleCardExpand(art.storeKnowledgeId)
+                                }
+                              >
+                                {art.title}
+                              </button>
+                            </h3>
+                            <div id={contentId} className="mt-2">
+                              {renderArticleContent(art.content, isExpanded)}
+                            </div>
+                            {tags.length > 0 && (
+                              <div
+                                className="mt-3 flex flex-wrap items-center gap-1.5"
+                                aria-label="Article tags"
+                              >
+                                {(isExpanded ? tags : tags.slice(0, 3)).map(
+                                  (tag, index) => (
+                                    <span key={index} className="kb-tag">
+                                      {tag.replace(/^#/, "")}
+                                    </span>
+                                  )
+                                )}
+                                {!isExpanded && tags.length > 3 && (
+                                  <span className="text-[11px] text-[#716958] dark:text-[#b3aa99]">
+                                    +{tags.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-
-                      {/* Actions Buttons */}
-                      <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
-                        {/* Toggle Active Status */}
-                        <button
-                          type="button"
-                          disabled={isToggling}
-                          onClick={() =>
-                            handleToggleActive(art.storeKnowledgeId)
-                          }
-                          className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-bold transition cursor-pointer disabled:opacity-50 ${
-                            art.isActive
-                              ? "border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
-                              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
-                          }`}
-                          title={
-                            art.isActive
-                              ? "Deactivate from AI chat"
-                              : "Activate for AI chat"
-                          }
-                        >
-                          {isToggling ? (
-                            <RefreshCw size={12} className="animate-spin" />
-                          ) : art.isActive ? (
-                            <XCircle size={13} />
-                          ) : (
-                            <CheckCircle2 size={13} />
-                          )}
+                      <footer className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-[#eee8dc] px-4 py-2.5 dark:border-[#302a20] sm:px-5">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#716958] dark:text-[#b3aa99]">
                           <span>
-                            {art.isActive ? "Deactivate" : "Activate"}
+                            {art.updatedAt ? "Updated" : "Created"}{" "}
+                            <time dateTime={art.updatedAt || art.createdAt}>
+                              {formatDate(art.updatedAt || art.createdAt)}
+                            </time>
                           </span>
-                        </button>
-
-                        {/* Copy Content */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopy(art.storeKnowledgeId, art.content)
-                          }
-                          className="flex items-center justify-center rounded-lg border border-[#ded5c2] bg-[#fbf9f4] p-1.5 text-[#6f6758] transition hover:bg-[#ede6d6] hover:text-[#1a160f] dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#a8a093] dark:hover:bg-[#251f16] dark:hover:text-[#f8f5ee] dark:hover:border-[#42392b] cursor-pointer"
-                          title="Copy article text"
-                        >
-                          {isCopied ? (
-                            <Check
-                              size={13}
-                              className="text-emerald-600 dark:text-emerald-400"
-                            />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-
-                        {/* Inspect AI Grounding */}
-                        <button
-                          type="button"
-                          onClick={() => setPreviewArticle(art)}
-                          className="flex items-center justify-center rounded-lg border border-[#ded5c2] bg-[#fbf9f4] p-1.5 text-[#8a6624] transition hover:bg-[#ede6d6] hover:text-[#6b4e18] dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#d6b46a] dark:hover:bg-[#251f16] dark:hover:text-[#dfc383] dark:hover:border-[#42392b] cursor-pointer"
-                          title="Inspect AI Grounding context"
-                        >
-                          <Sparkles size={13} />
-                        </button>
-
-                        {/* Edit Button */}
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(art)}
-                          className="flex items-center gap-1 rounded-lg border border-[#ded5c2] bg-[#fbf9f4] px-2.5 py-1 text-xs font-bold text-[#1f1a12] transition hover:bg-[#ede6d6] hover:text-black dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#f8f5ee] dark:hover:bg-[#251f16] dark:hover:border-[#42392b] cursor-pointer"
-                        >
-                          <Edit3 size={12} />
-                          <span>Edit</span>
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(art)}
-                          className="flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-600 transition hover:bg-rose-500/20 dark:border-rose-400/30 dark:text-rose-400 dark:hover:bg-rose-500/25 cursor-pointer"
-                          title="Delete article"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-
-                        {/* Expand / Collapse Chevron */}
-                        <button
-                          type="button"
-                          onClick={() => toggleCardExpand(art.storeKnowledgeId)}
-                          className="flex items-center justify-center rounded-lg border border-[#ded5c2] bg-[#fbf9f4] p-1.5 text-[#786d5b] transition hover:bg-[#ede6d6] hover:text-[#1f1a12] dark:border-[#302c24] dark:bg-[#15120c] dark:text-[#a8a093] dark:hover:bg-[#251f16] dark:hover:text-white dark:hover:border-[#42392b] cursor-pointer"
-                          title={isExpanded ? "Collapse" : "Expand"}
-                        >
-                          {isExpanded ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* ── Content Preview / Expanded (Compact Middle Like Image) ── */}
-                    <div className="border-t border-[#f0ebd8] bg-[#faf7f0]/50 px-4 pb-3 pt-3 dark:border-[#272118] dark:bg-[#14100b]/50">
-                      {renderCompactContent(art.content, isExpanded)}
-
-                      <div className="mt-2 flex items-center justify-between text-[10px] text-[#8a7f6c] dark:text-[#6b6251]">
-                        <span>
-                          Created{" "}
-                          {new Date(art.createdAt).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric"
-                          })}
-                        </span>
-                        {art.updatedAt && (
-                          <span>
-                            Updated{" "}
-                            {new Date(art.updatedAt).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric"
-                              }
+                          <button
+                            type="button"
+                            className="inline-flex min-h-8 items-center gap-1 font-medium text-[#8a6624] dark:text-[#d6b46a]"
+                            aria-expanded={isExpanded}
+                            aria-controls={contentId}
+                            onClick={() =>
+                              toggleCardExpand(art.storeKnowledgeId)
+                            }
+                          >
+                            {isExpanded ? "Show less" : "Read article"}
+                            {isExpanded ? (
+                              <ChevronUp size={13} />
+                            ) : (
+                              <ChevronDown size={13} />
                             )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                          </button>
+                        </div>
+                        <div className="ml-auto flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="kb-button kb-button-quiet"
+                            onClick={() => setPreviewArticle(art)}
+                            aria-label={"Preview AI context for " + art.title}
+                          >
+                            <Sparkles size={14} />
+                            <span className="hidden sm:inline">AI preview</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="kb-button"
+                            onClick={() => openEditModal(art)}
+                            aria-label={"Edit " + art.title}
+                          >
+                            <Edit3 size={14} /> Edit
+                          </button>
+                          <details
+                            className="kb-more relative"
+                            onBlur={(event) => {
+                              if (
+                                !event.currentTarget.contains(
+                                  event.relatedTarget
+                                )
+                              )
+                                event.currentTarget.open = false;
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Escape") {
+                                event.currentTarget.open = false;
+                                event.currentTarget
+                                  .querySelector("summary")
+                                  ?.focus();
+                              }
+                            }}
+                          >
+                            <summary
+                              className="kb-button kb-button-quiet px-2"
+                              aria-label={"More actions for " + art.title}
+                              title="More actions"
+                            >
+                              <MoreHorizontal size={18} />
+                            </summary>
+                            <div className="kb-actions-menu">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopy(art.storeKnowledgeId, art.content)
+                                }
+                              >
+                                {copiedId === art.storeKnowledgeId ? (
+                                  <Check size={14} />
+                                ) : (
+                                  <Copy size={14} />
+                                )}
+                                {copiedId === art.storeKnowledgeId
+                                  ? "Copied"
+                                  : "Copy article text"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={togglingIds.has(art.storeKnowledgeId)}
+                                onClick={() =>
+                                  void handleToggleActive(art.storeKnowledgeId)
+                                }
+                              >
+                                {togglingIds.has(art.storeKnowledgeId) ? (
+                                  <RefreshCw
+                                    size={14}
+                                    className="animate-spin"
+                                  />
+                                ) : art.isActive ? (
+                                  <EyeOff size={14} />
+                                ) : (
+                                  <CheckCircle2 size={14} />
+                                )}
+                                {art.isActive
+                                  ? "Move to draft"
+                                  : "Activate in AI"}
+                              </button>
+                              <div className="my-1 border-t border-[#e4ddce] dark:border-[#363025]" />
+                              <button
+                                type="button"
+                                className="text-rose-700 dark:text-rose-400"
+                                onClick={() => setDeleteTarget(art)}
+                              >
+                                <Trash2 size={14} /> Delete article
+                              </button>
+                            </div>
+                          </details>
+                        </div>
+                      </footer>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {!isLoading && !error && totalRecords > 0 && totalPages === 1 && (
+            <p className="mt-4 text-xs text-[#716958] dark:text-[#b3aa99]">
+              Showing {(page - 1) * pageSize + 1} to{" "}
+              {Math.min(page * pageSize, totalRecords)} of {totalRecords}{" "}
+              articles
+            </p>
           )}
 
-          {/* ── Pagination Footer Bar ──────────────────────────────────────── */}
+          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] px-6 py-4 shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs font-black uppercase tracking-wider text-[#6f6758] dark:text-[#a8a093]">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-[#716958] dark:text-[#b3aa99]">
                 Showing {(page - 1) * pageSize + 1}–
                 {Math.min(page * pageSize, totalRecords)} of {totalRecords}{" "}
                 articles
@@ -1021,7 +1026,7 @@ export default function AdminStoreKnowledgePage() {
                   type="button"
                   disabled={page <= 1 || isLoading}
                   onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                  className="rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-3.5 py-1.5 text-xs font-black text-[#1f1a12] transition hover:bg-[#fff4cc] disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:bg-[#1a1712] cursor-pointer"
+                  className="rounded-xl border border-[#d8cdb6] bg-[#fffaf0] px-3.5 py-1.5 text-xs font-semibold text-[#1f1a12] transition hover:bg-[#fff4cc] disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] dark:hover:bg-[#1a1712] cursor-pointer"
                 >
                   Previous
                 </button>
@@ -1040,8 +1045,11 @@ export default function AdminStoreKnowledgePage() {
                     <button
                       key={pNum}
                       type="button"
+                      aria-current={pNum === page ? "page" : undefined}
+                      aria-label={"Go to page " + pNum}
+                      disabled={isLoading}
                       onClick={() => setPage(pNum)}
-                      className={`h-8 w-8 rounded-xl text-xs font-black transition cursor-pointer ${
+                      className={`h-8 w-8 rounded-xl text-xs font-semibold transition cursor-pointer ${
                         pNum === page
                           ? "bg-[#1f1a12] text-white shadow-xs dark:bg-[#d6b46a] dark:text-[#11110f]"
                           : "border border-[#d8cdb6] bg-white text-[#6f6758] hover:bg-[#fbf9f4] dark:border-[#302c24] dark:bg-[#14110d] dark:text-[#a8a093]"
@@ -1056,7 +1064,7 @@ export default function AdminStoreKnowledgePage() {
                   type="button"
                   disabled={page >= totalPages || isLoading}
                   onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                  className="rounded-xl bg-[#1f1a12] px-3.5 py-1.5 text-xs font-black text-[#f7f5ef] transition hover:bg-[#382f21] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a] cursor-pointer"
+                  className="rounded-xl bg-[#1f1a12] px-3.5 py-1.5 text-xs font-semibold text-[#f7f5ef] transition hover:bg-[#382f21] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a] cursor-pointer"
                 >
                   Next
                 </button>
@@ -1066,10 +1074,18 @@ export default function AdminStoreKnowledgePage() {
         </section>
       </section>
 
-      {/* ── Luxury Create / Edit Modal Drawer ─────────────────────────────── */}
+      {/* Article editor */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-2xl dark:border-[#383125] dark:bg-[#161410] text-left sm:p-8">
+        <KnowledgeDialog
+          label={
+            editingArticle
+              ? "Edit knowledge article"
+              : "Create knowledge article"
+          }
+          onClose={() => setIsModalOpen(false)}
+          busy={isSubmitting}
+        >
+          <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-2xl dark:border-[#383125] dark:bg-[#161410] text-left sm:p-8">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[#ded5c2] pb-4 dark:border-[#302c24]">
               <div className="flex items-center gap-3">
@@ -1077,20 +1093,21 @@ export default function AdminStoreKnowledgePage() {
                   <BrainCircuit size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-[#1a160f] dark:text-[#f8f5ee]">
+                  <h3 className="text-lg font-semibold text-[#1a160f] dark:text-[#f8f5ee]">
                     {editingArticle
                       ? "Edit Knowledge Article"
                       : "New AI Knowledge Article"}
                   </h3>
                   <p className="text-xs font-semibold text-[#786d5b] dark:text-[#a89d87]">
-                    Indexed directly into the semantic vector space grounding
-                    the customer chatbot.
+                    Add clear, accurate information for the customer assistant.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
+                disabled={isSubmitting}
+                aria-label="Close article editor"
                 className="rounded-xl p-1.5 text-[#8a7f6c] transition hover:bg-[#f0ebd8] hover:text-[#1a160f] dark:hover:bg-[#201a13] dark:hover:text-white cursor-pointer"
               >
                 <X size={20} />
@@ -1101,11 +1118,15 @@ export default function AdminStoreKnowledgePage() {
             <form onSubmit={handleFormSubmit} className="mt-5 space-y-5">
               {/* Title */}
               <div>
-                <label className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]">
-                  Article Title / Key Problem{" "}
-                  <span className="text-red-500 font-black">*</span>
+                <label
+                  htmlFor="article-title"
+                  className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]"
+                >
+                  Article title{" "}
+                  <span className="text-red-500 font-semibold">*</span>
                 </label>
                 <input
+                  id="article-title"
                   type="text"
                   required
                   value={formData.title}
@@ -1120,6 +1141,7 @@ export default function AdminStoreKnowledgePage() {
               {/* Category Selection via Custom UniversalDropdown */}
               <div className="grid grid-cols-1 gap-4">
                 <UniversalDropdown<string>
+                  menuClassName="kb-dropdown-menu"
                   label="Category"
                   required
                   options={modalCategoryOptions}
@@ -1137,11 +1159,15 @@ export default function AdminStoreKnowledgePage() {
 
                 {isCustomCategory && (
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]">
+                    <label
+                      htmlFor="article-category"
+                      className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]"
+                    >
                       New Category Name{" "}
-                      <span className="text-red-500 font-black">*</span>
+                      <span className="text-red-500 font-semibold">*</span>
                     </label>
                     <input
+                      id="article-category"
                       type="text"
                       required
                       value={customCategory}
@@ -1155,10 +1181,14 @@ export default function AdminStoreKnowledgePage() {
 
               {/* Semantic Keywords / Tags */}
               <div>
-                <label className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]">
-                  Semantic Search Tags (Comma separated)
+                <label
+                  htmlFor="article-tags"
+                  className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]"
+                >
+                  Tags (comma separated)
                 </label>
                 <input
+                  id="article-tags"
                   type="text"
                   value={formData.tags || ""}
                   onChange={(e) =>
@@ -1179,15 +1209,19 @@ export default function AdminStoreKnowledgePage() {
               {/* Technical Content */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]">
-                    Authoritative Guidance & Diagnostics{" "}
-                    <span className="text-red-500 font-black">*</span>
+                  <label
+                    htmlFor="article-content"
+                    className="block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]"
+                  >
+                    Article content{" "}
+                    <span className="text-red-500 font-semibold">*</span>
                   </label>
                   <span className="text-xs font-semibold text-[#8a7f6c] dark:text-[#8e8574]">
                     {formData.content.length} characters
                   </span>
                 </div>
                 <textarea
+                  id="article-content"
                   required
                   rows={7}
                   value={formData.content}
@@ -1202,17 +1236,18 @@ export default function AdminStoreKnowledgePage() {
               {/* Active Toggle Switch */}
               <div className="flex items-center justify-between rounded-xl border border-[#ded5c2] bg-[#fbf9f4] p-4 dark:border-[#302c24] dark:bg-[#12100d]">
                 <div>
-                  <p className="text-sm font-black text-[#1a160f] dark:text-[#f8f5ee]">
-                    Live in AI Chat Grounding
+                  <p className="text-sm font-semibold text-[#1a160f] dark:text-[#f8f5ee]">
+                    Use in AI answers
                   </p>
                   <p className="text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                    When active, the Groq RAG model retrieves this text to
-                    answer customer queries.
+                    Active articles help the assistant answer customer
+                    questions.
                   </p>
                 </div>
                 <button
                   type="button"
                   role="switch"
+                  aria-label="Use this article in AI answers"
                   aria-checked={formData.isActive}
                   onClick={() =>
                     setFormData({ ...formData, isActive: !formData.isActive })
@@ -1236,52 +1271,55 @@ export default function AdminStoreKnowledgePage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-[#ded5c2] bg-white px-5 py-2.5 text-xs font-black text-[#6f6758] transition hover:bg-[#faf7f0] dark:border-[#302c24] dark:bg-[#14110d] dark:text-[#a8a093] dark:hover:bg-[#201a13] cursor-pointer"
+                  disabled={isSubmitting}
+                  aria-label="Close article editor"
+                  className="rounded-xl border border-[#ded5c2] bg-white px-5 py-2.5 text-xs font-semibold text-[#6f6758] transition hover:bg-[#faf7f0] dark:border-[#302c24] dark:bg-[#14110d] dark:text-[#a8a093] dark:hover:bg-[#201a13] cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 rounded-xl bg-[#1f1a12] px-6 py-2.5 text-xs font-black text-white shadow-md transition hover:bg-[#382f21] active:scale-95 disabled:opacity-50 dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
+                  className="flex items-center gap-2 rounded-xl bg-[#1f1a12] px-6 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#382f21] active:scale-95 disabled:opacity-50 dark:bg-[#d6b46a] dark:text-[#11110f] dark:hover:bg-[#dfc383] cursor-pointer"
                 >
                   {isSubmitting && (
                     <RefreshCw size={13} className="animate-spin" />
                   )}
                   <span>
-                    {editingArticle
-                      ? "Save Changes"
-                      : "Create & Vectorize Article"}
+                    {editingArticle ? "Save Changes" : "Create article"}
                   </span>
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </KnowledgeDialog>
       )}
 
-      {/* ── AI Grounding Inspector & Simulator Modal ──────────────────────── */}
+      {/* AI context preview */}
       {previewArticle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="w-full max-w-xl rounded-[2rem] border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-2xl dark:border-[#383125] dark:bg-[#161410] text-left sm:p-7">
+        <KnowledgeDialog
+          label="AI context preview"
+          onClose={() => setPreviewArticle(null)}
+        >
+          <div className="w-full max-w-xl rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-6 shadow-2xl dark:border-[#383125] dark:bg-[#161410] text-left sm:p-7">
             <div className="flex items-center justify-between border-b border-[#ded5c2] pb-3.5 dark:border-[#302c24]">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#d6b46a]/20 text-[#8a6624] dark:text-[#d6b46a]">
                   <Sparkles size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-[#1a160f] dark:text-[#f8f5ee]">
-                    AI Grounding Inspection
+                  <h3 className="text-base font-semibold text-[#1a160f] dark:text-[#f8f5ee]">
+                    AI context preview
                   </h3>
                   <p className="text-[11px] font-semibold text-[#786d5b] dark:text-[#a89d87]">
-                    How this article is transformed and fed into Groq LLM vector
-                    context.
+                    Review the information available to your AI assistant.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setPreviewArticle(null)}
+                aria-label="Close AI preview"
                 className="rounded-xl p-1.5 text-[#8a7f6c] hover:text-[#1a160f] dark:hover:text-white cursor-pointer"
               >
                 <X size={18} />
@@ -1290,8 +1328,8 @@ export default function AdminStoreKnowledgePage() {
 
             <div className="mt-4 space-y-3.5">
               <div className="rounded-xl border border-[#ded5c2] bg-[#fbf9f4] p-3 text-xs dark:border-[#302c24] dark:bg-[#12100d]">
-                <p className="text-[10px] font-black uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
-                  RAG Document Metadata
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
+                  Article details
                 </p>
                 <div className="mt-1.5 grid grid-cols-2 gap-2 text-xs font-semibold">
                   <div>
@@ -1302,7 +1340,7 @@ export default function AdminStoreKnowledgePage() {
                   </div>
                   <div>
                     <span className="text-[#786d5b] dark:text-[#a89d87]">
-                      Vector Status:
+                      AI status:
                     </span>{" "}
                     {previewArticle.isActive ? (
                       <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
@@ -1326,8 +1364,8 @@ export default function AdminStoreKnowledgePage() {
               </div>
 
               <div>
-                <p className="text-[11px] font-black uppercase tracking-wider text-[#786d5b] dark:text-[#a89d87] mb-1.5">
-                  Extracted Context Chunk:
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#786d5b] dark:text-[#a89d87] mb-1.5">
+                  Article content
                 </p>
                 <div className="rounded-xl border border-[#ded5c2] bg-white p-3.5 text-xs font-mono leading-relaxed text-[#3b3225] dark:border-[#302c24] dark:bg-[#0e0d0b] dark:text-[#ded5c5] max-h-60 overflow-y-auto">
                   <p className="font-bold text-[#8a6624] dark:text-[#d6b46a] mb-1">
@@ -1341,30 +1379,35 @@ export default function AdminStoreKnowledgePage() {
             <div className="mt-5 flex items-center justify-between border-t border-[#ded5c2] pt-3.5 dark:border-[#302c24]">
               <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 size={13} />
-                Synchronized with SQL vector model
+                Preview of saved article content
               </span>
               <button
                 type="button"
                 onClick={() => setPreviewArticle(null)}
-                className="rounded-xl bg-[#1f1a12] px-4 py-2 text-xs font-black text-white dark:bg-[#d6b46a] dark:text-[#11110f] cursor-pointer"
+                aria-label="Close AI preview"
+                className="rounded-xl bg-[#1f1a12] px-4 py-2 text-xs font-semibold text-white dark:bg-[#d6b46a] dark:text-[#11110f] cursor-pointer"
               >
-                Close Inspector
+                Close preview
               </button>
             </div>
           </div>
-        </div>
+        </KnowledgeDialog>
       )}
 
-      {/* ── Delete Confirmation Dialog ────────────────────────────────────── */}
+      {/* Delete confirmation */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="w-full max-w-md rounded-[2rem] border border-rose-500/40 bg-[#fffdf7] p-6 shadow-2xl dark:border-rose-400/40 dark:bg-[#161410] text-left">
+        <KnowledgeDialog
+          label="Delete knowledge article"
+          onClose={() => setDeleteTarget(null)}
+          busy={isDeleting}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#fffdf7] p-6 shadow-2xl dark:border-rose-400/40 dark:bg-[#161410] text-left">
             <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/10">
                 <AlertTriangle size={22} />
               </div>
               <div>
-                <h3 className="text-base font-black text-[#1a160f] dark:text-[#f8f5ee]">
+                <h3 className="text-base font-semibold text-[#1a160f] dark:text-[#f8f5ee]">
                   Delete Knowledge Article?
                 </h3>
                 <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
@@ -1375,7 +1418,7 @@ export default function AdminStoreKnowledgePage() {
 
             <p className="mt-3.5 text-xs font-semibold leading-relaxed text-[#786d5b] dark:text-[#a89d87]">
               Are you sure you want to permanently remove{" "}
-              <strong className="text-[#1a160f] dark:text-white font-black">
+              <strong className="text-[#1a160f] dark:text-white font-semibold">
                 "{deleteTarget.title}"
               </strong>
               ? It will be removed from the database and immediately purged from
@@ -1386,7 +1429,8 @@ export default function AdminStoreKnowledgePage() {
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-xl border border-[#ded5c2] bg-white px-4 py-2 text-xs font-black text-[#786d5b] transition hover:bg-[#faf7f0] dark:border-[#302c24] dark:bg-[#1d1812] dark:text-[#a89d87] cursor-pointer"
+                disabled={isDeleting}
+                className="rounded-xl border border-[#ded5c2] bg-white px-4 py-2 text-xs font-semibold text-[#786d5b] transition hover:bg-[#faf7f0] dark:border-[#302c24] dark:bg-[#1d1812] dark:text-[#a89d87] cursor-pointer"
               >
                 Cancel
               </button>
@@ -1394,16 +1438,80 @@ export default function AdminStoreKnowledgePage() {
                 type="button"
                 disabled={isDeleting}
                 onClick={handleConfirmDelete}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-5 py-2 text-xs font-black text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
               >
                 {isDeleting && <RefreshCw size={13} className="animate-spin" />}
                 <span>Delete Permanently</span>
               </button>
             </div>
           </div>
-        </div>
+        </KnowledgeDialog>
       )}
-    </main>
+    </div>
   );
 }
 
+function KnowledgeDialog({
+  children,
+  label,
+  onClose,
+  busy = false
+}: {
+  children: ReactNode;
+  label: string;
+  onClose: () => void;
+  busy?: boolean;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const active = document.activeElement as HTMLElement | null;
+    const restore =
+      active?.closest("details")?.querySelector("summary") || active;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current
+      ?.querySelector<HTMLElement>("input, textarea, button")
+      ?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      restore?.focus();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      className="kb-dialog fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+      onKeyDown={(event) => {
+        if (event.defaultPrevented) return;
+        if (event.key === "Escape" && !busy) {
+          event.stopPropagation();
+          onClose();
+        }
+        if (event.key === "Tab") {
+          const controls = Array.from(
+            dialogRef.current?.querySelectorAll<HTMLElement>(
+              'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
+            ) || []
+          );
+          const first = controls[0];
+          const last = controls[controls.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last?.focus();
+          }
+          if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first?.focus();
+          }
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}

@@ -33,8 +33,15 @@ export function CustomAuthProvider({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setUser(getStoredAuthUser());
+    const syncUser = () => setUser(getStoredAuthUser());
+    syncUser();
     setLoading(false);
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("te-auth-changed", syncUser);
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("te-auth-changed", syncUser);
+    };
   }, []);
 
   const value = useMemo<CustomAuthContextValue>(() => {

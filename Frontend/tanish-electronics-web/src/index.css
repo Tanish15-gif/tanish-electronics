@@ -60,6 +60,21 @@ body {
   font-family: var(--font-display);
   letter-spacing: -0.04em;
 }
+
+/* Retained FAQ section from the supplied screenshot. */
+.retained-faq { font-family: var(--font-ui); color: #1f1a12; padding-block: clamp(3rem, 6vw, 5rem); border-block: 1px solid #d8cdb6; }
+.retained-faq .home-container { width: 100%; max-width: 1440px; margin-inline: auto; padding-inline: clamp(1rem, 4vw, 4rem); }
+.retained-faq .home-kicker { color: #8a6624; font-size: .75rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.retained-faq .home-title { margin-top: 1rem; max-width: 52rem; font-family: var(--font-display); font-size: clamp(2rem, 3.4vw, 3.25rem); font-weight: 600; line-height: 1.12; letter-spacing: -.035em; text-wrap: balance; }
+.retained-faq .home-copy { color: #6f6758; }
+.retained-faq .home-accent { color: #8a6624; }
+.retained-faq .home-button { display: inline-flex; min-height: 48px; align-items: center; gap: .5rem; border-radius: .75rem; padding-block: .65rem; font-size: .875rem; font-weight: 600; }
+.retained-faq :is(a, summary):focus-visible { outline: 3px solid #8a6624; outline-offset: 3px; }
+.dark .retained-faq { color: #e8e3d8; border-color: #302c24; }
+.dark .retained-faq .home-copy { color: #b5ada0; }
+.dark .retained-faq :is(.home-accent, .home-kicker) { color: #d6b46a; }
+.dark .retained-faq :is(a, summary):focus-visible { outline-color: #d6b46a; }
+
 button,
 input,
 textarea,
@@ -406,4 +421,248 @@ body::-webkit-scrollbar-button {
 html::-webkit-scrollbar-corner,
 body::-webkit-scrollbar-corner {
   background: var(--scrollbar-track);
+}
+
+/* Store knowledge admin page */
+.knowledge-page {
+  --kb-surface: #fffdf8;
+  --kb-muted: #716958;
+  --kb-border: #e4ddce;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dark .knowledge-page {
+  --kb-surface: #1a1712;
+  --kb-muted: #b3aa99;
+  --kb-border: #363025;
+}
+
+.knowledge-page :is(button, input, textarea, select) {
+  font-family: inherit;
+}
+.knowledge-page button {
+  cursor: pointer;
+}
+.knowledge-page button:disabled {
+  cursor: not-allowed;
+}
+.knowledge-page :is(button, summary, input, textarea):focus-visible {
+  outline: 2px solid #a4803e;
+  outline-offset: 3px;
+}
+
+.kb-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--kb-border);
+  border-radius: 9px;
+  padding: 8px 13px;
+  background: var(--kb-surface);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 150ms,
+    border-color 150ms;
+}
+.kb-button:hover {
+  background: #f1ecdf;
+  border-color: #cbb995;
+}
+.dark .kb-button:hover {
+  background: #2b251b;
+}
+.kb-button:disabled {
+  opacity: 0.5;
+}
+.kb-button-primary {
+  border-color: #272116;
+  background: #272116;
+  color: #fffaf0;
+}
+.kb-button-primary:hover {
+  background: #493b24;
+}
+.dark .kb-button-primary {
+  background: #d6b46a;
+  color: #1a1712;
+  border-color: #d6b46a;
+}
+.dark .kb-button-primary:hover {
+  background: #e3c786;
+}
+.kb-button-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--kb-muted);
+}
+.kb-button-quiet:hover {
+  border-color: transparent;
+}
+
+.kb-metric {
+  min-width: 0;
+  border: 1px solid var(--kb-border);
+  border-radius: 13px;
+  background: var(--kb-surface);
+  padding: 18px 20px;
+}
+.kb-metric-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--kb-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.kb-metric-value {
+  margin-top: 9px;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.kb-metric-note {
+  margin-top: 6px;
+  color: var(--kb-muted);
+  font-size: 11px;
+}
+.kb-filter > label {
+  font-size: 12px;
+  font-weight: 500;
+}
+.kb-filter > button {
+  min-height: 44px;
+  border-radius: 9px;
+  background: var(--kb-surface);
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.kb-dropdown-menu,
+.kb-dropdown-menu button {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.kb-dropdown-menu button:focus-visible {
+  outline: 2px solid #a4803e;
+  outline-offset: -2px;
+}
+
+.kb-article {
+  position: relative;
+  border: 1px solid var(--kb-border);
+  border-radius: 13px;
+  background: var(--kb-surface);
+  transition: border-color 150ms;
+}
+.kb-article:hover {
+  border-color: #c4af86;
+}
+.dark .kb-article:hover {
+  border-color: #74603b;
+}
+.kb-tag {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border-radius: 5px;
+  background: #f1ede3;
+  padding: 3px 7px;
+  color: #71634c;
+  font-size: 11px;
+}
+.dark .kb-tag {
+  background: #292319;
+  color: #c1b398;
+}
+.kb-actions-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: 210px;
+  border: 1px solid var(--kb-border);
+  border-radius: 11px;
+  background: var(--kb-surface);
+  padding: 5px;
+  box-shadow: 0 10px 35px #241c1426;
+}
+.kb-actions-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  border-radius: 6px;
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 12px;
+}
+.kb-actions-menu button:hover {
+  background: #a4803e14;
+}
+.kb-more > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.kb-more > summary::-webkit-details-marker {
+  display: none;
+}
+.knowledge-page .kb-dialog {
+  z-index: 800;
+}
+.knowledge-page .kb-dialog h3 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+@media (max-width: 639px) {
+  .kb-metric {
+    padding: 15px;
+  }
+  .kb-metric-value {
+    font-size: 25px;
+  }
+  .kb-metric-note {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .knowledge-page *,
+  .knowledge-page *::before,
+  .knowledge-page *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.knowledge-page .kb-dialog > div {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+.knowledge-page .kb-dialog :is(input, textarea) {
+  font-size: 13px;
+  font-weight: 400;
+}
+.knowledge-page .kb-dialog button {
+  min-height: 40px;
+}
+.knowledge-page .kb-dialog button[role="switch"] {
+  min-height: 24px;
+}
+.knowledge-page .kb-dialog label {
+  font-size: 12px;
+  font-weight: 500;
 }

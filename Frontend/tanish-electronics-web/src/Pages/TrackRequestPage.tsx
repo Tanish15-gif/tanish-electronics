@@ -59,13 +59,15 @@ function TrackRequestPage() {
         setLiveToast("Repair details updated live.");
       }
 
-      return updated;
+      return { ...prev, ...updated };
     });
   }, []);
 
   const { isLiveConnected } = useRepairTrackingSignalR(
     result?.requestNumber,
-    handleLiveUpdate
+    handleLiveUpdate,
+    result?.trackingToken,
+    result?.phoneNumber
   );
 
   useEffect(() => {

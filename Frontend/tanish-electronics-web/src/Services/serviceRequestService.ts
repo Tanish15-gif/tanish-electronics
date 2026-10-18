@@ -23,12 +23,14 @@ export type CreateServiceRequest = {
 };
 
 export type ServiceRequestCreated = {
+  uploadToken?: string;
   serviceRequestId: number;
   requestNumber: string;
   status: string;
   message: string;
 };
 export type TrackServiceRequestResult = {
+  trackingToken?: string;
   requestNumber: string;
   customerName: string;
   phoneNumber: string;
@@ -54,11 +56,13 @@ export async function getServiceLocations() {
 }
 export async function createServiceRequest(
   data: CreateServiceRequest,
-  token?: string | null
+  token?: string | null,
+  idempotencyKey?: string
 ) {
   return await apiClient<ServiceRequestCreated>("/ServiceRequests", {
     method: "POST",
     authToken: token,
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
     body: JSON.stringify(data)
   });
 }
@@ -67,16 +71,17 @@ export async function trackServiceRequest(
   phoneNumber: string
 ) {
   return await apiClient<TrackServiceRequestResult>(
-    `/ServiceRequests/track?requestNumber=${requestNumber}&phoneNumber=${phoneNumber}`
+    `/ServiceRequests/track?requestNumber=${encodeURIComponent(requestNumber)}&phoneNumber=${encodeURIComponent(phoneNumber)}`
   );
 }
 export type uploadServiceRequestsImagesReponse = {
   message: string;
-  images: File[];
+  imageUrls: string[];
 };
 export async function uploadServiceRequestsImages(
   serviceRequestId: number,
-  images: File[]
+  images: File[],
+  uploadToken?: string
 ) {
   const formData = new FormData();
 
@@ -88,7 +93,8 @@ export async function uploadServiceRequestsImages(
     `/ServiceRequests/${serviceRequestId}/images`,
     {
       method: "POST",
-      body: formData
+      body: formData,
+      headers: uploadToken ? { "X-Repair-Upload-Token": uploadToken } : undefined
     }
   );
 }

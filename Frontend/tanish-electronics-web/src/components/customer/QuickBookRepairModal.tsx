@@ -1,7 +1,6 @@
-import { useApiAuth } from "../../hooks/useApiAuth";
-import {
+﻿import {
   useEffect,
-  useMemo,
+  useId,
   useRef,
   useState,
   type ChangeEvent,
@@ -10,14 +9,27 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import ActionButton from "../UI/ActionButton";
-import UniversalDropdown, {
-  type DropdownOption
-} from "../../components/UI/UniversalDropdown";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Clock3,
+  ImagePlus,
+  MapPin,
+  Store,
+  UserRound,
+  Wrench,
+  X
+} from "lucide-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
+import UniversalDropdown from "../UI/UniversalDropdown";
 import { apiClient } from "../../Services/apiClient";
 import {
   createServiceRequest,
-  uploadServiceRequestsImages
+  uploadServiceRequestsImages,
+  type CreateServiceRequest,
+  type ServiceRequestCreated
 } from "../../Services/serviceRequestService";
 import {
   getCustomerProfile,
@@ -25,1179 +37,1119 @@ import {
   type CustomerProfile
 } from "../../Services/customerProfileService";
 
-type QuickBookRepairModalProps = {
+type Props = {
   open: boolean;
   onClose: () => void;
-  onCreated?: (serviceRequestId: number) => void;
+  onCreated?: (id: number) => void;
 };
-
+type Lookup = { id: number; name: string };
 type ServiceType = "Home Visit" | "Shop Repair";
 type TimeSlot = "Morning" | "Afternoon" | "Evening";
-
-type LookupItem = {
-  id: number;
-  name: string;
-};
-
-const timeSlotOptions: DropdownOption<TimeSlot>[] = [
-  {
-    value: "Morning",
-    label: "Morning — 9 AM to 12 PM"
-  },
-  {
-    value: "Afternoon",
-    label: "Afternoon — 12 PM to 4 PM"
-  },
-  {
-    value: "Evening",
-    label: "Evening — 4 PM to 7 PM"
-  }
+const times: { value: TimeSlot; label: string }[] = [
+  { value: "Morning", label: "Morning · 9 AM–12 PM" },
+  { value: "Afternoon", label: "Afternoon · 12–4 PM" },
+  { value: "Evening", label: "Evening · 4–7 PM" }
 ];
+const muted = "text-[#706655] dark:text-[#b5ac9b]";
+const outline = "border border-[#d8cdb6] dark:border-[#393328]";
+const focus =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b68c35]";
+const secondary = `inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition hover:bg-[#f2eadb] disabled:cursor-wait disabled:opacity-50 dark:hover:bg-[#282319] ${outline} ${focus}`;
+const primary = `inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#d6b46a] px-5 py-2.5 text-sm font-semibold text-[#19160f] transition hover:bg-[#e2c681] disabled:cursor-wait disabled:opacity-60 ${focus}`;
+const input = `min-h-11 w-full rounded-xl bg-[#fffdf7] px-3.5 py-2.5 text-sm font-normal text-[#201c15] placeholder:text-[#827b6e] focus:border-[#b68c35] focus:outline-none focus:ring-2 focus:ring-[#d6b46a]/20 dark:bg-[#11110f] dark:text-[#e8e3d8] dark:placeholder:text-[#a39a89] ${outline}`;
 
-const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-const allowedImageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
-
-const maximumImageSize = 5 * 1024 * 1024;
-const maximumImages = 5;
-
-function QuickBookRepairModal({
-  open,
-  onClose,
-  onCreated
-}: QuickBookRepairModalProps) {
+function QuickBookRepairModal({ open, onClose, onCreated }: Props) {
   const { getToken, isLoaded, isSignedIn } = useApiAuth();
-
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-
+  const id = useId();
+  const dialog = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const errorBox = useRef<HTMLDivElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const scroll = useRef<HTMLDivElement>(null);
+  const submitting = useRef(false);
+  const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
+  const savedRepair = useRef<ServiceRequestCreated | null>(null);
+  const [step, setStep] = useState<"details" | "review">("details");
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
-
-  const [categories, setCategories] = useState<LookupItem[]>([]);
-
-  const [locations, setLocations] = useState<LookupItem[]>([]);
-
-  const [serviceCategoryId, setServiceCategoryId] = useState(0);
-
-  const [serviceLocationId, setServiceLocationId] = useState(0);
-
-  const [selectedCustomerAddressId, setSelectedCustomerAddressId] = useState(0);
-
+  const [categories, setCategories] = useState<Lookup[]>([]);
+  const [locations, setLocations] = useState<Lookup[]>([]);
+  const [categoryId, setCategoryId] = useState(0);
+  const [locationId, setLocationId] = useState(0);
+  const [addressId, setAddressId] = useState(0);
   const [serviceType, setServiceType] = useState<ServiceType>("Home Visit");
-
-  const [deviceName, setDeviceName] = useState("");
+  const [device, setDevice] = useState("");
   const [brand, setBrand] = useState("");
-  const [modelName, setModelName] = useState("");
-  const [issueDescription, setIssueDescription] = useState("");
-
-  const [preferredDate, setPreferredDate] = useState("");
-
-  const [preferredTimeSlot, setPreferredTimeSlot] = useState<TimeSlot | null>(
-    null
-  );
-
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-
-  const [loading, setLoading] = useState(false);
+  const [model, setModel] = useState("");
+  const [issue, setIssue] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState<TimeSlot | null>(null);
+  const [images, setImages] = useState<File[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [retry, setRetry] = useState(0);
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const defaultAddress = useMemo(() => {
-    return (
-      profile?.addresses?.find((address) => address.isDefault) ||
-      profile?.addresses?.[0] ||
-      null
-    );
-  }, [profile]);
-
-  const selectedAddress = useMemo(() => {
-    if (!profile?.addresses?.length) {
-      return null;
-    }
-
-    if (selectedCustomerAddressId > 0) {
-      return (
-        profile.addresses.find(
-          (address) => address.customerAddressId === selectedCustomerAddressId
-        ) || defaultAddress
-      );
-    }
-
-    return defaultAddress;
-  }, [profile, selectedCustomerAddressId, defaultAddress]);
-
-  const categoryOptions = useMemo<DropdownOption<number>[]>(
-    () =>
-      categories.map((category) => ({
-        value: category.id,
-        label: category.name
-      })),
-    [categories]
+  const [created, setCreated] = useState<ServiceRequestCreated | null>(null);
+  const [photosPending, setPhotosPending] = useState(false);
+  const selectedAddress = profile?.addresses.find(
+    (address) => address.customerAddressId === addressId
   );
-
-  const locationOptions = useMemo<DropdownOption<number>[]>(
-    () =>
-      locations.map((location) => ({
-        value: location.id,
-        label: location.name
-      })),
-    [locations]
+  const profileReady = Boolean(
+    profile?.fullName.trim() && profile.phoneNumber?.trim()
   );
-
-  const addressOptions = useMemo<DropdownOption<number>[]>(
-    () =>
-      (profile?.addresses || []).map((address) => ({
-        value: address.customerAddressId,
-        label: `${
-          address.label ? `${address.label} — ` : ""
-        }${formatAddress(address)}${address.isDefault ? " (Default)" : ""}`
-      })),
-    [profile]
-  );
-
-  const minimumVisitDate = useMemo(() => {
-    const today = new Date();
-
-    const localToday = new Date(
-      today.getTime() - today.getTimezoneOffset() * 60_000
-    );
-
-    return localToday.toISOString().split("T")[0];
-  }, []);
 
   useEffect(() => {
-    if (!open || !isLoaded || !isSignedIn) {
-      return;
+    if (!open || !isLoaded) return;
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setLoadError("");
+      setError("");
+      setCreated(null);
+      savedRepair.current = null;
+      setPhotosPending(false);
+      setStep("details");
+      setCategoryId(0);
+      setLocationId(0);
+      setDevice("");
+      setBrand("");
+      setModel("");
+      setIssue("");
+      setDate("");
+      setTime(null);
+      setImages([]);
+      attempt.current = null;
+      try {
+        const token = isSignedIn ? await getToken() : null;
+        if (!token)
+          throw new Error("Your session has expired. Please sign in again.");
+        const [customer, categoryData, locationData] = await Promise.all([
+          getCustomerProfile(token),
+          apiClient<Lookup[]>("/LookUps/service-categories"),
+          apiClient<Lookup[]>("/LookUps/service-locations")
+        ]);
+        if (cancelled) return;
+        setProfile(customer);
+        setCategories(categoryData);
+        setLocations(locationData);
+        setAddressId(
+          (
+            customer.addresses.find((address) => address.isDefault) ??
+            customer.addresses[0]
+          )?.customerAddressId ?? 0
+        );
+        setServiceType(
+          customer.addresses.length ? "Home Visit" : "Shop Repair"
+        );
+      } catch (cause) {
+        if (!cancelled)
+          setLoadError(
+            errorMessage(cause, "Quick booking could not be loaded.")
+          );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-
-    void loadInitialData();
-  }, [open, isLoaded, isSignedIn]);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isLoaded, isSignedIn, getToken, retry]);
 
   useEffect(() => {
     if (!open) return;
-
+    const opener =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const previousOverflow = document.body.style.overflow;
-
+    const page = document.getElementById("root");
+    const wasInert = page?.inert ?? false;
+    if (page) page.inert = true;
     document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !saving) {
-        handleClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    window.requestAnimationFrame(() => {
-      closeButtonRef.current?.focus();
-    });
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, saving]);
-
-  async function loadInitialData() {
-    try {
-      setLoading(true);
-      setError("");
-      setSuccess("");
-
-      const token = await getToken();
-
-      if (!token) {
-        throw new Error("Your session has expired. Please sign in again.");
-      }
-
-      const [profileData, categoryData, locationData] = await Promise.all([
-        getCustomerProfile(token),
-
-        apiClient<LookupItem[]>("/LookUps/service-categories"),
-
-        apiClient<LookupItem[]>("/LookUps/service-locations")
-      ]);
-
-      setProfile(profileData);
-      setCategories(categoryData);
-      setLocations(locationData);
-
-      const profileDefaultAddress =
-        profileData.addresses?.find((address) => address.isDefault) ||
-        profileData.addresses?.[0];
-
-      setSelectedCustomerAddressId(
-        profileDefaultAddress?.customerAddressId ?? 0
-      );
-
-      setServiceCategoryId(categoryData[0]?.id ?? 0);
-
-      setServiceLocationId(locationData[0]?.id ?? 0);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to load quick booking."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function validateImages(files: File[]) {
-    if (files.length > maximumImages) {
-      return `Maximum ${maximumImages} images are allowed.`;
-    }
-
-    for (const file of files) {
-      const lowerFileName = file.name.toLowerCase();
-
-      const validExtension = allowedImageExtensions.some((extension) =>
-        lowerFileName.endsWith(extension)
-      );
-
-      if (!allowedImageTypes.has(file.type) || !validExtension) {
-        return "Only JPG, JPEG, PNG and WEBP images are allowed.";
-      }
-
-      if (file.size > maximumImageSize) {
-        return "Each image must be smaller than 5MB.";
-      }
-    }
-
-    return "";
-  }
-
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files || []);
-
-    event.target.value = "";
-
-    if (files.length === 0) {
-      return;
-    }
-
-    const mergedImages = [...selectedImages, ...files];
-
-    const uniqueImages = mergedImages.filter(
-      (image, index, allImages) =>
-        index ===
-        allImages.findIndex(
-          (item) =>
-            item.name === image.name &&
-            item.size === image.size &&
-            item.lastModified === image.lastModified
-        )
-    );
-
-    const validationError = validateImages(uniqueImages);
-
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    setSelectedImages(uniqueImages);
-    setError("");
-  }
-
-  function removeSelectedImage(file: File) {
-    setSelectedImages((currentImages) =>
-      currentImages.filter(
-        (image) =>
-          !(
-            image.name === file.name &&
-            image.size === file.size &&
-            image.lastModified === file.lastModified
+    const frame = requestAnimationFrame(() => closeButton.current?.focus());
+    let dropdownWasOpen = false;
+    function captureEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        dropdownWasOpen = Boolean(
+          dialog.current?.querySelector(
+            '[role="combobox"][aria-expanded="true"]'
           )
-      )
-    );
-  }
-
-  function resetForm() {
-    setServiceType("Home Visit");
-
-    setServiceCategoryId(categories[0]?.id ?? 0);
-
-    setServiceLocationId(locations[0]?.id ?? 0);
-
-    setSelectedCustomerAddressId(defaultAddress?.customerAddressId ?? 0);
-
-    setDeviceName("");
-    setBrand("");
-    setModelName("");
-    setIssueDescription("");
-
-    setPreferredDate("");
-    setPreferredTimeSlot(null);
-
-    setSelectedImages([]);
-
-    setError("");
-  }
-
-  function handleClose() {
-    if (saving) return;
-
-    resetForm();
-    setSuccess("");
-    onClose();
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!profile) {
-      setError("Customer profile is not loaded.");
-      return;
-    }
-
-    if (!profile.phoneNumber) {
-      setError("Please add your phone number in your profile first.");
-      return;
-    }
-
-    if (serviceCategoryId <= 0) {
-      setError("Please select a service category.");
-      return;
-    }
-
-    if (!issueDescription.trim()) {
-      setError("Please describe the device issue.");
-      return;
-    }
-
-    if (serviceType === "Home Visit" && !selectedAddress) {
-      setError("Please select or add an address for the home visit.");
-      return;
-    }
-
-    if (serviceType === "Home Visit" && serviceLocationId <= 0) {
-      setError("Please select your service location.");
-      return;
-    }
-
-    if (preferredDate && preferredDate < minimumVisitDate) {
-      setError("Preferred date cannot be in the past.");
-      return;
-    }
-
-    if (preferredDate && !preferredTimeSlot) {
-      setError("Please select a preferred time slot.");
-      return;
-    }
-
-    if (preferredTimeSlot && !preferredDate) {
-      setError("Please select a preferred date.");
-      return;
-    }
-
-    const imageValidationError = validateImages(selectedImages);
-
-    if (imageValidationError) {
-      setError(imageValidationError);
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setError("");
-      setSuccess("");
-
-      const token = await getToken();
-
-      if (!token) {
-        throw new Error("Your session has expired. Please sign in again.");
-      }
-
-      const visitAddress =
-        serviceType === "Home Visit" && selectedAddress
-          ? formatAddress(selectedAddress)
-          : undefined;
-
-      const result = await createServiceRequest(
-        {
-          customerName: profile.fullName,
-          phoneNumber: profile.phoneNumber,
-          email: profile.email,
-
-          serviceCategoryId,
-
-          serviceLocationId:
-            serviceType === "Home Visit" && serviceLocationId > 0
-              ? serviceLocationId
-              : undefined,
-
-          customerAddressId:
-            serviceType === "Home Visit" && selectedAddress
-              ? selectedAddress.customerAddressId
-              : undefined,
-
-          deviceName: deviceName.trim() || undefined,
-
-          brand: brand.trim() || undefined,
-
-          modelName: modelName.trim() || undefined,
-
-          issueDescription: issueDescription.trim(),
-
-          serviceType,
-          visitAddress,
-
-          preferredDate: preferredDate || undefined,
-
-          preferredTimeSlot: preferredTimeSlot ?? undefined
-        },
-        token
-      );
-
-      if (selectedImages.length > 0) {
-        await uploadServiceRequestsImages(
-          result.serviceRequestId,
-          selectedImages
         );
       }
-
-      resetForm();
-
-      if (onCreated) {
-        onCreated(result.serviceRequestId);
-        onClose();
-      } else {
-        setSuccess("Repair request created successfully.");
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      // Dropdowns also prevent Escape when closed; only defer if one was open.
+      if (event.defaultPrevented && (event.key !== "Escape" || dropdownWasOpen))
+        return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (!submitting.current) {
+          if (savedRepair.current)
+            onCreated?.(savedRepair.current.serviceRequestId);
+          onClose();
+        }
       }
-    } catch (error) {
+      if (event.key !== "Tab" || !dialog.current) return;
+      const elements = Array.from(
+        dialog.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]'
+        )
+      ).filter(
+        (element) =>
+          !element.matches(":disabled") && element.getClientRects().length > 0
+      );
+      const first = elements[0],
+        last = elements[elements.length - 1];
+      if (!first) {
+        event.preventDefault();
+        dialog.current.focus();
+        return;
+      }
+      if (
+        event.shiftKey &&
+        (document.activeElement === first ||
+          !dialog.current.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        last.focus();
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last ||
+          !dialog.current.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", captureEscape, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keydown", captureEscape, true);
+      document.body.style.overflow = previousOverflow;
+      if (page) page.inert = wasInert;
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [open, onClose, onCreated]);
+
+  useEffect(() => {
+    if (error) errorBox.current?.focus();
+  }, [error]);
+
+  function changeStep(next: "details" | "review") {
+    setError("");
+    setStep(next);
+    requestAnimationFrame(() => {
+      scroll.current?.scrollTo({ top: 0 });
+      heading.current?.focus();
+    });
+  }
+  function addImages(event: ChangeEvent<HTMLInputElement>) {
+    const incoming = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    const combined = [...images, ...incoming].filter(
+      (file, index, files) =>
+        files.findIndex(
+          (candidate) =>
+            candidate.name === file.name &&
+            candidate.size === file.size &&
+            candidate.lastModified === file.lastModified
+        ) === index
+    );
+    const validation = validateImages(combined);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+    setImages(combined);
+    setError("");
+  }
+  function finish(result: ServiceRequestCreated) {
+    onCreated?.(result.serviceRequestId);
+    onClose();
+  }
+  function closeModal() {
+    if (submitting.current) return;
+    if (savedRepair.current) onCreated?.(savedRepair.current.serviceRequestId);
+    onClose();
+  }
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting.current || created || !profileReady || !profile) return;
+    if (!categories.some((category) => category.id === categoryId)) {
+      setError("Choose the repair category.");
+      return;
+    }
+    if (issue.trim().length < 5 || issue.trim().length > 800) {
+      setError("Describe the issue in 5–800 characters.");
+      return;
+    }
+    if (step === "details") {
+      changeStep("review");
+      return;
+    }
+    if (serviceType === "Home Visit" && !selectedAddress) {
       setError(
-        error instanceof Error ? error.message : "Failed to book repair."
+        "Add a saved address in your profile, or go back and choose Shop Repair."
+      );
+      return;
+    }
+    if (
+      serviceType === "Home Visit" &&
+      !locations.some((location) => location.id === locationId)
+    ) {
+      setError("Choose the service area for your home visit.");
+      return;
+    }
+    if (
+      date &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        Number.isNaN(Date.parse(date)) ||
+        date < localDate())
+    ) {
+      setError("Choose today or a future date.");
+      return;
+    }
+    if (Boolean(date) !== Boolean(time)) {
+      setError("Choose both a preferred date and time, or leave both empty.");
+      return;
+    }
+    const imageError = validateImages(images);
+    if (imageError) {
+      setError(imageError);
+      return;
+    }
+    const payload: CreateServiceRequest = {
+      customerName: profile.fullName.trim(),
+      phoneNumber: profile.phoneNumber!.trim(),
+      email: profile.email,
+      serviceCategoryId: categoryId,
+      serviceType,
+      issueDescription: issue.trim(),
+      deviceName: device.trim() || undefined,
+      brand: brand.trim() || undefined,
+      modelName: model.trim() || undefined,
+      serviceLocationId: serviceType === "Home Visit" ? locationId : undefined,
+      customerAddressId:
+        serviceType === "Home Visit"
+          ? selectedAddress?.customerAddressId
+          : undefined,
+      visitAddress:
+        serviceType === "Home Visit" && selectedAddress
+          ? formatAddress(selectedAddress)
+          : undefined,
+      preferredDate: date || undefined,
+      preferredTimeSlot: time ?? undefined
+    };
+    const fingerprint = JSON.stringify(payload);
+    if (attempt.current?.fingerprint !== fingerprint)
+      attempt.current = { fingerprint, key: crypto.randomUUID() };
+    submitting.current = true;
+    setSaving(true);
+    setError("");
+    try {
+      const token = await getToken();
+      if (!token)
+        throw new Error("Your session has expired. Please sign in again.");
+      const result = await createServiceRequest(
+        payload,
+        token,
+        attempt.current.key
+      );
+      savedRepair.current = result;
+      setCreated(result);
+      if (images.length) {
+        try {
+          await uploadServiceRequestsImages(
+            result.serviceRequestId,
+            images,
+            result.uploadToken
+          );
+        } catch {
+          setPhotosPending(true);
+          return; // Booking succeeded. Never send another create request for a photo failure.
+        }
+      }
+      if (onCreated) finish(result);
+    } catch (cause) {
+      setError(
+        errorMessage(
+          cause,
+          "The booking could not be confirmed. Retry with the same details to check this request."
+        )
       );
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   }
 
   if (!open) return null;
-
-  const profileReady = Boolean(
-    profile && profile.isProfileCompleted && profile.phoneNumber
-  );
-
+  const category = categories.find((item) => item.id === categoryId)?.name;
   return createPortal(
     <div
-      className="fixed inset-0 z-[700] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-5"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) {
-          handleClose();
-        }
-      }}
+      className="fixed inset-0 z-[700] flex items-center justify-center bg-black/60 p-0 backdrop-blur-sm sm:p-5"
+      style={{ fontFamily: "var(--font-ui)" }}
     >
-      <div
+      <section
+        ref={dialog}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="quick-booking-title"
-        className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#fffdf7] text-[#1f1a12] shadow-2xl dark:bg-[#1a1712] dark:text-[#e8e3d8] sm:h-auto sm:max-h-[92dvh] sm:max-w-[980px] sm:rounded-[1.75rem] sm:border sm:border-[#d8cdb6] sm:dark:border-[#302c24]"
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-description`}
+        tabIndex={-1}
+        className={`flex h-[100dvh] w-full flex-col overflow-hidden bg-[#f9f6ee] text-[#241e14] shadow-2xl outline-none dark:bg-[#161510] dark:text-[#e8e3d8] sm:h-auto sm:max-h-[90dvh] sm:max-w-[760px] sm:rounded-3xl ${outline}`}
       >
-        {/* Sticky header */}
-        <header className="z-30 flex shrink-0 items-start justify-between gap-4 border-b border-[#d8cdb6] bg-[#fffaf0] px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-[#302c24] dark:bg-[#11110f] sm:px-6 sm:py-5">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8cdb6] bg-[#fffdf7] px-5 py-5 dark:border-[#393328] dark:bg-[#11110f] sm:px-7">
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#896421] dark:text-[#d6b46a]">
               Quick booking
             </p>
-
             <h2
-              id="quick-booking-title"
-              className="font-display mt-1 text-2xl font-bold leading-tight sm:text-3xl"
+              id={`${id}-title`}
+              className="text-3xl leading-tight"
+              style={{ fontFamily: "var(--font-display)" }}
             >
               Book a repair
             </h2>
-
-            <p className="mt-1 hidden text-xs font-semibold text-[#6f6758] dark:text-[#a8a093] sm:block">
-              Your saved profile details will be used automatically.
+            <p
+              id={`${id}-description`}
+              className={`mt-2 text-sm leading-relaxed ${muted}`}
+            >
+              Tell us what needs fixing. We’ll contact you to confirm.
             </p>
           </div>
-
           <button
-            ref={closeButtonRef}
+            ref={closeButton}
             type="button"
-            onClick={handleClose}
-            disabled={saving}
             aria-label="Close quick booking"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d8cdb6] bg-[#fffdf7] text-xl font-black transition hover:bg-[#f2eadb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]"
+            disabled={saving}
+            onClick={closeModal}
+            className={`${secondary} !px-3`}
           >
-            ×
+            <X size={18} />
           </button>
         </header>
-
-        {loading ? (
-          <QuickBookingLoading />
-        ) : !profileReady || !profile ? (
-          <ProfileRequiredState onClose={handleClose} />
-        ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="flex min-h-0 flex-1 flex-col"
+        {!loading && !loadError && profileReady && !created && (
+          <ol
+            aria-label="Booking steps"
+            className="flex shrink-0 items-center gap-3 border-b border-[#d8cdb6] px-5 py-3 text-xs dark:border-[#393328] sm:px-7"
           >
-            <div className="te-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div className="grid lg:grid-cols-[260px_minmax(0,1fr)]">
-                {/* Desktop profile panel */}
-                <aside className="hidden border-r border-[#d8cdb6] bg-[#fff8e7] p-5 dark:border-[#302c24] dark:bg-[#11110f] lg:block">
-                  <div className="sticky top-5">
-                    <ProfileSummary
-                      profile={profile}
-                      serviceType={serviceType}
-                      selectedAddress={selectedAddress}
-                    />
-                  </div>
-                </aside>
-
-                {/* Main form */}
-                <div className="min-w-0 p-4 sm:p-6">
-                  {/* Compact mobile profile */}
-                  <MobileProfileSummary
-                    profile={profile}
-                    serviceType={serviceType}
-                    selectedAddress={selectedAddress}
+            {(["details", "review"] as const).map((value, index) => (
+              <li
+                key={value}
+                aria-current={step === value ? "step" : undefined}
+                className={`flex items-center gap-2 ${step === value ? "font-semibold" : muted}`}
+              >
+                {index > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="mr-1 h-px w-6 bg-[#b6a780]/50 sm:w-12"
                   />
-
-                  {(error || success) && (
-                    <div className="mb-5 space-y-3">
-                      {error && (
-                        <div
-                          role="alert"
-                          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
-                        >
-                          {error}
-                        </div>
+                )}
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full ${step === value ? "bg-[#d6b46a] text-[#19160f]" : "bg-[#b6a780]/15"}`}
+                >
+                  {step === "review" && index === 0 ? (
+                    <Check size={13} />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                {index === 0 ? "Repair details" : "Visit & review"}
+              </li>
+            ))}
+          </ol>
+        )}
+        <div
+          ref={scroll}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7 sm:py-6"
+        >
+          {loading ? (
+            <div role="status" className="space-y-4 py-8">
+              <p className={`text-center text-sm ${muted}`}>
+                Loading your saved details…
+              </p>
+              <div
+                aria-hidden="true"
+                className="h-20 animate-pulse rounded-xl bg-[#b6a780]/10"
+              />
+              <div
+                aria-hidden="true"
+                className="h-32 animate-pulse rounded-xl bg-[#b6a780]/10"
+              />
+            </div>
+          ) : loadError ? (
+            <div className="py-8 text-center">
+              <h3 className="text-lg font-semibold">
+                Quick booking is unavailable
+              </h3>
+              <p
+                role="alert"
+                className={`mx-auto mt-3 max-w-md text-sm leading-relaxed ${muted}`}
+              >
+                {loadError}
+              </p>
+              <button
+                type="button"
+                onClick={() => setRetry((value) => value + 1)}
+                className={`${secondary} mt-5`}
+              >
+                Try again
+              </button>
+            </div>
+          ) : !profileReady ? (
+            <div className="py-6 text-center">
+              <UserRound className="mx-auto mb-4 text-[#a17b2f]" size={28} />
+              <h3 className="text-lg font-semibold">
+                Add your contact details first
+              </h3>
+              <p
+                className={`mx-auto mt-2 max-w-sm text-sm leading-relaxed ${muted}`}
+              >
+                Save your name and phone number so the shop can contact you. A
+                home visit also needs a saved address.
+              </p>
+              <Link
+                to="/customer/profile"
+                onClick={closeModal}
+                className={`${primary} mt-5`}
+              >
+                Complete profile <ArrowRight size={16} />
+              </Link>
+            </div>
+          ) : created ? (
+            <div className="py-4">
+              <CheckCircle2
+                size={32}
+                className="mb-4 text-emerald-700 dark:text-emerald-400"
+              />
+              <h3 className="text-xl font-semibold">Your repair is booked</h3>
+              <p className={`mt-2 text-sm ${muted}`}>
+                Reference{" "}
+                <strong className="text-[#241e14] dark:text-[#e8e3d8]">
+                  {created.requestNumber}
+                </strong>
+              </p>
+              {photosPending && (
+                <p
+                  role="alert"
+                  className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed"
+                >
+                  The booking was created, but the photo upload could not be
+                  confirmed. Open your repair to check the photos. If they are
+                  missing, share them with the shop.
+                </p>
+              )}
+              <p className={`mt-4 text-sm leading-relaxed ${muted}`}>
+                The shop will contact you to confirm availability. Follow
+                progress from your repairs.
+              </p>
+            </div>
+          ) : (
+            <form id={`${id}-form`} onSubmit={submit} noValidate>
+              <fieldset
+                disabled={saving}
+                className="min-w-0 space-y-5 disabled:opacity-70"
+              >
+                <div
+                  className={`flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#fffdf7] px-4 py-3 dark:bg-[#11110f] ${outline}`}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <UserRound size={17} className="shrink-0 text-[#967329]" />
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold">
+                        {profile?.fullName}
+                      </p>
+                      <p className={`mt-0.5 text-xs ${muted}`}>
+                        {profile?.phoneNumber} · Saved contact
+                      </p>
+                    </div>
+                  </div>
+                  {!saving && (
+                    <Link
+                      to="/customer/profile"
+                      onClick={onClose}
+                      className={`rounded px-2 py-2 text-xs font-semibold text-[#7a581b] hover:underline dark:text-[#d6b46a] ${focus}`}
+                    >
+                      Edit profile
+                    </Link>
+                  )}
+                </div>
+                <div>
+                  <h3
+                    ref={heading}
+                    tabIndex={-1}
+                    className="mb-4 text-base font-semibold outline-none"
+                  >
+                    {step === "details"
+                      ? "What needs fixing?"
+                      : "Check your booking"}
+                  </h3>
+                  {step === "details" ? (
+                    <div className="space-y-5">
+                      <UniversalDropdown
+                        menuClassName="[font-family:var(--font-ui)] [&_button]:!font-medium"
+                        label="Repair category"
+                        required
+                        options={categories.map((item) => ({
+                          value: item.id,
+                          label: item.name
+                        }))}
+                        value={categoryId || null}
+                        onChange={setCategoryId}
+                        placeholder="Choose a category"
+                      />
+                      {categories.length === 0 && (
+                        <p className="text-sm text-amber-800 dark:text-amber-300">
+                          No repair categories are available. Please contact the
+                          shop.
+                        </p>
                       )}
-
-                      {success && (
-                        <div
-                          role="status"
-                          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
-                        >
-                          {success}
+                      <fieldset>
+                        <legend className="mb-2 text-sm font-medium">
+                          How would you like it repaired?
+                        </legend>
+                        <div className="grid grid-cols-2 gap-3">
+                          {(["Home Visit", "Shop Repair"] as const).map(
+                            (value) => {
+                              const Icon =
+                                value === "Home Visit" ? MapPin : Store;
+                              return (
+                                <label
+                                  key={value}
+                                  className={`relative flex cursor-pointer items-start gap-2.5 rounded-xl border p-3.5 transition focus-within:ring-2 focus-within:ring-[#b68c35] ${serviceType === value ? "border-[#ae842e] bg-[#d6b46a]/15" : "border-[#d8cdb6] bg-[#fffdf7] dark:border-[#393328] dark:bg-[#11110f]"}`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`${id}-type`}
+                                    value={value}
+                                    checked={serviceType === value}
+                                    onChange={() => setServiceType(value)}
+                                    className="sr-only"
+                                  />
+                                  <Icon
+                                    aria-hidden="true"
+                                    size={18}
+                                    className="mt-0.5 shrink-0 text-[#967329] dark:text-[#d6b46a]"
+                                  />
+                                  <span>
+                                    <span className="block text-sm font-semibold">
+                                      {value}
+                                    </span>
+                                    <span
+                                      className={`mt-1 block text-xs leading-relaxed ${muted}`}
+                                    >
+                                      {value === "Home Visit"
+                                        ? "A technician comes to you"
+                                        : "Bring your device to the shop"}
+                                    </span>
+                                  </span>
+                                </label>
+                              );
+                            }
+                          )}
                         </div>
+                      </fieldset>
+                      <Field
+                        label="Device name"
+                        htmlFor={`${id}-device`}
+                        optional
+                      >
+                        <input
+                          id={`${id}-device`}
+                          value={device}
+                          onChange={(event) => setDevice(event.target.value)}
+                          maxLength={120}
+                          placeholder="e.g. Samsung 43-inch TV"
+                          className={input}
+                        />
+                      </Field>
+                      <Field
+                        label="Describe the issue"
+                        htmlFor={`${id}-issue`}
+                        required
+                      >
+                        <textarea
+                          id={`${id}-issue`}
+                          required
+                          minLength={5}
+                          maxLength={800}
+                          value={issue}
+                          onChange={(event) => setIssue(event.target.value)}
+                          rows={3}
+                          placeholder="What happens when you use the device?"
+                          aria-describedby={`${id}-issue-hint`}
+                          className={`${input} resize-y`}
+                        />
+                        <p
+                          id={`${id}-issue-hint`}
+                          className={`mt-1.5 flex justify-between gap-3 text-xs ${muted}`}
+                        >
+                          <span>
+                            Include symptoms, such as lines on the screen or no
+                            sound.
+                          </span>
+                          <span className="shrink-0">{issue.length}/800</span>
+                        </p>
+                      </Field>
+                      <details className={`rounded-xl ${outline}`}>
+                        <summary
+                          className={`cursor-pointer rounded-xl px-4 py-3 text-sm font-medium ${focus}`}
+                        >
+                          Add brand, model or photos{" "}
+                          <span className={`font-normal ${muted}`}>
+                            (optional
+                            {images.length ? ` · ${images.length} photos` : ""})
+                          </span>
+                        </summary>
+                        <div className="space-y-4 border-t border-[#d8cdb6] p-4 dark:border-[#393328]">
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <Field label="Brand" htmlFor={`${id}-brand`}>
+                              <input
+                                id={`${id}-brand`}
+                                value={brand}
+                                onChange={(event) =>
+                                  setBrand(event.target.value)
+                                }
+                                maxLength={100}
+                                placeholder="e.g. Samsung"
+                                className={input}
+                              />
+                            </Field>
+                            <Field label="Model number" htmlFor={`${id}-model`}>
+                              <input
+                                id={`${id}-model`}
+                                value={model}
+                                onChange={(event) =>
+                                  setModel(event.target.value)
+                                }
+                                maxLength={100}
+                                placeholder="e.g. UA43…"
+                                className={input}
+                              />
+                            </Field>
+                          </div>
+                          <div>
+                            <label
+                              htmlFor={`${id}-photos`}
+                              className="mb-2 flex items-center gap-2 text-sm font-medium"
+                            >
+                              <ImagePlus size={16} />
+                              Photos of the issue
+                            </label>
+                            <input
+                              id={`${id}-photos`}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                              multiple
+                              onChange={addImages}
+                              aria-describedby={`${id}-photos-hint`}
+                              className={`block w-full rounded-lg text-xs file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border file:border-[#b6a780]/40 file:bg-transparent file:px-3 file:font-medium file:text-inherit ${focus}`}
+                            />
+                            <p
+                              id={`${id}-photos-hint`}
+                              className={`mt-2 text-xs ${muted}`}
+                            >
+                              Up to 5 JPG, PNG or WebP images, 5 MB each.
+                            </p>
+                          </div>
+                          {images.length > 0 && (
+                            <ul className="grid gap-2 sm:grid-cols-2">
+                              {images.map((file, index) => (
+                                <Photo
+                                  key={`${file.name}-${file.lastModified}`}
+                                  file={file}
+                                  onRemove={() =>
+                                    setImages((current) =>
+                                      current.filter(
+                                        (_, position) => position !== index
+                                      )
+                                    )
+                                  }
+                                />
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </details>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      <div
+                        className={`rounded-xl bg-[#fffdf7] p-4 dark:bg-[#11110f] ${outline}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="flex items-center gap-2 text-sm font-semibold">
+                              <Wrench
+                                size={15}
+                                className="text-[#967329] dark:text-[#d6b46a]"
+                              />
+                              {category} · {serviceType}
+                            </p>
+                            {(device || brand || model) && (
+                              <p
+                                className={`mt-2 break-words text-sm ${muted}`}
+                              >
+                                {[device.trim(), brand.trim(), model.trim()]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => changeStep("details")}
+                            className={`shrink-0 rounded px-2 py-2 text-xs font-semibold text-[#7a581b] hover:underline dark:text-[#d6b46a] ${focus}`}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                          {issue.trim()}
+                        </p>
+                        {images.length > 0 && (
+                          <p className={`mt-3 text-xs ${muted}`}>
+                            {images.length}{" "}
+                            {images.length === 1 ? "photo" : "photos"} attached
+                          </p>
+                        )}
+                      </div>
+                      {serviceType === "Home Visit" ? (
+                        <div className="space-y-4">
+                          <UniversalDropdown
+                            menuClassName="[font-family:var(--font-ui)] [&_button]:!font-medium"
+                            label="Visit address"
+                            required
+                            options={(profile?.addresses ?? []).map(
+                              (address) => ({
+                                value: address.customerAddressId,
+                                label: `${address.label ? `${address.label} · ` : ""}${formatAddress(address)}`
+                              })
+                            )}
+                            value={addressId || null}
+                            onChange={setAddressId}
+                            placeholder="Choose a saved address"
+                          />
+                          {selectedAddress ? (
+                            <p
+                              className={`-mt-2 break-words text-xs leading-relaxed ${muted}`}
+                            >
+                              {formatAddress(selectedAddress)}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-amber-800 dark:text-amber-300">
+                              Save an address in{" "}
+                              <Link
+                                to="/customer/profile"
+                                onClick={onClose}
+                                className="font-semibold underline"
+                              >
+                                your profile
+                              </Link>
+                              , or go back and choose Shop Repair.
+                            </p>
+                          )}
+                          <UniversalDropdown
+                            menuClassName="[font-family:var(--font-ui)] [&_button]:!font-medium"
+                            label="Service area"
+                            required
+                            options={locations.map((item) => ({
+                              value: item.id,
+                              label: item.name
+                            }))}
+                            value={locationId || null}
+                            onChange={setLocationId}
+                            placeholder="Choose the area for this visit"
+                          />
+                          <p className={`-mt-2 text-xs ${muted}`}>
+                            Choose the area that matches your visit address.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="flex items-start gap-3 rounded-xl bg-[#d6b46a]/10 p-4 text-sm leading-relaxed">
+                          <Store
+                            size={19}
+                            className="mt-0.5 shrink-0 text-[#967329] dark:text-[#d6b46a]"
+                          />
+                          Bring your device to the shop after the team confirms
+                          your request. No visit address is needed.
+                        </p>
                       )}
+                      <details className={`rounded-xl ${outline}`}>
+                        <summary
+                          className={`cursor-pointer rounded-xl px-4 py-3 text-sm font-medium ${focus}`}
+                        >
+                          Preferred date & time{" "}
+                          <span className={`font-normal ${muted}`}>
+                            (
+                            {date
+                              ? `${date}${time ? ` · ${time}` : ""}`
+                              : "optional"}
+                            )
+                          </span>
+                        </summary>
+                        <div className="space-y-3 border-t border-[#d8cdb6] p-4 dark:border-[#393328]">
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <Field
+                              label="Preferred date"
+                              htmlFor={`${id}-date`}
+                            >
+                              <input
+                                id={`${id}-date`}
+                                type="date"
+                                min={localDate()}
+                                value={date}
+                                onChange={(event) =>
+                                  setDate(event.target.value)
+                                }
+                                className={`${input} [color-scheme:light] dark:[color-scheme:dark]`}
+                              />
+                            </Field>
+                            <UniversalDropdown
+                              menuClassName="[font-family:var(--font-ui)] [&_button]:!font-medium"
+                              label="Preferred time"
+                              options={times}
+                              value={time}
+                              onChange={setTime}
+                              placeholder="Choose a time slot"
+                            />
+                          </div>
+                          <p
+                            className={`flex items-start gap-2 text-xs leading-relaxed ${muted}`}
+                          >
+                            <Clock3 size={14} className="shrink-0" />
+                            This is a preference. The shop will confirm
+                            availability.
+                          </p>
+                          {(date || time) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDate("");
+                                setTime(null);
+                              }}
+                              className={`min-h-11 rounded px-2 text-xs font-medium underline ${focus}`}
+                            >
+                              Clear preference
+                            </button>
+                          )}
+                        </div>
+                      </details>
+                      <p className={`text-xs leading-relaxed ${muted}`}>
+                        Your saved contact details will be attached. No online
+                        payment is required.
+                      </p>
                     </div>
                   )}
-
-                  <div className="space-y-5">
-                    <QuickSection
-                      number="1"
-                      title="Repair details"
-                      description="Tell us what needs to be checked."
-                    >
-                      <div className="space-y-4">
-                        <UniversalDropdown<number>
-                          label="Service category"
-                          options={categoryOptions}
-                          value={serviceCategoryId || null}
-                          onChange={setServiceCategoryId}
-                          placeholder="Select service category"
-                        />
-
-                        <ServiceTypeSelector
-                          value={serviceType}
-                          onChange={setServiceType}
-                        />
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <InputField
-                            label="Device name"
-                            value={deviceName}
-                            onChange={setDeviceName}
-                            placeholder="Example: LED TV"
-                          />
-
-                          <InputField
-                            label="Brand"
-                            value={brand}
-                            onChange={setBrand}
-                            placeholder="Example: Samsung"
-                          />
-
-                          <div className="sm:col-span-2">
-                            <InputField
-                              label="Model number"
-                              value={modelName}
-                              onChange={setModelName}
-                              placeholder="Example: UA32..."
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <FormLabel required>Describe the issue</FormLabel>
-
-                          <textarea
-                            value={issueDescription}
-                            onChange={(event) =>
-                              setIssueDescription(event.target.value)
-                            }
-                            rows={4}
-                            placeholder="Example: The TV display is black, but sound is working."
-                            className="admin-input resize-none"
-                          />
-                        </div>
-                      </div>
-                    </QuickSection>
-
-                    <QuickSection
-                      number="2"
-                      title="Visit preferences"
-                      description="Select the address, preferred timing and add photos."
-                    >
-                      <div className="space-y-4">
-                        {serviceType === "Home Visit" && (
-                          <>
-                            {addressOptions.length > 0 ? (
-                              <UniversalDropdown<number>
-                                label="Visit address"
-                                options={addressOptions}
-                                value={selectedCustomerAddressId || null}
-                                onChange={setSelectedCustomerAddressId}
-                                placeholder="Select visit address"
-                              />
-                            ) : (
-                              <NoAddressWarning />
-                            )}
-
-                            <UniversalDropdown<number>
-                              label="Service location"
-                              options={locationOptions}
-                              value={serviceLocationId || null}
-                              onChange={setServiceLocationId}
-                              placeholder="Select service location"
-                            />
-                          </>
-                        )}
-
-                        {serviceType === "Shop Repair" && (
-                          <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm font-semibold leading-6 text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-300">
-                            Bring the device to the shop. No home address or
-                            service location is required.
-                          </div>
-                        )}
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <InputField
-                            label="Preferred date"
-                            type="date"
-                            min={minimumVisitDate}
-                            value={preferredDate}
-                            onChange={setPreferredDate}
-                          />
-
-                          <UniversalDropdown<TimeSlot>
-                            label="Preferred time"
-                            options={timeSlotOptions}
-                            value={preferredTimeSlot}
-                            onChange={setPreferredTimeSlot}
-                            placeholder="Select time slot"
-                          />
-                        </div>
-
-                        <RepairImageUpload
-                          images={selectedImages}
-                          onChange={handleImageChange}
-                          onRemove={removeSelectedImage}
-                        />
-                      </div>
-                    </QuickSection>
-                  </div>
                 </div>
-              </div>
+                {error && (
+                  <div
+                    ref={errorBox}
+                    tabIndex={-1}
+                    role="alert"
+                    className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm leading-relaxed text-red-800 outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-red-300"
+                  >
+                    {error}
+                  </div>
+                )}
+              </fieldset>
+            </form>
+          )}
+        </div>
+        <footer className="shrink-0 border-t border-[#d8cdb6] bg-[#fffdf7] px-5 py-4 dark:border-[#393328] dark:bg-[#11110f] sm:px-7">
+          {created ? (
+            <div className="flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={closeModal}
+                className={secondary}
+              >
+                Close
+              </button>
+              {saving ? (
+                <button
+                  type="button"
+                  disabled
+                  className={primary}
+                  aria-busy="true"
+                >
+                  Uploading photos…
+                </button>
+              ) : (
+                <Link
+                  to={`/customer/repairs/${created.serviceRequestId}`}
+                  onClick={() => finish(created)}
+                  className={primary}
+                >
+                  View repair <ArrowRight size={16} />
+                </Link>
+              )}
             </div>
-
-            {/* Sticky footer */}
-            <footer className="z-30 shrink-0 border-t border-[#d8cdb6] bg-[#fffaf0] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_25px_rgba(0,0,0,0.08)] dark:border-[#302c24] dark:bg-[#11110f] sm:px-6 sm:py-4">
-              <div className="mb-3 flex items-center justify-between gap-4 sm:mb-0">
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {!saving && (
                 <Link
                   to="/book-repair"
-                  onClick={handleClose}
-                  className="text-xs font-black text-[#8a6624] underline-offset-4 hover:underline dark:text-[#d6b46a]"
+                  onClick={onClose}
+                  className={`rounded py-2 text-xs font-medium text-[#7a581b] hover:underline dark:text-[#d6b46a] ${focus}`}
                 >
                   Open full booking form
                 </Link>
-
-                <p className="text-[11px] font-semibold text-[#817867] dark:text-[#928a7d]">
-                  Fields marked * are required
-                </p>
-              </div>
-
-              <div className="mt-3 grid grid-cols-[0.8fr_1.2fr] gap-3 sm:mt-0 sm:flex sm:justify-end">
+              )}
+              <div className="flex w-full gap-3 sm:ml-auto sm:w-auto">
                 <button
                   type="button"
-                  onClick={handleClose}
                   disabled={saving}
-                  className="h-12 rounded-xl border border-[#d8cdb6] px-4 text-sm font-black transition hover:bg-[#f2eadb] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#302c24] dark:hover:bg-[#242016] sm:min-w-[110px]"
+                  onClick={() =>
+                    step === "review" && !loadError
+                      ? changeStep("details")
+                      : onClose()
+                  }
+                  className={`${secondary} flex-1 sm:flex-none`}
                 >
-                  Cancel
+                  {step === "review" && !loadError ? (
+                    <>
+                      <ArrowLeft size={15} />
+                      Back
+                    </>
+                  ) : (
+                    "Cancel"
+                  )}
                 </button>
-
-                <ActionButton
-                  type="submit"
-                  loading={saving}
-                  loadingText="Creating..."
-                  variant="gold"
-                  fullWidth={false}
-                  className="h-12 w-full cursor-pointer rounded-xl px-5 py-0 sm:min-w-[170px]"
-                >
-                  Create Repair
-                </ActionButton>
+                {!loadError && profileReady && !loading && (
+                  <button
+                    type="submit"
+                    form={`${id}-form`}
+                    disabled={saving || categories.length === 0}
+                    className={`${primary} flex-1 sm:flex-none`}
+                    aria-busy={saving}
+                  >
+                    {saving
+                      ? "Booking…"
+                      : step === "details"
+                        ? "Continue"
+                        : "Confirm booking"}
+                    {!saving &&
+                      (step === "details" ? (
+                        <ArrowRight size={16} />
+                      ) : (
+                        <Check size={16} />
+                      ))}
+                  </button>
+                )}
               </div>
-            </footer>
-          </form>
-        )}
-      </div>
+            </div>
+          )}
+        </footer>
+      </section>
     </div>,
     document.body
   );
 }
 
-function QuickSection({
-  number,
-  title,
-  description,
+function Field({
+  label,
+  htmlFor,
+  optional,
+  required,
   children
 }: {
-  number: string;
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-[1.25rem] border border-[#d8cdb6] bg-[#fffdf7] p-4 dark:border-[#302c24] dark:bg-[#1a1712] sm:p-5">
-      <div className="flex items-start gap-3 border-b border-[#eadfca] pb-4 dark:border-[#302c24]">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#1f1a12] text-xs font-black text-[#f7f5ef] dark:bg-[#d6b46a] dark:text-[#11110f]">
-          {number}
-        </span>
-
-        <div>
-          <h3 className="text-base font-black">{title}</h3>
-
-          <p className="mt-1 text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
-            {description}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4">{children}</div>
-    </section>
-  );
-}
-
-function ServiceTypeSelector({
-  value,
-  onChange
-}: {
-  value: ServiceType;
-  onChange: (value: ServiceType) => void;
-}) {
-  return (
-    <div>
-      <FormLabel required>Repair type</FormLabel>
-
-      <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffaf0] p-1.5 dark:border-[#302c24] dark:bg-[#11110f]">
-        <button
-          type="button"
-          aria-pressed={value === "Home Visit"}
-          onClick={() => onChange("Home Visit")}
-          className={`min-h-12 rounded-lg px-3 text-xs font-black transition sm:text-sm ${
-            value === "Home Visit"
-              ? "bg-[#1f1a12] text-[#f7f5ef] shadow-sm dark:bg-[#d6b46a] dark:text-[#11110f]"
-              : "text-[#6f6758] hover:bg-[#f2eadb] dark:text-[#a8a093] dark:hover:bg-[#242016]"
-          }`}
-        >
-          Home Visit
-        </button>
-
-        <button
-          type="button"
-          aria-pressed={value === "Shop Repair"}
-          onClick={() => onChange("Shop Repair")}
-          className={`min-h-12 rounded-lg px-3 text-xs font-black transition sm:text-sm ${
-            value === "Shop Repair"
-              ? "bg-[#1f1a12] text-[#f7f5ef] shadow-sm dark:bg-[#d6b46a] dark:text-[#11110f]"
-              : "text-[#6f6758] hover:bg-[#f2eadb] dark:text-[#a8a093] dark:hover:bg-[#242016]"
-          }`}
-        >
-          Shop Repair
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ProfileSummary({
-  profile,
-  serviceType,
-  selectedAddress
-}: {
-  profile: CustomerProfile;
-  serviceType: ServiceType;
-  selectedAddress: CustomerAddress | null;
-}) {
-  const initials = profile.fullName?.trim()
-    ? profile.fullName
-        .trim()
-        .split(/\s+/)
-        .map((part) => part[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase()
-    : "CU";
-
-  return (
-    <div>
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8e3d8] text-sm font-black text-[#11110f] dark:bg-[#242016] dark:text-[#d6b46a]">
-        {initials}
-      </div>
-
-      <h3 className="mt-4 text-lg font-black">{profile.fullName}</h3>
-
-      <p className="mt-1 break-words text-xs font-semibold leading-5 text-[#6f6758] dark:text-[#a8a093]">
-        {profile.email}
-      </p>
-
-      <div className="mt-5 space-y-4">
-        <InfoMini title="Phone" value={profile.phoneNumber || "Not added"} />
-
-        <InfoMini title="Repair type" value={serviceType} />
-
-        {serviceType === "Home Visit" && selectedAddress && (
-          <InfoMini
-            title="Visit address"
-            value={formatAddress(selectedAddress)}
-          />
-        )}
-      </div>
-
-      <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold leading-5 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
-        Your saved contact information will be attached to the repair request.
-      </div>
-
-      <Link
-        to="/customer/profile"
-        className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#d8cdb6] text-xs font-black transition hover:bg-[#f2eadb] dark:border-[#302c24] dark:hover:bg-[#242016]"
-      >
-        Edit profile
-      </Link>
-    </div>
-  );
-}
-
-function MobileProfileSummary({
-  profile,
-  serviceType,
-  selectedAddress
-}: {
-  profile: CustomerProfile;
-  serviceType: ServiceType;
-  selectedAddress: CustomerAddress | null;
-}) {
-  return (
-    <details className="mb-5 rounded-xl border border-[#d8cdb6] bg-[#fff8e7] dark:border-[#302c24] dark:bg-[#11110f] lg:hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8a6624] dark:text-[#d6b46a]">
-            Booking as
-          </p>
-
-          <p className="mt-1 truncate text-sm font-black">{profile.fullName}</p>
-
-          <p className="mt-1 truncate text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
-            {profile.phoneNumber}
-          </p>
-        </div>
-
-        <span className="shrink-0 text-xs font-black text-[#8a6624] dark:text-[#d6b46a]">
-          View details
-        </span>
-      </summary>
-
-      <div className="border-t border-[#d8cdb6] p-4 dark:border-[#302c24]">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <InfoMini title="Email" value={profile.email} />
-
-          <InfoMini title="Repair type" value={serviceType} />
-
-          {serviceType === "Home Visit" && selectedAddress && (
-            <div className="sm:col-span-2">
-              <InfoMini
-                title="Visit address"
-                value={formatAddress(selectedAddress)}
-              />
-            </div>
-          )}
-        </div>
-
-        <Link
-          to="/customer/profile"
-          className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#d8cdb6] text-xs font-black dark:border-[#302c24]"
-        >
-          Edit profile
-        </Link>
-      </div>
-    </details>
-  );
-}
-
-function RepairImageUpload({
-  images,
-  onChange,
-  onRemove
-}: {
-  images: File[];
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onRemove: (file: File) => void;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <FormLabel>Repair photos</FormLabel>
-
-        <span className="text-[11px] font-bold text-[#817867] dark:text-[#928a7d]">
-          {images.length}/{maximumImages}
-        </span>
-      </div>
-
-      <label className="flex min-h-24 cursor-pointer items-center justify-between gap-4 rounded-xl border border-dashed border-[#c9b998] bg-[#fffaf0] p-4 transition hover:border-[#d6b46a] hover:bg-[#fff4cc] dark:border-[#40392e] dark:bg-[#11110f] dark:hover:border-[#d6b46a]/50 dark:hover:bg-[#242016]">
-        <input
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-          onChange={onChange}
-          className="hidden"
-        />
-
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f2eadb] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-            <UploadIcon />
-          </span>
-
-          <div className="min-w-0">
-            <p className="text-sm font-black">Add repair photos</p>
-
-            <p className="mt-1 text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
-              JPG, PNG or WEBP · 5MB each
-            </p>
-          </div>
-        </div>
-
-        <span className="shrink-0 rounded-lg bg-[#1f1a12] px-3 py-2 text-xs font-black text-[#f7f5ef] dark:bg-[#e8e3d8] dark:text-[#11110f]">
-          Choose
-        </span>
-      </label>
-
-      {images.length > 0 && (
-        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {images.map((file) => (
-            <SelectedImageCard
-              key={`${file.name}-${file.size}-${file.lastModified}`}
-              file={file}
-              onRemove={() => onRemove(file)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SelectedImageCard({
-  file,
-  onRemove
-}: {
-  file: File;
-  onRemove: () => void;
-}) {
-  const [previewUrl, setPreviewUrl] = useState("");
-
-  useEffect(() => {
-    const objectUrl = URL.createObjectURL(file);
-
-    setPreviewUrl(objectUrl);
-
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-  }, [file]);
-
-  return (
-    <div className="group relative overflow-hidden rounded-xl border border-[#d8cdb6] bg-[#fff8e7] dark:border-[#302c24] dark:bg-[#11110f]">
-      <div className="aspect-square">
-        <img
-          src={previewUrl}
-          alt={file.name}
-          className="h-full w-full object-cover"
-        />
-      </div>
-
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${file.name}`}
-        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-sm font-black text-white backdrop-blur-sm transition hover:bg-red-700"
-      >
-        ×
-      </button>
-
-      <div className="p-2">
-        <p title={file.name} className="truncate text-[10px] font-black">
-          {file.name}
-        </p>
-
-        <p className="mt-0.5 text-[9px] font-semibold text-[#817867] dark:text-[#928a7d]">
-          {formatFileSize(file.size)}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ProfileRequiredState({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="te-modal-scroll flex min-h-0 flex-1 items-center overflow-y-auto p-4 sm:p-8">
-      <div className="mx-auto w-full max-w-lg rounded-[1.5rem] border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
-        <h3 className="text-2xl font-black">Complete your profile</h3>
-
-        <p className="mt-3 text-sm font-semibold leading-6">
-          Quick booking requires your name and phone number. Home visits also
-          require a saved address.
-        </p>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <Link
-            to="/customer/profile"
-            onClick={onClose}
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-[#1f1a12] px-5 text-sm font-black text-[#f7f5ef] dark:bg-[#e8e3d8] dark:text-[#11110f]"
-          >
-            Complete profile
-          </Link>
-
-          <Link
-            to="/book-repair"
-            onClick={onClose}
-            className="inline-flex h-12 items-center justify-center rounded-xl border border-amber-300 px-5 text-sm font-black dark:border-amber-400/30"
-          >
-            Use full form
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NoAddressWarning() {
-  return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
-      No saved address was found. Add an address in your profile or choose Shop
-      Repair.
-    </div>
-  );
-}
-
-function QuickBookingLoading() {
-  return (
-    <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-      <div className="text-center">
-        <div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-[#d8cdb6] border-t-[#8a6624] dark:border-[#302c24] dark:border-t-[#d6b46a]" />
-
-        <p className="mt-4 text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-          Preparing quick booking...
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function FormLabel({
-  required = false,
-  children
-}: {
+  label: string;
+  htmlFor: string;
+  optional?: boolean;
   required?: boolean;
   children: ReactNode;
 }) {
   return (
-    <label className="mb-2 block text-xs font-black text-[#5f574a] dark:text-[#b5ada0]">
-      {children}
-
-      {required && (
-        <span className="ml-1 text-red-600 dark:text-red-300">*</span>
-      )}
-    </label>
-  );
-}
-
-function InputField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  min
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
-  min?: string;
-}) {
-  return (
     <div>
-      <FormLabel>{label}</FormLabel>
-
-      <input
-        type={type}
-        min={min}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="admin-input"
-      />
+      <label htmlFor={htmlFor} className="mb-2 block text-sm font-medium">
+        {label}
+        {required && (
+          <>
+            <span
+              aria-hidden="true"
+              className="ml-1 text-red-700 dark:text-red-300"
+            >
+              *
+            </span>
+            <span className="sr-only"> required</span>
+          </>
+        )}
+        {optional && (
+          <span className={`ml-1 font-normal ${muted}`}>(optional)</span>
+        )}
+      </label>
+      {children}
     </div>
   );
 }
-
-function InfoMini({ title, value }: { title: string; value: string }) {
+function Photo({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const image = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    if (image.current) image.current.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
   return (
-    <div className="min-w-0">
-      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#817867] dark:text-[#928a7d]">
-        {title}
-      </p>
-
-      <p className="mt-1 break-words text-sm font-black leading-5">{value}</p>
-    </div>
+    <li
+      className={`flex min-w-0 items-center gap-2 rounded-xl bg-[#fffdf7] p-2 dark:bg-[#11110f] ${outline}`}
+    >
+      <img
+        ref={image}
+        alt=""
+        className="h-11 w-11 shrink-0 rounded-lg object-cover"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-medium" title={file.name}>
+          {file.name}
+        </span>
+        <span className={`mt-1 block text-[11px] ${muted}`}>
+          {(file.size / 1024 / 1024).toFixed(1)} MB
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${file.name}`}
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-red-500/10 ${focus}`}
+      >
+        <X size={16} />
+      </button>
+    </li>
   );
 }
-
+function validateImages(files: File[]) {
+  if (files.length > 5) return "Choose up to 5 photos.";
+  for (const file of files) {
+    if (
+      !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+      !/\.(jpe?g|png|webp)$/i.test(file.name)
+    )
+      return "Use JPG, PNG or WebP photos.";
+    if (file.size > 5 * 1024 * 1024)
+      return `“${file.name}” is too large. Each photo must be 5 MB or smaller.`;
+    if (file.size === 0)
+      return `“${file.name}” is empty. Choose another photo.`;
+  }
+  return "";
+}
 function formatAddress(address: CustomerAddress) {
   return [address.addressLine, address.city, address.state, address.pincode]
     .filter(Boolean)
     .join(", ");
 }
-
-function formatFileSize(size: number) {
-  if (size < 1024 * 1024) {
-    return `${Math.round(size / 1024)} KB`;
-  }
-
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+function localDate() {
+  const today = new Date();
+  return new Date(today.getTime() - today.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10);
 }
-
-function UploadIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
-      <path
-        d="M12 16V5m0 0L8 9m4-4 4 4M5 15v4h14v-4"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+function errorMessage(cause: unknown, fallback: string) {
+  return cause instanceof Error ? cause.message : fallback;
 }
-
 export default QuickBookRepairModal;

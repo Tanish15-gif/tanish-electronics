@@ -1,4 +1,4 @@
-import { apiClient } from "./apiClient";
+import { apiClient, refreshStoredAuthSession } from "./apiClient";
 
 const ACCESS_TOKEN_KEY = "te_access_token";
 const REFRESH_TOKEN_KEY = "te_refresh_token";
@@ -37,6 +37,8 @@ export function saveAuthSession(response: AuthResponse) {
   localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
+  localStorage.setItem("te_access_expires_at", response.accessTokenExpiresAt);
+  window.dispatchEvent(new Event("te-auth-changed"));
 }
 
 export function getAccessToken() {
@@ -66,6 +68,8 @@ export function clearAuthSession() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
+  localStorage.removeItem("te_access_expires_at" );
+  window.dispatchEvent(new Event("te-auth-changed"));
 }
 
 export async function registerUser(request: RegisterRequest) {
@@ -91,23 +95,7 @@ export async function loginUser(request: LoginRequest) {
 }
 
 export async function refreshAuthSession() {
-  const refreshToken = getRefreshToken();
-
-  if (!refreshToken) {
-    clearAuthSession();
-    return null;
-  }
-
-  const response = await apiClient<AuthResponse>("/auth/custom/refresh", {
-    method: "POST",
-    body: JSON.stringify({
-      refreshToken
-    })
-  });
-
-  saveAuthSession(response);
-
-  return response;
+  return await refreshStoredAuthSession();
 }
 
 export async function logoutUser() {

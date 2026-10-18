@@ -1,5 +1,7 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import HomeFeaturedProduct from "../components/public/HomeFeaturedProduct";
+import HomeServiceInformation from "../components/public/HomeServiceInformation";
 import HomeFeedbackSection from "../components/public/HomeFeedbackSection";
 import HomeAnnouncementPopup from "../components/public/HomeAnnouncementPopup";
 import HomeAnnouncementStrip from "../components/public/HomeAnnouncementStrip";
@@ -113,51 +115,6 @@ const processSteps = [
     title: "Repair completion",
     description:
       "The repair is completed and the final status and price can be tracked online."
-  }
-];
-
-type ProductCategoryType = "tv" | "remote" | "adapter" | "speaker";
-
-type ProductCategoryItem = {
-  title: string;
-  description: string;
-  category: ProductCategoryType;
-  badge: string;
-  query: string;
-};
-
-const productCategories: ProductCategoryItem[] = [
-  {
-    title: "Second-hand TVs",
-    description:
-      "Quality-tested LED, LCD & Smart TVs available for viewing and purchase.",
-    category: "tv",
-    badge: "Verified Stock",
-    query: "TV"
-  },
-  {
-    title: "Remote Controls",
-    description:
-      "Replacement remotes for Smart TVs, set-top boxes and soundbars.",
-    category: "remote",
-    badge: "Ready Stock",
-    query: "Remote"
-  },
-  {
-    title: "Power Adapters",
-    description:
-      "Original & high-grade adapters and cables for electronics & screens.",
-    category: "adapter",
-    badge: "Accessories",
-    query: "Adapter"
-  },
-  {
-    title: "Speakers & Audio",
-    description:
-      "Tested Bluetooth, wired and home theatre speakers with clear sound.",
-    category: "speaker",
-    badge: "Tested Audio",
-    query: "Speaker"
   }
 ];
 
@@ -434,47 +391,9 @@ function HomePage() {
 
       <HomeFeedbackSection />
 
-      {/* Products */}
-      <section className="border-y border-[#d8cdb6] bg-transparent dark:border-[#302c24]">
-        <div className="mx-auto grid w-full max-w-[1720px] gap-10 px-4 py-14 sm:px-8 sm:py-16 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
-          <Reveal>
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6624] dark:text-[#d6b46a]">
-                Products and sales
-              </p>
+      <HomeFeaturedProduct />
 
-              <h2 className="font-display mt-4 text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl">
-                Browse available electronics and accessories.
-              </h2>
-
-              <p className="mt-5 max-w-xl text-base font-semibold leading-8 text-[#6f6758] dark:text-[#a8a093]">
-                View second-hand TVs, remotes, adapters, speakers and
-                accessories, then send an enquiry directly from the product
-                page.
-              </p>
-
-              <Link
-                to="/products"
-                className="group mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#1f1a12] px-6 text-sm font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
-              >
-                View Products
-                <ArrowRightIcon className="transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </Reveal>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {productCategories.map((product, index) => (
-              <Reveal key={product.title} delay={index * 70}>
-                <ProductCategoryCard
-                  category={product}
-                  whatsappUrl={whatsappUrl}
-                />
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
+      <HomeServiceInformation settings={settings} />
 
       {/* Location and contact */}
       <section className="mx-auto w-full max-w-[1720px] px-4 py-14 sm:px-8 sm:py-16 lg:px-12 xl:px-16 2xl:px-20 lg:py-20">
@@ -785,59 +704,6 @@ function ProcessCard({
         {description}
       </p>
     </article>
-  );
-}
-
-function ProductCategoryCard({
-  category,
-  whatsappUrl
-}: {
-  category: ProductCategoryItem;
-  whatsappUrl: string;
-}) {
-  const categoryWhatsApp = `${whatsappUrl}%20regarding%20${encodeURIComponent(category.title)}`;
-
-  return (
-    <div className="group flex h-full flex-col justify-between rounded-[1.5rem] border border-[#d8cdb6] bg-[#fffdf7] p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#c7b98e] hover:shadow-lg dark:border-[#302c24] dark:bg-[#11110f] dark:hover:border-[#50483b]">
-      <div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#fff4cc] text-[#8a6624] dark:bg-[#d6b46a]/10 dark:text-[#d6b46a] transition group-hover:scale-105">
-            <ProductCategoryIcon type={category.category} />
-          </span>
-
-          <span className="rounded-full border border-[#d6b46a]/30 bg-[#fff8e7] px-2.5 py-0.5 text-[10px] font-bold text-[#8a6624] dark:border-[#d6b46a]/20 dark:bg-[#1a1712] dark:text-[#d6b46a]">
-            {category.badge}
-          </span>
-        </div>
-
-        <h3 className="mt-4 text-base font-black">{category.title}</h3>
-
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#6f6758] dark:text-[#a8a093]">
-          {category.description}
-        </p>
-      </div>
-
-      <div className="mt-5 flex items-center justify-between gap-2 border-t border-[#f0e8d8] pt-3 dark:border-[#242017]">
-        <Link
-          to={`/products?search=${encodeURIComponent(category.query)}`}
-          className="inline-flex items-center gap-1.5 text-xs font-black text-[#8a6624] transition hover:gap-2 dark:text-[#d6b46a]"
-        >
-          <span>View items</span>
-          <ArrowRightIcon />
-        </Link>
-
-        <a
-          href={categoryWhatsApp}
-          target="_blank"
-          rel="noreferrer"
-          title={`Enquire about ${category.title} on WhatsApp`}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-emerald-600/25 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-900 transition hover:border-[#25D366] hover:bg-[#25D366] hover:text-[#052e1b] dark:border-emerald-400/40 dark:bg-[#063f32] dark:text-[#8ff5d2] dark:hover:bg-[#25D366] dark:hover:text-[#052e1b]"
-        >
-          <WhatsAppIcon className="h-3 w-3" />
-          <span>Enquire</span>
-        </a>
-      </div>
-    </div>
   );
 }
 
@@ -1205,113 +1071,6 @@ function MapPinIcon({
         strokeWidth="1.8"
       />
       <circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function ProductCategoryIcon({
-  type
-}: {
-  type: "tv" | "remote" | "adapter" | "speaker";
-}) {
-  if (type === "tv") {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true"
-        className="h-6 w-6"
-      >
-        <rect
-          x="2"
-          y="4"
-          width="20"
-          height="13"
-          rx="2"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <path
-          d="M8 20h8M12 17v3"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-        <path
-          d="m14 2-2 2-2-2"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-  if (type === "remote") {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true"
-        className="h-6 w-6"
-      >
-        <rect
-          x="6"
-          y="2"
-          width="12"
-          height="20"
-          rx="3"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <circle cx="12" cy="7" r="2" stroke="currentColor" strokeWidth="1.5" />
-        <path
-          d="M9 13h2M13 13h2M9 16h2M13 16h2"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-  if (type === "adapter") {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true"
-        className="h-6 w-6"
-      >
-        <rect
-          x="5"
-          y="7"
-          width="14"
-          height="12"
-          rx="2"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <path
-          d="M9 3v4M15 3v4M12 19v2"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-6 w-6">
-      <rect
-        x="5"
-        y="2"
-        width="14"
-        height="20"
-        rx="3"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <circle cx="12" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="12" cy="15" r="4" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }

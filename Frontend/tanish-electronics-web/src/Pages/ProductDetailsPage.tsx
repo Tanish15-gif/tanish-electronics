@@ -14,9 +14,9 @@ import { getCustomerProfile } from "../Services/customerProfileService";
 import {
   createEnquiry,
   getProductById,
-  getProducts,
+  getProductRecommendations,
   type ProductDetails,
-  type ProductListItem
+  type ProductRecommendation
 } from "../Services/productService";
 import { useShopSettings } from "../hooks/useShopSettings";
 import TanishElectronicsLogo from "../components/common/TanishElectronicsLogo";
@@ -31,7 +31,11 @@ function ProductDetailsPage() {
   const enquirySectionRef = useRef<HTMLDivElement | null>(null);
 
   const [product, setProduct] = useState<ProductDetails | null>(null);
-  const [similarProducts, setSimilarProducts] = useState<ProductListItem[]>([]);
+  const [similarProducts, setSimilarProducts] = useState<
+    ProductRecommendation[]
+  >([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const [loading, setLoading] = useState(true);
@@ -79,63 +83,55 @@ function ProductDetailsPage() {
     void autoFillCustomerDetails();
   }, [isLoaded, isSignedIn, getToken]);
 
-  async function loadProduct() {
-    try {
-      if (!id || Number.isNaN(Number(id))) {
+  useEffect(() => {
+    let active = true;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    async function loadProduct() {
+      setLoading(true);
+      setProduct(null);
+      setProductError("");
+      setSimilarProducts([]);
+      setRecommendationsError("");
+      setRecommendationsLoading(false);
+      setSelectedImageIndex(0);
+      setSuccess("");
+      setFormError("");
+      setMessage("");
+      const productId = Number(id);
+      if (!id || !Number.isSafeInteger(productId) || productId <= 0) {
         setProductError("Invalid product.");
+        setLoading(false);
         return;
       }
-
-      setLoading(true);
-      setProductError("");
-      setSelectedImageIndex(0);
-
-      const [data, allProducts] = await Promise.all([
-        getProductById(Number(id)),
-        getProducts().catch(() => [] as ProductListItem[])
-      ]);
-
-      setProduct(data);
-
-      if (data && allProducts.length > 0) {
-        const otherCandidates = allProducts.filter(
-          (candidate) => candidate.productId !== data.productId
+      try {
+        const data = await getProductById(productId);
+        if (!active) return;
+        setProduct(data);
+        setLoading(false);
+        setRecommendationsLoading(true);
+        try {
+          const recommendations = await getProductRecommendations(productId);
+          if (active) setSimilarProducts(recommendations);
+        } catch {
+          if (active)
+            setRecommendationsError(
+              "Suggestions are temporarily unavailable. You can still browse the catalogue or ask the shop."
+            );
+        } finally {
+          if (active) setRecommendationsLoading(false);
+        }
+      } catch (error) {
+        if (!active) return;
+        setProductError(
+          error instanceof Error ? error.message : "Product not found."
         );
-
-        const scored = otherCandidates
-          .map((candidate) => ({
-            item: candidate,
-            score: calculateSimilarityScore(data, candidate)
-          }))
-          .filter((entry) => entry.score > 0)
-          .sort(
-            (a, b) => b.score - a.score || b.item.productId - a.item.productId
-          );
-
-        // Strictly take products that match brand/compatibility (no irrelevant fallbacks)
-        const topMatches = scored.map((entry) => entry.item);
-        setSimilarProducts(topMatches.slice(0, 4));
-      } else {
-        setSimilarProducts([]);
+        setLoading(false);
       }
-    } catch (error) {
-      setProductError(
-        error instanceof Error ? error.message : "Product not found."
-      );
-      setProduct(null);
-      setSimilarProducts([]);
-    } finally {
-      setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    // This route change intentionally starts the product request.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadProduct();
-    // Product loading is intentionally keyed to the route identifier.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   async function handleEnquiry(event: FormEvent<HTMLFormElement>) {
@@ -588,81 +584,103 @@ function ProductDetailsPage() {
           </aside>
         </div>
 
-        {/* Similar & Compatible Products Section */}
-        <section className="mt-12 sm:mt-16 border-t border-[#d8cdb6] pt-8 sm:pt-10 dark:border-[#302c24]">
+        <section
+          aria-labelledby="recommendations-title"
+          aria-busy={recommendationsLoading}
+          className="mt-10 border-t border-[#d8cdb6] pt-8 dark:border-[#302c24] sm:mt-12"
+        >
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b46a]/60 bg-[#1f1a12] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#d6b46a]">
-                  <Sparkles size={11} className="text-[#d6b46a]" />
-                  {similarProducts.length > 0
-                    ? "Recommended For You"
-                    : "Compatibility Check"}
-                </span>
-                {product.brand && (
-                  <span className="text-xs font-black uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
-                    • {product.brand} Ecosystem
-                  </span>
-                )}
-              </div>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#1f1a12] dark:text-[#f7f5ef] sm:text-3xl">
-                Similar Products & Matching Accessories
+              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#8a6624] dark:text-[#d6b46a]">
+                <Sparkles size={14} /> More to explore
+              </p>
+              <h2
+                id="recommendations-title"
+                className="mt-2 text-2xl font-black tracking-tight sm:text-3xl"
+              >
+                You may also like
               </h2>
-              <p className="mt-1 text-xs sm:text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                Original remotes, power adapters, and verified companion
-                electronics for this setup
+              <p className="mt-2 max-w-2xl text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
+                Compare alternatives and related devices. For accessories,
+                confirm your exact model with the shop.
               </p>
             </div>
-
             <Link
               to="/products"
-              className="inline-flex items-center gap-1.5 text-xs font-black text-[#8a6624] transition hover:text-[#5e4315] hover:underline dark:text-[#d6b46a] dark:hover:text-[#edd9a8]"
+              className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#8a6624] hover:underline dark:text-[#d6b46a]"
             >
-              <span>View all products</span>
-              <ArrowRightIcon />
+              Browse all products <ArrowRightIcon />
             </Link>
           </div>
-
-          {similarProducts.length > 0 ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {recommendationsLoading ? (
+            <div
+              role="status"
+              className="rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-6 text-sm dark:border-[#302c24] dark:bg-[#1a1712]"
+            >
+              Finding related products...
+            </div>
+          ) : similarProducts.length > 0 ? (
+            <div
+              className={
+                similarProducts.length === 1
+                  ? "grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]"
+                  : "grid gap-5 sm:grid-cols-2 " +
+                    (similarProducts.length === 3
+                      ? "xl:grid-cols-3"
+                      : similarProducts.length >= 4
+                        ? "xl:grid-cols-4"
+                        : "")
+              }
+            >
               {similarProducts.map((item) => (
                 <SimilarProductCard
                   key={item.productId}
                   product={item}
-                  currentProduct={product}
+                  compact={similarProducts.length === 1}
                   formatPrice={formatPrice}
                   getProductImageUrl={getProductImageUrl}
                 />
               ))}
+              {similarProducts.length === 1 && (
+                <div className="flex flex-col items-start justify-center rounded-2xl border border-dashed border-[#d8cdb6] bg-[#fffdf7]/70 p-6 dark:border-[#302c24] dark:bg-[#1a1712]/70">
+                  <h3 className="text-xl font-black">Need help choosing?</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#6f6758] dark:text-[#a8a093]">
+                    Share your device model or a photo of its label. The shop
+                    can help check the right remote, part or alternative.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={scrollToEnquiry}
+                    className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1f1a12] px-4 text-sm font-bold text-[#f7f5ef] dark:bg-[#e8e3d8] dark:text-[#11110f]"
+                  >
+                    Ask the shop <ArrowRightIcon />
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="rounded-[1.75rem] border border-dashed border-[#d8cdb6] bg-[#fffdf7]/60 p-8 text-center dark:border-[#302c24] dark:bg-[#1a1712]/60 sm:p-10">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#d8cdb6]/60 bg-[#1f1a12] p-1.5 shadow-sm dark:border-[#383124] dark:bg-[#161410]">
-                <TanishElectronicsLogo className="h-full w-full rounded-xl object-cover" />
-              </div>
-              <h3 className="mt-4 text-base sm:text-lg font-black text-[#1f1a12] dark:text-[#f7f5ef]">
-                No matching products found
-              </h3>
-              <p className="mx-auto mt-1.5 max-w-md text-xs sm:text-sm font-semibold text-[#6f6758] dark:text-[#a8a093]">
-                {product.brand
-                  ? `There are currently no matching remotes or accessories in stock for ${product.brand}.`
-                  : "There are currently no matching accessories or similar products in stock for this item."}
-              </p>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={scrollToEnquiry}
-                  className="inline-flex h-10 items-center justify-center rounded-xl bg-[#1f1a12] px-4 text-xs font-black text-[#f7f5ef] transition hover:bg-[#33291b] dark:bg-[#e8e3d8] dark:text-[#11110f] dark:hover:bg-[#d6b46a]"
+            <div className="flex flex-wrap items-center justify-between gap-5 rounded-2xl border border-dashed border-[#d8cdb6] bg-[#fffdf7]/70 p-6 dark:border-[#302c24] dark:bg-[#1a1712]/70">
+              <div className="max-w-xl">
+                <h3 className="text-lg font-black">
+                  {recommendationsError
+                    ? "Suggestions unavailable"
+                    : "Need a related product or accessory?"}
+                </h3>
+                <p
+                  role={recommendationsError ? "status" : undefined}
+                  className="mt-2 text-sm leading-6 text-[#6f6758] dark:text-[#a8a093]"
                 >
-                  Enquire for {product.brand || "this device"} parts
-                </button>
-                <Link
-                  to="/products"
-                  className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8cdb6] bg-transparent px-4 text-xs font-black text-[#1f1a12] transition hover:bg-[#f3efe6] dark:border-[#302c24] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
-                >
-                  Browse all products
-                </Link>
+                  {recommendationsError ||
+                    "No related items are currently in stock. Share your device model and the shop can help you find the right option."}
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={scrollToEnquiry}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1f1a12] px-4 text-sm font-bold text-[#f7f5ef] dark:bg-[#e8e3d8] dark:text-[#11110f]"
+              >
+                Ask the shop <ArrowRightIcon />
+              </button>
             </div>
           )}
         </section>
@@ -1099,236 +1117,19 @@ function ChatIcon() {
   );
 }
 
-const KNOWN_ELECTRONICS_BRANDS = [
-  "vu",
-  "lg",
-  "samsung",
-  "sony",
-  "sansui",
-  "kodak",
-  "croma",
-  "mi",
-  "xiaomi",
-  "oneplus",
-  "tcl",
-  "panasonic",
-  "philips",
-  "haier",
-  "videocon",
-  "onida",
-  "bpl",
-  "toshiba",
-  "sharp",
-  "micromax",
-  "realme",
-  "intex",
-  "lloyd",
-  "iffalcon",
-  "hisense",
-  "motorola",
-  "nxt",
-  "tata sky",
-  "airtel",
-  "dish tv",
-  "d2h"
-];
-
-function extractProductBrand(
-  brand?: string | null,
-  name?: string | null
-): string {
-  const brandVal = (brand || "").trim().toLowerCase();
-  if (
-    brandVal &&
-    brandVal !== "general" &&
-    brandVal !== "remote" &&
-    brandVal !== "accessories" &&
-    brandVal !== "unknown"
-  ) {
-    return brandVal;
-  }
-  const nameVal = (name || "").toLowerCase();
-  for (const b of KNOWN_ELECTRONICS_BRANDS) {
-    const regex = new RegExp(`\\b${b}\\b`, "i");
-    if (regex.test(nameVal)) {
-      return b;
-    }
-  }
-  return brandVal;
-}
-
-function containsBrand(text: string, brand: string): boolean {
-  if (!text || !brand) return false;
-  const regex = new RegExp(`\\b${brand}\\b`, "i");
-  return regex.test(text);
-}
-
-function calculateSimilarityScore(
-  current: ProductDetails,
-  candidate: ProductListItem
-): number {
-  if (current.productId === candidate.productId) return -1;
-
-  const currentBrand = extractProductBrand(current.brand, current.productName);
-  const candidateBrand = extractProductBrand(
-    candidate.brand,
-    candidate.productName
-  );
-
-  const currentCategory = (current.categoryName || "").toLowerCase();
-  const candidateCategory = (candidate.categoryName || "").toLowerCase();
-  const currentName = current.productName.toLowerCase();
-  const candidateName = candidate.productName.toLowerCase();
-
-  const isCurrentTv =
-    currentCategory.includes("tv") ||
-    currentCategory.includes("television") ||
-    currentName.includes("tv") ||
-    currentName.includes("television") ||
-    currentName.includes("led") ||
-    currentName.includes("oled") ||
-    currentName.includes("smart tv");
-
-  const isCandidateRemote =
-    candidateCategory.includes("remote") ||
-    candidateName.includes("remote") ||
-    candidateName.includes("magic remote");
-
-  const isCurrentRemote =
-    currentCategory.includes("remote") || currentName.includes("remote");
-
-  const isCandidateTv =
-    candidateCategory.includes("tv") ||
-    candidateCategory.includes("television") ||
-    candidateName.includes("tv");
-
-  const isCandidateAccessory =
-    candidateCategory.includes("accessory") ||
-    candidateCategory.includes("accessories") ||
-    candidateCategory.includes("adapter") ||
-    candidateCategory.includes("cable") ||
-    candidateCategory.includes("stand") ||
-    candidateName.includes("adapter") ||
-    candidateName.includes("cable") ||
-    candidateName.includes("stand");
-
-  const isCandidateUniversal =
-    candidateName.includes("universal") ||
-    candidateCategory.includes("universal");
-
-  // Check if candidate explicitly targets the current brand
-  const brandDirectMatch = Boolean(
-    (currentBrand && candidateBrand && currentBrand === candidateBrand) ||
-    (currentBrand && containsBrand(candidateName, currentBrand)) ||
-    (candidateBrand && containsBrand(currentName, candidateBrand))
-  );
-
-  // Check if candidate belongs to a conflicting/different known brand
-  const hasConflictingBrand = Boolean(
-    currentBrand &&
-    candidateBrand &&
-    currentBrand !== candidateBrand &&
-    !brandDirectMatch &&
-    !isCandidateUniversal
-  );
-
-  // 1. Remotes & TVs (Cross-Sell Affinity)
-  // A remote of brand Y CAN NEVER be recommended for brand X (e.g. LG remote for Vu TV)
-  if (isCurrentTv && isCandidateRemote) {
-    if (hasConflictingBrand) return -1;
-    if (brandDirectMatch) return 100;
-    if (isCandidateUniversal) return 40;
-    return -1; // Unmatched remote -> Never recommend!
-  }
-
-  if (isCurrentRemote && isCandidateTv) {
-    if (hasConflictingBrand) return -1;
-    if (brandDirectMatch) return 100;
-    if (isCandidateUniversal) return 40;
-    return -1;
-  }
-
-  // 2. Companion Accessories
-  if (isCandidateAccessory) {
-    if (hasConflictingBrand) return -1;
-    if (brandDirectMatch) return 80;
-    if (isCandidateUniversal) return 30;
-    return -1;
-  }
-
-  // 3. Same Category Items (e.g. TVs with TVs)
-  // If current is a TV, only recommend other TVs of the SAME BRAND!
-  if (isCurrentTv && isCandidateTv) {
-    if (brandDirectMatch) {
-      let score = 50;
-      if (candidate.isAvailable && candidate.stockQuantity > 0) score += 10;
-      if (candidate.isFeatured) score += 5;
-      return score;
-    }
-    // TVs of different brands are NOT compatible/matching
-    return -1;
-  }
-
-  // 4. Same brand general devices
-  if (brandDirectMatch) {
-    let score = 40;
-    if (candidate.isAvailable && candidate.stockQuantity > 0) score += 10;
-    if (candidate.isFeatured) score += 5;
-    return score;
-  }
-
-  // Everything else is unrelated / incompatible
-  return -1;
-}
-
 type SimilarProductCardProps = {
-  product: ProductListItem;
-  currentProduct: ProductDetails;
+  product: ProductRecommendation;
+  compact: boolean;
   formatPrice: (price: number) => string;
   getProductImageUrl: (imageUrl?: string | null) => string;
 };
 
 function SimilarProductCard({
   product,
-  currentProduct,
+  compact,
   formatPrice,
   getProductImageUrl
 }: SimilarProductCardProps) {
-  const currentBrand = extractProductBrand(
-    currentProduct.brand,
-    currentProduct.productName
-  );
-  const candidateBrand = extractProductBrand(
-    product.brand,
-    product.productName
-  );
-  const currentCategory = (currentProduct.categoryName || "").toLowerCase();
-  const candidateCategory = (product.categoryName || "").toLowerCase();
-  const currentName = currentProduct.productName.toLowerCase();
-  const candidateName = product.productName.toLowerCase();
-
-  const isCurrentTv =
-    currentCategory.includes("tv") ||
-    currentCategory.includes("television") ||
-    currentName.includes("tv") ||
-    currentName.includes("television") ||
-    currentName.includes("led");
-
-  const isCandidateRemote =
-    candidateCategory.includes("remote") || candidateName.includes("remote");
-
-  const isUniversal =
-    candidateName.includes("universal") ||
-    candidateCategory.includes("universal");
-
-  const brandMatches = Boolean(
-    (currentBrand && candidateBrand && currentBrand === candidateBrand) ||
-    (currentBrand && containsBrand(candidateName, currentBrand))
-  );
-
-  const isMatchingRemote =
-    isCurrentTv && isCandidateRemote && (brandMatches || isUniversal);
-
   const isInStock = product.isAvailable && product.stockQuantity > 0;
   const isLowStock = isInStock && product.stockQuantity <= 2;
 
@@ -1339,10 +1140,22 @@ function SimilarProductCard({
   return (
     <Link
       to={`/products/${product.productId}`}
-      className="group flex flex-col overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-[#c8b98f] hover:shadow-xl hover:shadow-[#d8cdb6]/40 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:shadow-black/40"
+      className={
+        "group flex flex-col " +
+        (compact ? "sm:flex-row " : "") +
+        "overflow-hidden rounded-[1.75rem] border border-[#d8cdb6] bg-[#fffdf7] shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-[#c8b98f] hover:shadow-xl hover:shadow-[#d8cdb6]/40 dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#50483b] dark:hover:shadow-black/40"
+      }
     >
       {/* Product Image */}
-      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden border-b border-[#d8cdb6] bg-gradient-to-b from-[#f3efe6] to-[#eae3d1] p-5 dark:border-[#302c24] dark:from-[#0f0e0c] dark:to-[#151310]">
+      <div
+        className={
+          "relative flex aspect-[4/3] " +
+          (compact
+            ? "sm:aspect-auto sm:w-2/5 sm:shrink-0 sm:border-b-0 sm:border-r "
+            : "") +
+          "items-center justify-center overflow-hidden border-b border-[#d8cdb6] bg-gradient-to-b from-[#f3efe6] to-[#eae3d1] p-5 dark:border-[#302c24] dark:from-[#0f0e0c] dark:to-[#151310]"
+        }
+      >
         {product.primaryImageUrl ? (
           <img
             src={getProductImageUrl(product.primaryImageUrl)}
@@ -1364,20 +1177,13 @@ function SimilarProductCard({
 
         {/* Top Badges */}
         <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-1.5">
-          {isMatchingRemote ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#d6b46a]/60 bg-[#1f1a12] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#d6b46a] shadow-xs">
-              <Sparkles size={10} className="text-[#d6b46a]" />
-              {isUniversal ? "Universal Remote" : "Matching Remote"}
-            </span>
-          ) : brandMatches && product.brand ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#d6b46a]/40 bg-[#fff4cc] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#7a570f] shadow-xs dark:border-[#d6b46a]/25 dark:bg-[#d6b46a]/10 dark:text-[#d6b46a]">
-              {product.brand} Compatible
-            </span>
-          ) : (
-            <span className="truncate rounded-full border border-[#d8cdb6] bg-[#fffdf7]/95 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#725522] shadow-xs backdrop-blur dark:border-[#302c24] dark:bg-[#1a1712]/95 dark:text-[#d6b46a]">
-              {product.categoryName}
-            </span>
-          )}
+          <span className="min-w-0 truncate rounded-full border border-[#d8cdb6] bg-[#fffdf7]/95 px-2.5 py-1 text-[10px] font-bold text-[#725522] dark:border-[#50483b] dark:bg-[#1a1712]/95 dark:text-[#d6b46a]">
+            {product.recommendationKind === "alternative"
+              ? "Similar option"
+              : product.recommendationKind === "device"
+                ? "Related device"
+                : "Check model fit"}
+          </span>
 
           {isInStock ? (
             isLowStock ? (
@@ -1401,7 +1207,7 @@ function SimilarProductCard({
       </div>
 
       {/* Info */}
-      <div className="flex flex-1 flex-col p-4 sm:p-5">
+      <div className="flex min-w-0 flex-1 flex-col p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <span className="rounded-md border border-[#d8cdb6] bg-[#fffdf7] px-2 py-0.5 text-[10px] font-black text-[#6f6758] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#a8a093]">
             {product.conditionName}
@@ -1419,6 +1225,10 @@ function SimilarProductCard({
 
         <p className="mt-1 truncate text-xs font-semibold text-[#6f6758] dark:text-[#a8a093]">
           {productDetails}
+        </p>
+
+        <p className="mt-3 mb-4 text-xs leading-5 text-[#817867] dark:text-[#a8a093]">
+          {product.recommendationReason}
         </p>
 
         <div className="mt-auto flex items-end justify-between gap-2 border-t border-[#e4dac5] pt-4 dark:border-[#302c24]">

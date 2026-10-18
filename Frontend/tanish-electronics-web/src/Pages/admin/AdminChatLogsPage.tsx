@@ -1,22 +1,29 @@
-import { useApiAuth } from "../../hooks/useApiAuth";
-import { useShopSettings } from "../../hooks/useShopSettings";
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode
+} from "react";
+import { createPortal } from "react-dom";
+import {
+  ArrowDown,
+  Check,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Copy,
+  HelpCircle,
   MessageSquare,
   RefreshCw,
   Search,
   Sparkles,
-  Wrench,
-  HelpCircle,
-  Clock,
-  X,
   User,
-  ExternalLink,
-  Globe,
-  MapPin
+  Wrench,
+  X
 } from "lucide-react";
+import { useApiAuth } from "../../hooks/useApiAuth";
+import { useShopSettings } from "../../hooks/useShopSettings";
 import {
   getAdminChatLogs,
   getAdminChatSession,
@@ -26,605 +33,1239 @@ import {
   type ChatSessionDetail
 } from "../../Services/adminChatLogService";
 
-function formatDate(dateStr: string) {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
-    });
-  } catch {
-    return dateStr;
-  }
-}
+const MUTED = "text-[#716958] dark:text-[#b3aa99]";
+const BUTTON =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-3 text-xs font-medium transition hover:bg-[#f2eadb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a4803e] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a342a] dark:bg-[#1a1712] dark:hover:bg-[#292319]";
+const INPUT =
+  "min-h-11 min-w-0 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-3 text-sm outline-none transition placeholder:text-[#928a7d] focus:border-[#a4803e] focus:ring-2 focus:ring-[#a4803e]/20 dark:border-[#3a342a] dark:bg-[#11110f]";
+const EMPTY_FILTERS = { search: "", from: "", to: "" };
+const PAGE_SIZE = 15;
 
-function formatTime(dateStr: string) {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true
-    });
-  } catch {
-    return dateStr;
-  }
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Unknown date"
+    : date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
 }
-
+function formatTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Unknown time"
+    : date.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      });
+}
 function initialsFor(name?: string | null) {
-  if (!name) return null;
-  const parts = name.trim().split(/\s+/);
-  const letters = parts.slice(0, 2).map((p) => p.charAt(0).toUpperCase());
-  return letters.join("") || null;
-}
-
-/** Small metric tile used in the summary strip. */
-function StatTile({
-  icon,
-  label,
-  value,
-  tint
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  tint: string;
-}) {
   return (
-    <div className="group rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-4 transition hover:border-[#c9bb9a] hover:shadow-[0_2px_16px_-6px_rgba(31,26,18,0.15)] dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:border-[#3d3729]">
-      <div className="flex items-center gap-2.5">
-        <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-          style={{ backgroundColor: `${tint}1f`, color: tint }}
-        >
-          {icon}
-        </span>
-        <span className="text-[13px] font-medium text-[#6f6758] dark:text-[#a8a093]">
-          {label}
-        </span>
-      </div>
-      <p className="mt-3 text-[26px] font-bold leading-none tabular-nums text-[#1f1a12] dark:text-[#f7f5ef]">
-        {value}
-      </p>
-    </div>
+    name
+      ?.trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("") || null
   );
+}
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 export default function AdminChatLogsPage() {
   const { getToken } = useApiAuth();
   const { settings } = useShopSettings();
-
   const [logs, setLogs] = useState<ChatLogItem[]>([]);
   const [stats, setStats] = useState<ChatLogStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [statsError, setStatsError] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-
-  const [search, setSearch] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
+  const [draft, setDraft] = useState(EMPTY_FILTERS);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filterError, setFilterError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-
-  // Selected session for viewing transcript
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [selectedSession, setSelectedSession] = useState<ChatLogItem | null>(
     null
   );
-  const [transcriptDetail, setTranscriptDetail] =
-    useState<ChatSessionDetail | null>(null);
-  const [loadingTranscript, setLoadingTranscript] = useState(false);
-  const [modalEntered, setModalEntered] = useState(false);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const hasFilters = Boolean(filters.search || filters.from || filters.to);
 
   useEffect(() => {
-    document.title = `AI Chat Logs | ${settings.shopName || "Tanish Electronics"}`;
+    const previousTitle = document.title;
+    document.title =
+      "AI Chat Logs | " + (settings.shopName || "Tanish Electronics");
+    return () => {
+      document.title = previousTitle;
+    };
   }, [settings.shopName]);
 
-  const loadData = useCallback(async () => {
-    try {
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadSessions() {
       setLoading(true);
       setError("");
-      const token = await getToken();
-      if (!token) {
-        throw new Error("Your session has expired. Sign in again.");
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("Your session has expired. Sign in again.");
+        if (controller.signal.aborted) return;
+        const result = await getAdminChatLogs(
+          token,
+          {
+            page,
+            pageSize: PAGE_SIZE,
+            search: filters.search,
+            from: filters.from ? filters.from + "T00:00:00" : undefined,
+            to: filters.to ? filters.to + "T23:59:59.999" : undefined
+          },
+          controller.signal
+        );
+        if (controller.signal.aborted) return;
+        const pages = Math.max(1, result.totalPages);
+        if (page > pages) {
+          setPage(pages);
+          return;
+        }
+        setLogs(result.items);
+        setTotalRecords(result.totalRecords);
+        setTotalPages(pages);
+        setLastRefreshed(new Date());
+      } catch (err) {
+        if (!controller.signal.aborted)
+          setError(
+            errorMessage(err, "Couldn't load conversations. Try again.")
+          );
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
-
-      const [logsRes, statsRes] = await Promise.all([
-        getAdminChatLogs(token, {
-          page,
-          pageSize: 15,
-          search: appliedSearch
-        }),
-        getAdminChatStats(token)
-      ]);
-
-      setLogs(logsRes.items);
-      setTotalPages(logsRes.totalPages);
-      setTotalRecords(logsRes.totalRecords);
-      setStats(statsRes);
-      setLastRefreshed(new Date());
-    } catch (err: any) {
-      setError(err?.message || "Couldn't load conversations. Try refreshing.");
-    } finally {
-      setLoading(false);
     }
-  }, [getToken, page, appliedSearch]);
+    void loadSessions();
+    return () => controller.abort();
+  }, [
+    getToken,
+    page,
+    filters.search,
+    filters.from,
+    filters.to,
+    refreshVersion
+  ]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  // Open transcript modal
-  const handleOpenTranscript = async (sessionId: number) => {
-    setSelectedSessionId(sessionId);
-    setTranscriptDetail(null);
-    setLoadingTranscript(true);
-    setModalEntered(false);
-
-    try {
-      const token = await getToken();
-      if (!token) throw new Error("Authentication required.");
-      const detail = await getAdminChatSession(token, sessionId);
-      setTranscriptDetail(detail);
-    } catch {
-      // transcript detail will show error
-    } finally {
-      setLoadingTranscript(false);
+    const controller = new AbortController();
+    async function loadStats() {
+      setStatsLoading(true);
+      setStatsError("");
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("Sign in to view the summary.");
+        if (controller.signal.aborted) return;
+        const result = await getAdminChatStats(token, controller.signal);
+        if (!controller.signal.aborted) setStats(result);
+      } catch {
+        if (!controller.signal.aborted)
+          setStatsError("Summary couldn't refresh. Refresh to try again.");
+      } finally {
+        if (!controller.signal.aborted) setStatsLoading(false);
+      }
     }
-  };
+    void loadStats();
+    return () => controller.abort();
+  }, [getToken, refreshVersion]);
 
-  const handleCloseTranscript = useCallback(() => {
-    setModalEntered(false);
-    // let the close transition play before unmounting
-    window.setTimeout(() => {
-      setSelectedSessionId(null);
-      setTranscriptDetail(null);
-    }, 150);
-  }, []);
-
-  // Trigger enter transition + focus the close button once the modal mounts
-  useEffect(() => {
-    if (selectedSessionId === null) return;
-    const raf = requestAnimationFrame(() => setModalEntered(true));
-    const focusTimer = window.setTimeout(
-      () => closeButtonRef.current?.focus(),
-      160
-    );
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(focusTimer);
-    };
-  }, [selectedSessionId]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (selectedSessionId === null) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleCloseTranscript();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedSessionId, handleCloseTranscript]);
+  function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (draft.from && draft.to && draft.from > draft.to) {
+      setFilterError("Choose an end date on or after the start date.");
+      return;
+    }
+    setFilterError("");
+    setPage(1);
+    setFilters({ ...draft, search: draft.search.trim() });
+  }
+  function clearFilters() {
+    setDraft(EMPTY_FILTERS);
+    setFilters(EMPTY_FILTERS);
+    setFilterError("");
+    setPage(1);
+  }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 border-b border-[#d8cdb6]/70 pb-6 dark:border-[#302c24]/70 sm:flex-row sm:items-end sm:justify-between">
+    <div
+      style={{ fontFamily: "var(--font-ui)" }}
+      className="mx-auto max-w-7xl px-4 py-6 text-[#1f1a12] dark:text-[#e8e3d8] sm:px-6 lg:px-8"
+    >
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-[#1f1a12] dark:text-[#f7f5ef] sm:text-4xl">
+          <p
+            className={
+              "text-[11px] font-medium uppercase tracking-[0.12em] " + MUTED
+            }
+          >
+            Assistant activity
+          </p>
+          <h1 className="font-display mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
             AI chat conversations
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#6f6758] dark:text-[#a8a093]">
-            Every repair booking, enquiry, and product question the assistant
-            has handled, in one place.
+          <p className={"mt-2 max-w-2xl text-sm leading-6 " + MUTED}>
+            Review customer questions, assistant replies and the bookings or
+            enquiries they created.
           </p>
         </div>
-
-        <div className="flex items-center gap-3 self-start sm:flex-col sm:items-end sm:gap-1.5">
-          <button
-            onClick={() => void loadData()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-4 py-2.5 text-sm font-semibold text-[#1f1a12] shadow-sm transition hover:bg-[#fff8e7] disabled:opacity-50 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-          {lastRefreshed && !loading && (
-            <span className="text-xs text-[#928a7d]">
-              Updated {formatTime(lastRefreshed.toISOString())}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Stats Strip */}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatTile
-          icon={<MessageSquare className="h-4 w-4" />}
-          label="Total sessions"
-          value={stats?.totalSessions ?? "—"}
-          tint="#b8934a"
-        />
-        <StatTile
-          icon={<Sparkles className="h-4 w-4" />}
-          label="Total messages"
-          value={stats?.totalMessages ?? "—"}
-          tint="#8a6624"
-        />
-        <StatTile
-          icon={<Wrench className="h-4 w-4" />}
-          label="Bookings created"
-          value={stats?.bookingsTriggered ?? "—"}
-          tint="#10b981"
-        />
-        <StatTile
-          icon={<HelpCircle className="h-4 w-4" />}
-          label="Enquiries taken"
-          value={stats?.enquiriesTriggered ?? "—"}
-          tint="#d97706"
-        />
-        <StatTile
-          icon={<Clock className="h-4 w-4" />}
-          label="Sessions today"
-          value={stats?.sessionsToday ?? "—"}
-          tint="#0ea5e9"
-        />
-      </div>
-
-      {/* Search Bar */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setPage(1);
-          setAppliedSearch(search.trim());
-        }}
-        className="relative mt-6"
-      >
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a8a093]" />
-        <input
-          type="text"
-          placeholder="Search by customer name, message, or reply..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-xl border border-[#d8cdb6] bg-[#fffdf7] py-2.5 pl-10 pr-16 text-sm text-[#1f1a12] outline-none transition placeholder:text-[#a8a093] focus:border-[#b8934a] focus:ring-2 focus:ring-[#d6b46a]/25 dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
-        />
-        {search && (
+        <div className="flex flex-col items-end gap-2">
           <button
             type="button"
-            onClick={() => {
-              setSearch("");
-              setAppliedSearch("");
-              setPage(1);
-            }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[#928a7d] hover:text-[#1f1a12] dark:hover:text-[#e8e3d8]"
+            onClick={() => setRefreshVersion((v) => v + 1)}
+            disabled={loading || statsLoading}
+            className={BUTTON}
           >
-            Clear
+            <RefreshCw
+              className={
+                "h-4 w-4 " +
+                (loading || statsLoading
+                  ? "animate-spin motion-reduce:animate-none"
+                  : "")
+              }
+            />
+            {loading || statsLoading ? "Refreshing..." : "Refresh"}
           </button>
-        )}
-      </form>
-
-      {/* Error Message */}
-      {error && (
-        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400">
-          {error}
+          {lastRefreshed && (
+            <p className={"text-[11px] " + MUTED}>
+              Updated {formatTime(lastRefreshed.toISOString())}
+            </p>
+          )}
         </div>
-      )}
+      </header>
 
-      {/* Sessions Table */}
-      <div className="mt-6 overflow-hidden rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712]">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-[#d8cdb6] bg-[#f7f5ef] text-xs font-semibold text-[#6f6758] dark:border-[#302c24] dark:bg-[#14120e] dark:text-[#a8a093]">
-              <tr>
-                <th className="px-5 py-3.5 font-semibold">User / visitor</th>
-                <th className="px-5 py-3.5 font-semibold">Session key</th>
-                <th className="px-5 py-3.5 font-semibold">IP address</th>
-                <th className="px-5 py-3.5 font-semibold">Messages</th>
-                <th className="px-5 py-3.5 font-semibold">Outcome</th>
-                <th className="px-5 py-3.5 font-semibold">Time</th>
-                <th className="px-5 py-3.5 text-right font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e8e1cd] dark:divide-[#241f17]">
-              {loading && logs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-14 text-center text-[#928a7d]">
-                    <RefreshCw className="mx-auto h-6 w-6 animate-spin text-[#b8934a]" />
-                    <p className="mt-2 text-sm">Loading conversations...</p>
-                  </td>
-                </tr>
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-14 text-center text-[#928a7d]">
-                    <MessageSquare className="mx-auto h-8 w-8 text-[#d8cdb6] dark:text-[#3d3729]" />
-                    <p className="mt-3 text-sm font-medium text-[#6f6758] dark:text-[#a8a093]">
-                      {appliedSearch
-                        ? `No conversations match "${appliedSearch}".`
-                        : "No chat sessions yet."}
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                logs.map((item) => {
-                  const initials = initialsFor(item.userName);
-                  return (
-                    <tr
-                      key={item.chatSessionId}
-                      onClick={() => handleOpenTranscript(item.chatSessionId)}
-                      className="cursor-pointer border-l-2 border-l-transparent transition hover:border-l-[#b8934a] hover:bg-[#fff8e7] dark:hover:bg-[#14120e]"
-                    >
-                      {/* User */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#fff4cc] text-xs font-bold text-[#8a6624] ring-1 ring-[#e8d9a6] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a] dark:ring-[#3d3729]">
-                            {initials ?? <User className="h-4 w-4" />}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-[#1f1a12] dark:text-[#f7f5ef]">
-                              {item.userName || "Guest visitor"}
-                            </p>
-                            {item.userPhone && (
-                              <p className="text-xs text-[#817867] dark:text-[#928a7d]">
-                                {item.userPhone}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Session Key */}
-                      <td className="px-5 py-4">
-                        <code className="rounded-md bg-[#f7f5ef] px-1.5 py-0.5 font-mono text-xs text-[#6f6758] dark:bg-[#11110f] dark:text-[#a8a093]">
-                          {item.sessionKey.length > 12
-                            ? `${item.sessionKey.substring(0, 12)}...`
-                            : item.sessionKey}
-                        </code>
-                      </td>
-
-                      {/* IP */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-[#6f6758] dark:text-[#a8a093]">
-                          <Globe className="h-3.5 w-3.5 text-[#b8b09a] dark:text-[#5a5648]" />
-                          {item.ipAddress || "127.0.0.1"}
-                        </div>
-                      </td>
-
-                      {/* Message Count */}
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-[#d8cdb6] bg-[#f7f5ef] px-2.5 py-0.5 text-xs font-semibold text-[#1f1a12] dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8]">
-                          <MessageSquare className="h-3 w-3 text-[#b8934a]" />
-                          {item.messageCount}{" "}
-                          {item.messageCount === 1 ? "turn" : "turns"}
-                        </span>
-                      </td>
-
-                      {/* Outcome Badges */}
-                      <td className="px-5 py-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          {item.hasBooking && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-900/20 dark:text-emerald-400">
-                              <Wrench className="h-3 w-3" /> Booking
-                            </span>
-                          )}
-                          {item.hasEnquiry && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/20 dark:text-amber-400">
-                              <HelpCircle className="h-3 w-3" /> Enquiry
-                            </span>
-                          )}
-                          {!item.hasBooking && !item.hasEnquiry && (
-                            <span className="text-xs text-[#a8a093]">
-                              General
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Time */}
-                      <td className="px-5 py-4 whitespace-nowrap text-xs text-[#817867] dark:text-[#928a7d]">
-                        <p className="font-medium text-[#1f1a12] dark:text-[#f7f5ef]">
-                          {formatDate(item.lastMessageAt)}
-                        </p>
-                        <p>{formatTime(item.lastMessageAt)}</p>
-                      </td>
-
-                      {/* Action */}
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenTranscript(item.chatSessionId);
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#d8cdb6] bg-[#fffaf0] px-3 py-1.5 text-xs font-semibold text-[#1f1a12] transition hover:border-[#b8934a] hover:bg-[#fff4cc] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
-                        >
-                          Inspect
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Bar */}
-        <div className="flex flex-col gap-4 border-t border-[#d8cdb6] bg-[#fffaf0]/60 px-5 py-4 dark:border-[#302c24] dark:bg-[#11110f]/40 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-medium text-[#817867] dark:text-[#928a7d]">
-            {totalRecords === 0
-              ? "No conversations recorded yet"
-              : `${totalRecords} conversation${totalRecords === 1 ? "" : "s"} across ${totalPages} page${totalPages === 1 ? "" : "s"}`}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <button
-              disabled={page <= 1 || loading}
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              className="inline-flex items-center gap-1 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-3 py-1.5 text-xs font-semibold text-[#1f1a12] transition hover:bg-[#fff8e7] disabled:cursor-not-allowed disabled:border-[#e8e1cd] disabled:bg-transparent disabled:text-[#c9c2b0] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016] dark:disabled:border-[#241f17] dark:disabled:bg-transparent dark:disabled:text-[#5a5648]"
+      <section aria-label="Conversation summary" className="mt-6">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className={"text-xs " + MUTED}>Overall activity</p>
+          {statsError && (
+            <p
+              role="status"
+              className="text-xs text-amber-700 dark:text-amber-300"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Previous
-            </button>
+              {statsError}
+            </p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          <StatTile
+            icon={<MessageSquare size={16} />}
+            label="Conversations"
+            value={stats?.totalSessions}
+          />
+          <StatTile
+            icon={<Sparkles size={16} />}
+            label="Logged turns"
+            value={stats?.totalMessages}
+          />
+          <StatTile
+            icon={<Wrench size={16} />}
+            label="Bookings logged"
+            value={stats?.bookingsTriggered}
+          />
+          <StatTile
+            icon={<HelpCircle size={16} />}
+            label="Enquiries logged"
+            value={stats?.enquiriesTriggered}
+          />
+          <StatTile
+            icon={<Clock size={16} />}
+            label="Started today"
+            value={stats?.sessionsToday}
+          />
+        </div>
+      </section>
 
-            <span className="text-xs font-medium text-[#928a7d]">
+      <section
+        aria-labelledby="conversation-list-title"
+        className="mt-6 overflow-hidden rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] dark:border-[#302c24] dark:bg-[#1a1712]"
+      >
+        <div className="border-b border-[#e8dfce] p-4 dark:border-[#302c24] sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 id="conversation-list-title" className="text-sm font-semibold">
+              Conversation history
+            </h2>
+            <p className={"text-xs " + MUTED}>
+              {hasFilters ? "Filtered results" : "Most recent activity first"}
+            </p>
+          </div>
+          <form onSubmit={applyFilters}>
+            <div className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_155px_155px_auto]">
+              <label className="block min-w-0">
+                <span className={"mb-1.5 block text-xs " + MUTED}>
+                  Search conversations
+                </span>
+                <span className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[#928a7d]" />
+                  <input
+                    type="search"
+                    value={draft.search}
+                    onChange={(e) =>
+                      setDraft({ ...draft, search: e.target.value })
+                    }
+                    placeholder="Customer name or message text"
+                    className={INPUT + " w-full pl-9"}
+                  />
+                </span>
+              </label>
+              <label className="block">
+                <span className={"mb-1.5 block text-xs " + MUTED}>
+                  Started from
+                </span>
+                <input
+                  type="date"
+                  value={draft.from}
+                  max={draft.to || undefined}
+                  onChange={(e) => setDraft({ ...draft, from: e.target.value })}
+                  className={INPUT + " w-full"}
+                />
+              </label>
+              <label className="block">
+                <span className={"mb-1.5 block text-xs " + MUTED}>
+                  Started through
+                </span>
+                <input
+                  type="date"
+                  value={draft.to}
+                  min={draft.from || undefined}
+                  onChange={(e) => setDraft({ ...draft, to: e.target.value })}
+                  className={INPUT + " w-full"}
+                />
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className={
+                    BUTTON +
+                    " min-h-11 border-[#272116] bg-[#272116] text-[#fffaf0] hover:bg-[#493b24] dark:border-[#d6b46a] dark:bg-[#d6b46a] dark:text-[#1a1712] dark:hover:bg-[#e3c786]"
+                  }
+                >
+                  Apply
+                </button>
+                {(hasFilters || draft.search || draft.from || draft.to) && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className={BUTTON + " min-h-11"}
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+            {filterError && (
+              <p
+                role="alert"
+                className="mt-3 text-xs text-red-700 dark:text-red-300"
+              >
+                {filterError}
+              </p>
+            )}
+          </form>
+        </div>
+
+        <div aria-busy={loading}>
+          {loading ? (
+            <div
+              role="status"
+              className={
+                "flex min-h-64 flex-col items-center justify-center gap-3 text-sm " +
+                MUTED
+              }
+            >
+              <RefreshCw className="h-5 w-5 animate-spin text-[#a4803e] motion-reduce:animate-none" />
+              Loading conversations...
+            </div>
+          ) : error ? (
+            <div role="alert" className="p-8 text-center">
+              <p className="text-sm font-semibold">
+                Couldn't load conversations
+              </p>
+              <p className={"mt-2 text-sm " + MUTED}>{error}</p>
+              <button
+                type="button"
+                onClick={() => setRefreshVersion((v) => v + 1)}
+                className={BUTTON + " mt-4"}
+              >
+                Try again
+              </button>
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="px-5 py-14 text-center">
+              <MessageSquare className="mx-auto h-8 w-8 text-[#a4803e]" />
+              <h3 className="mt-4 text-sm font-semibold">
+                {hasFilters
+                  ? "No matching conversations"
+                  : "No conversations yet"}
+              </h3>
+              <p className={"mt-2 text-sm " + MUTED}>
+                {hasFilters
+                  ? "Try a different search or widen the session start dates."
+                  : "Saved assistant conversations will appear here."}
+              </p>
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className={BUTTON + " mt-4"}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <table className="w-full table-fixed text-left text-sm">
+              <caption className="sr-only">
+                Customer conversations ordered by latest activity
+              </caption>
+              <thead
+                className={
+                  "border-b border-[#e8dfce] bg-[#f7f5ef] text-[11px] dark:border-[#302c24] dark:bg-[#15130f] " +
+                  MUTED
+                }
+              >
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-medium sm:px-5">
+                    Customer / visitor
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden w-20 px-3 py-3 font-medium md:table-cell"
+                  >
+                    Turns
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden w-44 px-3 py-3 font-medium sm:table-cell"
+                  >
+                    Outcome
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden w-40 px-3 py-3 font-medium lg:table-cell"
+                  >
+                    Last activity
+                  </th>
+                  <th
+                    scope="col"
+                    className="w-20 px-4 py-3 text-right font-medium sm:w-28 sm:px-5"
+                  >
+                    <span className="sr-only">View conversation</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e8dfce] dark:divide-[#302c24]">
+                {logs.map((item) => (
+                  <tr
+                    key={item.chatSessionId}
+                    className="transition hover:bg-[#f7f2e8] dark:hover:bg-[#211d16]"
+                  >
+                    <td className="px-4 py-4 sm:px-5">
+                      <div className="flex items-start gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2eadb] text-[11px] font-semibold text-[#8a6624] dark:bg-[#2b251a] dark:text-[#d6b46a]"
+                        >
+                          {initialsFor(item.userName) || <User size={16} />}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-baseline gap-x-2">
+                            <span className="truncate text-[13px] font-semibold">
+                              {item.userName || "Guest visitor"}
+                            </span>
+                            <span
+                              className={"text-[10px] tabular-nums " + MUTED}
+                            >
+                              #{item.chatSessionId}
+                            </span>
+                          </div>
+                          {item.userPhone && (
+                            <p className={"mt-1 text-xs tabular-nums " + MUTED}>
+                              {item.userPhone}
+                            </p>
+                          )}
+                          <p className={"mt-1 text-[11px] lg:hidden " + MUTED}>
+                            {formatDate(item.lastMessageAt)} at{" "}
+                            {formatTime(item.lastMessageAt)}
+                          </p>
+                          <div className="mt-2 sm:hidden">
+                            <OutcomeBadges
+                              booking={item.hasBooking}
+                              enquiry={item.hasEnquiry}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td
+                      title="One turn contains a visitor message and an assistant reply"
+                      className={
+                        "hidden px-3 py-4 text-xs tabular-nums md:table-cell " +
+                        MUTED
+                      }
+                    >
+                      {item.messageCount.toLocaleString("en-IN")}
+                    </td>
+                    <td className="hidden px-3 py-4 sm:table-cell">
+                      <OutcomeBadges
+                        booking={item.hasBooking}
+                        enquiry={item.hasEnquiry}
+                      />
+                    </td>
+                    <td
+                      className={
+                        "hidden px-3 py-4 text-[11px] tabular-nums lg:table-cell " +
+                        MUTED
+                      }
+                    >
+                      <p className="font-medium text-[#1f1a12] dark:text-[#e8e3d8]">
+                        {formatDate(item.lastMessageAt)}
+                      </p>
+                      <p className="mt-1">{formatTime(item.lastMessageAt)}</p>
+                    </td>
+                    <td className="px-4 py-4 text-right sm:px-5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSession(item)}
+                        aria-label={
+                          "View conversation " +
+                          item.chatSessionId +
+                          " with " +
+                          (item.userName || "guest visitor")
+                        }
+                        className={BUTTON + " px-2 sm:px-3"}
+                      >
+                        <span>View</span>
+                        <ChevronRight size={14} className="hidden sm:block" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e8dfce] px-4 py-3 dark:border-[#302c24] sm:px-5">
+          <p role="status" className={"text-xs " + MUTED}>
+            {loading
+              ? "Updating results..."
+              : error
+                ? "Results unavailable"
+                : totalRecords > 0
+                  ? "Showing " +
+                    ((page - 1) * PAGE_SIZE + 1) +
+                    "-" +
+                    Math.min(page * PAGE_SIZE, totalRecords) +
+                    " of " +
+                    totalRecords.toLocaleString("en-IN") +
+                    " conversations"
+                  : "0 conversations"}
+          </p>
+          <nav
+            aria-label="Conversation pagination"
+            className="flex items-center gap-2"
+          >
+            <button
+              type="button"
+              aria-label="Previous page"
+              disabled={loading || Boolean(error) || page <= 1}
+              onClick={() => setPage((v) => v - 1)}
+              className={BUTTON + " px-2"}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className={"px-1 text-xs tabular-nums " + MUTED}>
               Page {page} of {totalPages}
             </span>
-
             <button
-              disabled={page >= totalPages || loading}
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-              className="inline-flex items-center gap-1 rounded-lg border border-[#d8cdb6] bg-[#fffdf7] px-3 py-1.5 text-xs font-semibold text-[#1f1a12] transition hover:bg-[#fff8e7] disabled:cursor-not-allowed disabled:border-[#e8e1cd] disabled:bg-transparent disabled:text-[#c9c2b0] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016] dark:disabled:border-[#241f17] dark:disabled:bg-transparent dark:disabled:text-[#5a5648]"
+              type="button"
+              aria-label="Next page"
+              disabled={loading || Boolean(error) || page >= totalPages}
+              onClick={() => setPage((v) => v + 1)}
+              className={BUTTON + " px-2"}
             >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight size={16} />
             </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Transcript Dialog Modal */}
-      {selectedSessionId !== null && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Conversation transcript"
-        >
-          <div
-            onClick={handleCloseTranscript}
-            className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-150 ${
-              modalEntered ? "opacity-100" : "opacity-0"
-            }`}
-          />
-
-          <div
-            className={`relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[#d8cdb6] bg-[#f7f5ef] text-[#1f1a12] shadow-2xl transition-all duration-150 ease-out dark:border-[#302c24] dark:bg-[#11110f] dark:text-[#e8e3d8] ${
-              modalEntered
-                ? "translate-y-0 scale-100 opacity-100"
-                : "translate-y-2 scale-[0.97] opacity-0"
-            }`}
-          >
-            {/* Modal Header */}
-            <div className="flex items-start justify-between gap-4 border-b border-[#d8cdb6] px-6 py-4 dark:border-[#302c24]">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff4cc] text-xs font-bold text-[#8a6624] ring-1 ring-[#e8d9a6] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a] dark:ring-[#3d3729]">
-                  {initialsFor(transcriptDetail?.userName) ?? (
-                    <User className="h-4 w-4" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-serif text-lg font-bold leading-tight text-[#1f1a12] dark:text-[#f7f5ef]">
-                    {transcriptDetail?.userName || "Guest visitor"}
-                  </h3>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-[#817867] dark:text-[#928a7d]">
-                    {transcriptDetail?.userPhone && (
-                      <span>{transcriptDetail.userPhone}</span>
-                    )}
-                    {transcriptDetail?.userPhone && <span>•</span>}
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      Started{" "}
-                      {transcriptDetail?.startedAt
-                        ? `${formatDate(transcriptDetail.startedAt)} at ${formatTime(transcriptDetail.startedAt)}`
-                        : "—"}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              <button
-                ref={closeButtonRef}
-                onClick={handleCloseTranscript}
-                aria-label="Close transcript"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#928a7d] transition hover:bg-[#fff8e7] hover:text-[#1f1a12] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b46a]/40 dark:hover:bg-[#1a1712] dark:hover:text-[#e8e3d8]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Messages Body */}
-            <div className="flex-1 space-y-4 overflow-y-auto p-6">
-              {loadingTranscript ? (
-                <div className="py-14 text-center text-[#928a7d]">
-                  <RefreshCw className="mx-auto h-6 w-6 animate-spin text-[#b8934a]" />
-                  <p className="mt-2 text-sm">Loading transcript...</p>
-                </div>
-              ) : !transcriptDetail ||
-                transcriptDetail.messages.length === 0 ? (
-                <div className="py-14 text-center text-[#928a7d]">
-                  <MessageSquare className="mx-auto h-7 w-7 text-[#d8cdb6] dark:text-[#3d3729]" />
-                  <p className="mt-2 text-sm">
-                    No messages recorded in this session.
-                  </p>
-                </div>
-              ) : (
-                transcriptDetail.messages.map((msg, idx) => (
-                  <div key={msg.chatMessageId || idx} className="space-y-3">
-                    {/* User Message */}
-                    <div className="flex justify-end">
-                      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-[#b8934a] px-4 py-2.5 text-sm text-white shadow-sm">
-                        <p className="leading-relaxed">{msg.userMessage}</p>
-                        <div className="mt-1 flex items-center justify-end gap-2 text-[10px] text-white/80">
-                          {msg.currentPath && (
-                            <span className="rounded bg-white/15 px-1.5 py-[1px]">
-                              {msg.currentPath}
-                            </span>
-                          )}
-                          <span>{formatTime(msg.createdAt)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bot Reply */}
-                    <div className="flex justify-start">
-                      <div className="max-w-[88%] rounded-2xl rounded-tl-sm border border-[#d8cdb6] bg-[#fffdf7] px-4 py-3 text-sm text-[#1f1a12] shadow-sm dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]">
-                        <div className="flex items-center gap-1.5 pb-1 text-xs font-semibold text-[#b8934a]">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          Tanish Electronics Assistant
-                        </div>
-                        <p className="whitespace-pre-line leading-relaxed text-sm">
-                          {msg.botReply}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[#e8e1cd] pt-2 text-[11px] text-[#a8a093] dark:border-[#28241c]">
-                          <span>{formatTime(msg.createdAt)}</span>
-                          {msg.bookingCreated && (
-                            <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                              <Wrench className="h-3 w-3" /> Booking created
-                            </span>
-                          )}
-                          {msg.enquiryCreated && (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                              <HelpCircle className="h-3 w-3" /> Enquiry
-                              submitted
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between border-t border-[#d8cdb6] bg-[#fffaf0]/60 px-6 py-3 dark:border-[#302c24] dark:bg-[#14120e]">
-              <span className="text-xs text-[#928a7d]">
-                {transcriptDetail
-                  ? `${transcriptDetail.messages.length} ${transcriptDetail.messages.length === 1 ? "turn" : "turns"}`
-                  : ""}
-              </span>
-              <button
-                onClick={handleCloseTranscript}
-                className="rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-4 py-2 text-xs font-semibold text-[#1f1a12] transition hover:bg-[#fff8e7] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8] dark:hover:bg-[#242016]"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+          </nav>
+        </footer>
+      </section>
+      {selectedSession && (
+        <ConversationDialog
+          key={selectedSession.chatSessionId}
+          session={selectedSession}
+          shopName={settings.shopName || "Tanish Electronics"}
+          getToken={getToken}
+          onClose={() => setSelectedSession(null)}
+        />
       )}
     </div>
   );
 }
 
+function StatTile({
+  icon,
+  label,
+  value
+}: {
+  icon: ReactNode;
+  label: string;
+  value?: number;
+}) {
+  return (
+    <div className="rounded-xl border border-[#d8cdb6] bg-[#fffdf7] px-4 py-4 dark:border-[#302c24] dark:bg-[#1a1712]">
+      <div
+        className={"flex items-center justify-between gap-2 text-xs " + MUTED}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="text-[#a4803e] dark:text-[#d6b46a]">
+          {icon}
+        </span>
+      </div>
+      <p className="mt-3 text-2xl font-semibold leading-none tracking-tight tabular-nums">
+        {value === undefined ? "--" : value.toLocaleString("en-IN")}
+      </p>
+    </div>
+  );
+}
+function OutcomeBadges({
+  booking,
+  enquiry
+}: {
+  booking: boolean;
+  enquiry: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {booking && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
+          <Wrench size={11} />
+          Booking
+        </span>
+      )}
+      {enquiry && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+          <HelpCircle size={11} />
+          Enquiry
+        </span>
+      )}
+      {!booking && !enquiry && (
+        <span className={"text-[11px] " + MUTED}>General</span>
+      )}
+    </div>
+  );
+}
+
+function ConversationDialog({
+  session,
+  shopName,
+  getToken,
+  onClose
+}: {
+  session: ChatLogItem;
+  shopName: string;
+  getToken: () => Promise<string | null>;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [detail, setDetail] = useState<ChatSessionDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">(
+    "idle"
+  );
+  const visitorName = detail?.userName || session.userName || "Guest visitor";
+  const startedAt = detail?.startedAt || session.startedAt;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const trigger =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      document.body.style.overflow = previousOverflow;
+      if (trigger?.isConnected) trigger.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadTranscript() {
+      setLoading(true);
+      setError("");
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("Your session has expired. Sign in again.");
+        if (controller.signal.aborted) return;
+        const result = await getAdminChatSession(
+          token,
+          session.chatSessionId,
+          controller.signal
+        );
+        if (!controller.signal.aborted) setDetail(result);
+      } catch (err) {
+        if (!controller.signal.aborted)
+          setError(errorMessage(err, "Couldn't load this transcript."));
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void loadTranscript();
+    return () => controller.abort();
+  }, [getToken, session.chatSessionId, retry]);
+
+  useEffect(() => {
+    if (copyStatus !== "copied") return;
+    const timer = window.setTimeout(() => setCopyStatus("idle"), 2500);
+    return () => window.clearTimeout(timer);
+  }, [copyStatus]);
+
+  async function copyTranscript() {
+    if (!detail) return;
+    const text = [
+      "Conversation #" + session.chatSessionId + " - " + visitorName,
+      "Started " + formatDate(startedAt) + " at " + formatTime(startedAt),
+      ...detail.messages.flatMap((message) => [
+        "",
+        "Visitor (" + formatTime(message.createdAt) + ")",
+        message.userMessage,
+        "",
+        shopName + " Assistant",
+        message.botReply
+      ])
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+  }
+
+  return createPortal(
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="chat-transcript-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      style={{ fontFamily: "var(--font-ui)" }}
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-4xl overflow-hidden rounded-2xl border border-[#d8cdb6] bg-[#f7f5ef] p-0 text-[#1f1a12] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm dark:border-[#3a342a] dark:bg-[#11110f] dark:text-[#e8e3d8]"
+    >
+      <div className="flex h-[min(800px,calc(100dvh-2rem))] min-h-0 flex-col">
+        <header className="shrink-0 border-b border-[#d8cdb6] bg-[#fffdf7] px-4 py-4 dark:border-[#302c24] dark:bg-[#1a1712] sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p
+                className={
+                  "text-[10px] font-medium uppercase tracking-[0.12em] " + MUTED
+                }
+              >
+                Conversation #{session.chatSessionId}
+              </p>
+              <h2
+                id="chat-transcript-title"
+                className="mt-1 truncate text-lg font-semibold"
+              >
+                {visitorName}
+              </h2>
+              <p className={"mt-1 text-xs " + MUTED}>
+                Started {formatDate(startedAt)} at {formatTime(startedAt)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close transcript"
+              className={BUTTON + " h-10 w-10 shrink-0 px-0"}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <details className="mt-3 text-xs">
+            <summary
+              className={
+                "w-fit cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a4803e] " +
+                MUTED
+              }
+            >
+              Session details
+            </summary>
+            <dl className="mt-2 grid gap-3 rounded-xl border border-[#e8dfce] bg-[#f7f5ef] p-3 dark:border-[#302c24] dark:bg-[#11110f] sm:grid-cols-2">
+              <div>
+                <dt className={MUTED}>Phone</dt>
+                <dd className="mt-1">
+                  {detail?.userPhone || session.userPhone || "Not provided"}
+                </dd>
+              </div>
+              <div>
+                <dt className={MUTED}>IP address</dt>
+                <dd className="mt-1 break-all">
+                  {session.ipAddress || "Not recorded"}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className={MUTED}>Session key</dt>
+                <dd className="mt-1 break-all font-mono text-[11px]">
+                  {session.sessionKey}
+                </dd>
+              </div>
+            </dl>
+          </details>
+        </header>
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#e8dfce] px-4 py-2 dark:border-[#302c24] sm:px-6">
+          <p className={"text-[11px] " + MUTED}>
+            Oldest first
+            {detail
+              ? " / " +
+                detail.messages.length +
+                (detail.messages.length === 1 ? " turn" : " turns")
+              : ""}
+          </p>
+          <button
+            type="button"
+            disabled={loading || Boolean(error) || !detail?.messages.length}
+            onClick={() =>
+              bodyRef.current?.scrollTo({
+                top: bodyRef.current.scrollHeight,
+                behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+                  .matches
+                  ? "auto"
+                  : "smooth"
+              })
+            }
+            className={
+              BUTTON +
+              " min-h-8 border-transparent bg-transparent text-[11px] dark:border-transparent dark:bg-transparent"
+            }
+          >
+            <ArrowDown size={13} />
+            Latest message
+          </button>
+        </div>
+        <div
+          ref={bodyRef}
+          aria-busy={loading}
+          className="te-modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
+        >
+          {loading ? (
+            <div
+              role="status"
+              className={
+                "flex h-full min-h-40 flex-col items-center justify-center gap-3 text-sm " +
+                MUTED
+              }
+            >
+              <RefreshCw className="h-5 w-5 animate-spin motion-reduce:animate-none" />
+              Loading transcript...
+            </div>
+          ) : error ? (
+            <div role="alert" className="py-12 text-center">
+              <h3 className="text-sm font-semibold">Transcript unavailable</h3>
+              <p className={"mt-2 text-sm " + MUTED}>{error}</p>
+              <button
+                type="button"
+                onClick={() => setRetry((v) => v + 1)}
+                className={BUTTON + " mt-4"}
+              >
+                Try again
+              </button>
+            </div>
+          ) : !detail?.messages.length ? (
+            <p className={"py-12 text-center text-sm " + MUTED}>
+              No messages were recorded in this conversation.
+            </p>
+          ) : (
+            <div className="space-y-7">
+              {detail.messages.map((message, index) => (
+                <article
+                  key={message.chatMessageId || index}
+                  aria-label={"Turn " + (index + 1)}
+                  className="space-y-3"
+                >
+                  {(index === 0 ||
+                    formatDate(message.createdAt) !==
+                      formatDate(detail.messages[index - 1].createdAt)) && (
+                    <p className={"py-2 text-center text-[11px] " + MUTED}>
+                      {formatDate(message.createdAt)}
+                    </p>
+                  )}
+                  <div className="ml-auto max-w-[94%] sm:max-w-[85%]">
+                    <div
+                      className={
+                        "mb-1.5 flex items-center justify-end gap-2 text-[10px] " +
+                        MUTED
+                      }
+                    >
+                      <span className="font-medium">
+                        {visitorName === "Guest visitor"
+                          ? "Visitor"
+                          : visitorName}
+                      </span>
+                      <time dateTime={message.createdAt}>
+                        {formatTime(message.createdAt)}
+                      </time>
+                    </div>
+                    <div className="rounded-2xl rounded-tr-sm border border-[#ddc68c] bg-[#f4e7c8] px-4 py-3 text-[13px] leading-6 text-[#33291b] dark:border-[#57472b] dark:bg-[#302819] dark:text-[#f0e2c4]">
+                      <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+                        {message.userMessage || "No visitor text recorded."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="max-w-[97%] sm:max-w-[94%]">
+                    <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-[#8a6624] dark:text-[#d6b46a]">
+                      <Sparkles size={12} />
+                      {shopName} Assistant
+                    </p>
+                    <div className="rounded-2xl rounded-tl-sm border border-[#d8cdb6] bg-[#fffdf7] px-4 py-4 text-[13px] leading-6 dark:border-[#302c24] dark:bg-[#1a1712]">
+                      <TranscriptText
+                        text={
+                          message.botReply || "No assistant reply recorded."
+                        }
+                      />
+                      <div
+                        className={
+                          "mt-4 flex flex-wrap items-center gap-3 border-t border-[#e8dfce] pt-2 text-[10px] dark:border-[#302c24] " +
+                          MUTED
+                        }
+                      >
+                        <time dateTime={message.createdAt}>
+                          {formatTime(message.createdAt)}
+                        </time>
+                        {message.currentPath && (
+                          <span
+                            title="Page where the message was sent"
+                            className="max-w-full break-all rounded bg-[#f3eee3] px-1.5 dark:bg-[#292319]"
+                          >
+                            {message.currentPath}
+                          </span>
+                        )}
+                        {(message.bookingCreated || message.enquiryCreated) && (
+                          <OutcomeBadges
+                            booking={message.bookingCreated}
+                            enquiry={message.enquiryCreated}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#d8cdb6] bg-[#fffdf7] px-4 py-3 dark:border-[#302c24] dark:bg-[#1a1712] sm:px-6">
+          <p role="status" className={"text-[11px] " + MUTED}>
+            {copyStatus === "failed"
+              ? "Couldn't copy. You can select the message text instead."
+              : copyStatus === "copied"
+                ? "Transcript copied"
+                : "Visitor messages and assistant replies"}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void copyTranscript()}
+              disabled={loading || Boolean(error) || !detail?.messages.length}
+              className={BUTTON}
+            >
+              {copyStatus === "copied" ? (
+                <Check size={14} />
+              ) : (
+                <Copy size={14} />
+              )}
+              Copy transcript
+            </button>
+            <button type="button" onClick={onClose} className={BUTTON}>
+              Close
+            </button>
+          </div>
+        </footer>
+      </div>
+    </dialog>,
+    document.body
+  );
+}
+
+// React renders all log text as text nodes. Support common formatting without
+// interpreting stored HTML or allowing script/data URLs from assistant output.
+function inlineText(text: string): ReactNode[] {
+  return text
+    .split(
+      /(\*\*[^*\n]+\*\*|`[^`\n]+`|(?<![\\*])\*(?![\s*])[^*\n]*[^\s*]\*(?!\*)|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g
+    )
+    .map((part, index) => {
+      if (part.length > 4 && part.startsWith("**") && part.endsWith("**"))
+        return (
+          <strong key={index} className="font-semibold">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      if (part.length > 2 && part.startsWith("`") && part.endsWith("`"))
+        return (
+          <code
+            key={index}
+            className="rounded bg-[#f3eee3] px-1 py-0.5 font-mono text-[11px] dark:bg-[#292319]"
+          >
+            {part.slice(1, -1)}
+          </code>
+        );
+      if (
+        part.length > 2 &&
+        part.startsWith("*") &&
+        !part.startsWith("**") &&
+        part.endsWith("*")
+      )
+        return (
+          <em key={index} className="italic">
+            {part.slice(1, -1)}
+          </em>
+        );
+      const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+      if (link)
+        return (
+          <a
+            key={index}
+            href={link[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-[#8a6624] underline underline-offset-2 dark:text-[#d6b46a]"
+          >
+            {link[1]}
+          </a>
+        );
+      return part;
+    });
+}
+function splitMarkdownTableRow(line: string): string[] {
+  const value = line.trim();
+  const cells: string[] = [];
+  let cell = "";
+  let codeTicks = 0;
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index];
+    if (character === "\\" && value[index + 1] === "|") {
+      cell += "|";
+      index++;
+      continue;
+    }
+    if (character === "`") {
+      let count = 1;
+      while (value[index + count] === "`") count++;
+      if (codeTicks === 0) codeTicks = count;
+      else if (codeTicks === count) codeTicks = 0;
+      cell += "`".repeat(count);
+      index += count - 1;
+      continue;
+    }
+    if (character === "|" && codeTicks === 0) {
+      cells.push(cell.trim());
+      cell = "";
+    } else cell += character;
+  }
+  cells.push(cell.trim());
+  if (value.startsWith("|")) cells.shift();
+  if (value.endsWith("|") && cells[cells.length - 1] === "") cells.pop();
+  return cells;
+}
+
+function parseMarkdownTable(lines: string[], start: number) {
+  if (!lines[start]?.includes("|") || !lines[start + 1]) return null;
+  const headers = splitMarkdownTableRow(lines[start]);
+  const separators = splitMarkdownTableRow(lines[start + 1]);
+  if (
+    !headers.length ||
+    headers.length !== separators.length ||
+    !separators.every((cell) => /^:?-{3,}:?$/.test(cell))
+  )
+    return null;
+  const alignments = separators.map((cell) =>
+    cell.startsWith(":") && cell.endsWith(":")
+      ? ("center" as const)
+      : cell.endsWith(":")
+        ? ("right" as const)
+        : ("left" as const)
+  );
+  const rows: string[][] = [];
+  let endIndex = start + 2;
+  while (
+    endIndex < lines.length &&
+    lines[endIndex].trim() &&
+    lines[endIndex].includes("|")
+  ) {
+    const cells = splitMarkdownTableRow(lines[endIndex]);
+    // Keep incomplete streaming rows visible as text until the next chunk arrives.
+    if (cells.length !== headers.length) break;
+    rows.push(cells);
+    endIndex++;
+  }
+  return { headers, alignments, rows, endIndex };
+}
+
+function isMarkdownDivider(line: string): boolean {
+  return /^([-*_])(?:\s*\1){2,}$/.test(line.trim());
+}
+
+function TranscriptText({ text }: { text: string }) {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const blocks: ReactNode[] = [];
+  for (let index = 0; index < lines.length;) {
+    const line = lines[index].trim();
+    if (!line) {
+      index++;
+      continue;
+    }
+    if (isMarkdownDivider(line)) {
+      blocks.push(
+        <hr
+          key={index++}
+          className="my-3 border-0 border-t border-[#d8cdb6] dark:border-[#3a3428]"
+        />
+      );
+      continue;
+    }
+    const table = parseMarkdownTable(lines, index);
+    if (table) {
+      blocks.push(
+        <div key={index} className="min-w-0">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Assistant response table"
+            className="my-2 max-w-full overflow-x-auto rounded-lg border border-[#d8cdb6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a4803e] dark:border-[#3a3428]"
+          >
+            <table className="w-full border-collapse text-left text-xs leading-5">
+              <caption className="sr-only">Assistant response table</caption>
+              <thead className="bg-[#f2eadb] text-[#5f491f] dark:bg-[#292319] dark:text-[#e5c680]">
+                <tr>
+                  {table.headers.map((cell, column) => (
+                    <th
+                      key={column}
+                      scope="col"
+                      style={{ textAlign: table.alignments[column] }}
+                      className="min-w-20 border-b border-[#d8cdb6] px-3 py-2.5 font-semibold [overflow-wrap:anywhere] dark:border-[#3a3428]"
+                    >
+                      {inlineText(cell)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e8dfce] dark:divide-[#302c24]">
+                {table.rows.map((row, rowIndex) => (
+                  <tr
+                    key={rowIndex}
+                    className="even:bg-[#f7f2e8] dark:even:bg-[#211d16]"
+                  >
+                    {row.map((cell, column) => (
+                      <td
+                        key={column}
+                        style={{ textAlign: table.alignments[column] }}
+                        className="min-w-20 px-3 py-2.5 align-top [overflow-wrap:anywhere]"
+                      >
+                        {inlineText(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+      index = table.endIndex;
+      continue;
+    }
+    if (line.startsWith("```")) {
+      const code: string[] = [];
+      const key = index++;
+      while (index < lines.length && !lines[index].trim().startsWith("```"))
+        code.push(lines[index++]);
+      if (index < lines.length) index++;
+      blocks.push(
+        <pre
+          key={key}
+          className="overflow-x-auto rounded-lg bg-[#f3eee3] p-3 font-mono text-xs dark:bg-[#11110f]"
+        >
+          <code>{code.join("\n")}</code>
+        </pre>
+      );
+      continue;
+    }
+    const heading = line.match(/^#{1,6}\s+(.+)$/);
+    if (heading) {
+      blocks.push(
+        <p key={index++} className="font-semibold">
+          {inlineText(heading[1])}
+        </p>
+      );
+      continue;
+    }
+    const ordered = line.match(/^(\d+)[.)]\s+(.+)$/);
+    const bullet = line.match(/^[-*\u2022]\s+(.+)$/);
+    if (ordered || bullet) {
+      const key = index;
+      const items: ReactNode[] = [];
+      while (index < lines.length) {
+        const match = lines[index]
+          .trim()
+          .match(ordered ? /^(\d+)[.)]\s+(.+)$/ : /^[-*\u2022]\s+(.+)$/);
+        if (!match) break;
+        items.push(
+          <li key={index++} className="pl-1">
+            {inlineText(match[ordered ? 2 : 1])}
+          </li>
+        );
+      }
+      blocks.push(
+        ordered ? (
+          <ol
+            key={key}
+            start={Number(ordered[1])}
+            className="list-decimal space-y-1 pl-5"
+          >
+            {items}
+          </ol>
+        ) : (
+          <ul key={key} className="list-disc space-y-1 pl-5">
+            {items}
+          </ul>
+        )
+      );
+      continue;
+    }
+    const key = index;
+    const paragraph: string[] = [lines[index++]];
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !parseMarkdownTable(lines, index) &&
+      !isMarkdownDivider(lines[index]) &&
+      !/^(#{1,6}\s|[-*\u2022]\s|\d+[.)]\s|```)/.test(lines[index].trim())
+    )
+      paragraph.push(lines[index++]);
+    blocks.push(
+      <p key={key} className="whitespace-pre-line">
+        {inlineText(paragraph.join("\n"))}
+      </p>
+    );
+  }
+  return <div className="space-y-3 [overflow-wrap:anywhere]">{blocks}</div>;
+}

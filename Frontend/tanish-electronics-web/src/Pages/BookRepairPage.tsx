@@ -139,6 +139,7 @@ const preferredTimeOptions: DropdownOption<PreferredTimeSlot>[] = [
 ];
 
 function BookRepairPage() {
+  const pendingSubmission = useRef<{ body: string; key: string } | null>(null);
   const [categories, setCategories] = useState<LookUpItem[]>([]);
   const [locations, setLocations] = useState<LookUpItem[]>([]);
 
@@ -513,6 +514,10 @@ function BookRepairPage() {
         return;
       }
 
+      const bodySignature = JSON.stringify(data);
+      if (pendingSubmission.current?.body !== bodySignature) {
+        pendingSubmission.current = { body: bodySignature, key: crypto.randomUUID() };
+      }
       const result = await createServiceRequest(
         {
           customerName: data.customerName,
@@ -538,15 +543,19 @@ function BookRepairPage() {
           preferredDate: data.preferredDate || undefined,
           preferredTimeSlot: data.preferredTimeSlot || undefined
         },
-        token
+        token,
+        pendingSubmission.current.key
       );
 
+      let uploadWarning = "";
       if (selectedImages.length > 0) {
-        await uploadServiceRequestsImages(
-          result.serviceRequestId,
-          selectedImages
-        );
+        try {
+          await uploadServiceRequestsImages(result.serviceRequestId, selectedImages, result.uploadToken);
+        } catch {
+          uploadWarning = "Your repair was booked, but the photos could not be uploaded. Keep your tracking number and contact the shop to add them.";
+        }
       }
+      pendingSubmission.current = null;
 
       setSuccessResult(result);
 
@@ -567,7 +576,7 @@ function BookRepairPage() {
       });
 
       setSelectedImage([]);
-      setImageError("");
+      setImageError(uploadWarning);
     } catch (error) {
       if (error instanceof Error) {
         setApiError(error.message);

@@ -1,3 +1,4 @@
+import { fetchWithSessionRefresh } from "../../Services/apiClient";
 import {
   useState,
   useRef,
@@ -31,10 +32,14 @@ import {
   Check,
   AlertTriangle,
   ClipboardCheck,
+  Clock,
   Copy
 } from "lucide-react";
 import { useRepairTrackingSignalR } from "../../hooks/useRepairTrackingSignalR";
-import type { TrackServiceRequestResult } from "../../Services/serviceRequestService";
+import {
+  trackServiceRequest,
+  type TrackServiceRequestResult
+} from "../../Services/serviceRequestService";
 
 export interface ChatProductCardDto {
   productId: number;
@@ -52,6 +57,26 @@ export interface ChatActionDto {
   icon?: string;
 }
 
+interface ChatBookingDraft {
+  draftId: string;
+  expiresAt: string;
+  categoryName: string;
+  locationName?: string;
+  details: {
+    customerName: string;
+    phoneNumber: string;
+    email?: string;
+    deviceName?: string;
+    brand?: string;
+    modelName?: string;
+    issueDescription: string;
+    serviceType: string;
+    visitAddress?: string;
+    preferredDate?: string;
+    preferredTimeSlot?: string;
+  };
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "error";
@@ -59,6 +84,10 @@ interface ChatMessage {
   at: number;
   products?: ChatProductCardDto[];
   actions?: ChatActionDto[];
+  tracking?: TrackServiceRequestResult;
+  bookingDraft?: ChatBookingDraft;
+  bookingState?: "superseded" | "submitting" | "submitted";
+  bookingError?: string;
 }
 
 function ActionIcon({ name }: { name?: string }) {
@@ -92,7 +121,6 @@ import {
 import { useCustomAuth } from "../../contexts/CustomAuthContext";
 import GoogleSignInButton from "../../Pages/GoogleSignInButton";
 
-const API_BASE_URL = import.meta.env["VITE_API_BASE_URL"] ?? "";
 const REQUEST_TIMEOUT_MS = 20_000;
 const MAX_MESSAGE_LENGTH = 500;
 const HISTORY_WINDOW = 6;
@@ -302,7 +330,9 @@ function renderTextWithIcons(text: string, baseKey: string | number) {
 }
 
 function FormattedText({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  const parts = text.split(
+    /(\*\*[^*\n]+\*\*|`[^`\n]+`|(?<![\\*])\*(?![\s*])[^*\n]*[^\s*]\*(?!\*))/g
+  );
   return (
     <>
       {parts.map((part, index) => {
@@ -324,6 +354,18 @@ function FormattedText({ text }: { text: string }) {
             >
               {part.slice(1, -1)}
             </code>
+          );
+        }
+        if (
+          part.length > 2 &&
+          part.startsWith("*") &&
+          !part.startsWith("**") &&
+          part.endsWith("*")
+        ) {
+          return (
+            <em key={index} className="italic">
+              {renderTextWithIcons(part.slice(1, -1), "italic-" + index)}
+            </em>
           );
         }
         return renderTextWithIcons(part, `text-${index}`);
@@ -686,7 +728,9 @@ function extractTrackingSummary(
   }
 
   // 2. Natural language tracking sentence (e.g. from chat history)
-  const trackingNumMatch = content.match(/#?(TE-\d{4}-\d{3,6})/i);
+  const trackingNumMatch = content.match(
+    /#?(TE-\d{4}-(?:[A-F0-9]{32}|\d{3,10}))/i
+  );
   if (trackingNumMatch) {
     const trackingNumber = trackingNumMatch[1].toUpperCase();
     const isTrackingIntent =
@@ -745,6 +789,75 @@ function extractTrackingSummary(
   }
 
   return null;
+}
+
+function bookingSecondsRemaining(expiresAt: string, now: number): number {
+  const deadline = Date.parse(expiresAt);
+  return Number.isFinite(deadline)
+    ? Math.max(0, Math.ceil((deadline - now) / 1000))
+    : 0;
+}
+
+function BookingDraftCountdown({
+  expiresAt,
+  onExpire
+}: {
+  expiresAt: string;
+  onExpire: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const seconds = bookingSecondsRemaining(expiresAt, now);
+  useEffect(() => {
+    let notified = false;
+    function tick() {
+      const current = Date.now();
+      setNow(current);
+      if (bookingSecondsRemaining(expiresAt, current) === 0) {
+        window.clearInterval(timer);
+        if (!notified) {
+          notified = true;
+          onExpire();
+        }
+      }
+    }
+    const timer = window.setInterval(tick, 1000);
+    tick();
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [expiresAt, onExpire]);
+  const label =
+    Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0") +
+    ":" +
+    (seconds % 60).toString().padStart(2, "0");
+  return (
+    <>
+      <span
+        role="timer"
+        aria-live="off"
+        aria-label="Time left to confirm this booking"
+        className={
+          "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tabular-nums " +
+          (seconds <= 60
+            ? "border-amber-400/40 bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"
+            : "border-[#d8cdb6] bg-[#f7f2e8] text-[#71634c] dark:border-[#3a3428] dark:bg-[#292319] dark:text-[#cdbb96]")
+        }
+      >
+        <Clock size={11} aria-hidden="true" />
+        {seconds > 0 ? label + " left to confirm" : "Summary expired"}
+      </span>
+      {seconds === 0 && (
+        <span role="status" className="sr-only">
+          This booking summary has expired. Ask for a new summary to confirm
+          your repair.
+        </span>
+      )}
+    </>
+  );
 }
 
 function BookingConfirmationCard({
@@ -968,7 +1081,7 @@ function InlineFormattedText({ text, role }: { text: string; role: string }) {
   return (
     <>
       {parts.map((part, i) =>
-        URL_PATTERN.test(part) ? (
+        /^https?:\/\//i.test(part) ? (
           <a
             key={i}
             href={part}
@@ -990,6 +1103,75 @@ function InlineFormattedText({ text, role }: { text: string; role: string }) {
   );
 }
 
+function splitMarkdownTableRow(line: string): string[] {
+  const value = line.trim();
+  const cells: string[] = [];
+  let cell = "";
+  let codeTicks = 0;
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index];
+    if (character === "\\" && value[index + 1] === "|") {
+      cell += "|";
+      index++;
+      continue;
+    }
+    if (character === "`") {
+      let count = 1;
+      while (value[index + count] === "`") count++;
+      if (codeTicks === 0) codeTicks = count;
+      else if (codeTicks === count) codeTicks = 0;
+      cell += "`".repeat(count);
+      index += count - 1;
+      continue;
+    }
+    if (character === "|" && codeTicks === 0) {
+      cells.push(cell.trim());
+      cell = "";
+    } else cell += character;
+  }
+  cells.push(cell.trim());
+  if (value.startsWith("|")) cells.shift();
+  if (value.endsWith("|") && cells[cells.length - 1] === "") cells.pop();
+  return cells;
+}
+
+function parseMarkdownTable(lines: string[], start: number) {
+  if (!lines[start]?.includes("|") || !lines[start + 1]) return null;
+  const headers = splitMarkdownTableRow(lines[start]);
+  const separators = splitMarkdownTableRow(lines[start + 1]);
+  if (
+    !headers.length ||
+    headers.length !== separators.length ||
+    !separators.every((cell) => /^:?-{3,}:?$/.test(cell))
+  )
+    return null;
+  const alignments = separators.map((cell) =>
+    cell.startsWith(":") && cell.endsWith(":")
+      ? ("center" as const)
+      : cell.endsWith(":")
+        ? ("right" as const)
+        : ("left" as const)
+  );
+  const rows: string[][] = [];
+  let endIndex = start + 2;
+  while (
+    endIndex < lines.length &&
+    lines[endIndex].trim() &&
+    lines[endIndex].includes("|")
+  ) {
+    const cells = splitMarkdownTableRow(lines[endIndex]);
+    // Keep incomplete streaming rows visible as text until the next chunk arrives.
+    if (cells.length !== headers.length) break;
+    rows.push(cells);
+    endIndex++;
+  }
+  return { headers, alignments, rows, endIndex };
+}
+
+function isMarkdownDivider(line: string): boolean {
+  return /^([-*_])(?:\s*\1){2,}$/.test(line.trim());
+}
+
 function FormattedBlock({
   text,
   role,
@@ -999,16 +1181,115 @@ function FormattedBlock({
   role: string;
   isStreaming?: boolean;
 }) {
-  const lines = useMemo(() => text.split("\n"), [text]);
+  const lines = useMemo(() => text.replace(/\r\n/g, "\n").split("\n"), [text]);
+  const blocks: {
+    line: string;
+    idx: number;
+    table: ReturnType<typeof parseMarkdownTable>;
+    code?: string;
+  }[] = [];
+  for (let idx = 0; idx < lines.length;) {
+    if (lines[idx].trim().startsWith("```")) {
+      const start = idx++;
+      const code: string[] = [];
+      while (idx < lines.length && !lines[idx].trim().startsWith("```")) {
+        code.push(lines[idx++]);
+      }
+      if (idx < lines.length) idx++;
+      blocks.push({
+        line: lines[start],
+        idx: start,
+        table: null,
+        code: code.join("\n")
+      });
+      continue;
+    }
+    const table = parseMarkdownTable(lines, idx);
+    blocks.push({ line: lines[idx], idx, table });
+    idx = table?.endIndex ?? idx + 1;
+  }
 
   return (
     <div className="space-y-1.5 leading-relaxed text-[13.5px] sm:text-[14px]">
-      {lines.map((line, idx) => {
+      {blocks.map(({ line, idx, table, code }) => {
+        if (code !== undefined)
+          return (
+            <pre
+              key={idx}
+              className="my-2 max-w-full overflow-x-auto rounded-lg bg-[#f3eee3] p-3 font-mono text-xs dark:bg-[#11110f]"
+            >
+              <code>{code}</code>
+            </pre>
+          );
+        if (table) {
+          return (
+            <div key={idx} className="min-w-0">
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Assistant response table"
+                className="my-2 max-w-full overflow-x-auto rounded-lg border border-[#d8cdb6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a4803e] dark:border-[#3a3428]"
+              >
+                <table className="w-full border-collapse text-left text-xs leading-5">
+                  <caption className="sr-only">
+                    Assistant response table
+                  </caption>
+                  <thead className="bg-[#f2eadb] text-[#5f491f] dark:bg-[#292319] dark:text-[#e5c680]">
+                    <tr>
+                      {table.headers.map((cell, column) => (
+                        <th
+                          key={column}
+                          scope="col"
+                          style={{ textAlign: table.alignments[column] }}
+                          className="min-w-20 border-b border-[#d8cdb6] px-3 py-2.5 font-semibold [overflow-wrap:anywhere] dark:border-[#3a3428]"
+                        >
+                          <InlineFormattedText text={cell} role={role} />
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#e8dfce] dark:divide-[#302c24]">
+                    {table.rows.map((row, rowIndex) => (
+                      <tr
+                        key={rowIndex}
+                        className="even:bg-[#f7f2e8] dark:even:bg-[#211d16]"
+                      >
+                        {row.map((cell, column) => (
+                          <td
+                            key={column}
+                            style={{ textAlign: table.alignments[column] }}
+                            className="min-w-20 px-3 py-2.5 align-top [overflow-wrap:anywhere]"
+                          >
+                            <InlineFormattedText text={cell} role={role} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {isStreaming && table.endIndex === lines.length && (
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3.5 w-1.5 rounded-xs bg-[#8a6624] align-middle motion-safe:animate-pulse dark:bg-[#d6b46a]"
+                />
+              )}
+            </div>
+          );
+        }
         const trimmed = line.trim();
         const isLastLine = idx === lines.length - 1;
 
         if (!trimmed) {
           return <div key={idx} className="h-1.5" />;
+        }
+        if (isMarkdownDivider(trimmed)) {
+          return (
+            <hr
+              key={idx}
+              className="my-3 border-0 border-t border-[#d8cdb6] dark:border-[#3a3428]"
+            />
+          );
         }
 
         // Headings: ### or ##
@@ -1095,8 +1376,10 @@ function RepairTrackingCard({
   beforeText,
   afterText,
   isStreaming,
-  onTrackClick
+  onTrackClick,
+  tracking
 }: {
+  tracking?: TrackServiceRequestResult;
   summary: ParsedTrackingSummary;
   beforeText?: string;
   afterText?: string;
@@ -1126,8 +1409,13 @@ function RepairTrackingCard({
   }, []);
 
   const { isLiveConnected } = useRepairTrackingSignalR(
-    summary.trackingNumber,
-    handleLiveUpdate
+    tracking?.requestNumber?.toUpperCase() ===
+      summary.trackingNumber?.toUpperCase()
+      ? tracking.requestNumber
+      : null,
+    handleLiveUpdate,
+    tracking?.trackingToken,
+    tracking?.phoneNumber
   );
 
   const displayStatus = liveData.status || summary.status || "Pending";
@@ -1368,8 +1656,10 @@ function MessageBody({
   content,
   role,
   isStreaming,
-  onActionClick
+  onActionClick,
+  tracking: verifiedTracking
 }: {
+  tracking?: TrackServiceRequestResult;
   content: string;
   role: string;
   isStreaming?: boolean;
@@ -1417,6 +1707,7 @@ function MessageBody({
       <div className="w-full">
         <RepairTrackingCard
           summary={tracking.summary}
+          tracking={verifiedTracking}
           beforeText={tracking.before}
           afterText={tracking.after}
           isStreaming={isStreaming}
@@ -1452,6 +1743,18 @@ function MessageBody({
 
   return (
     <FormattedBlock text={content} role="assistant" isStreaming={isStreaming} />
+  );
+}
+
+// A validated booking draft owns the review UI, including its single confirm button.
+// Keep generated prose in chat history, but do not show a second written review above it.
+function shouldShowMessageText(message: ChatMessage): boolean {
+  return (
+    !message.bookingDraft &&
+    Boolean(
+      message.content?.trim() ||
+      (!message.products?.length && !message.actions?.length)
+    )
   );
 }
 
@@ -1860,10 +2163,137 @@ export default function ChatWidget() {
 
   useEffect(resizeInput, [input, resizeInput]);
 
+  const bookingSubmitRef = useRef(false);
+  const [bookingClock, setBookingClock] = useState(Date.now());
+  const handleBookingExpiry = useCallback(
+    () => setBookingClock(Date.now()),
+    []
+  );
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = window.setInterval(() => setBookingClock(Date.now()), 10000);
+    return () => window.clearInterval(timer);
+  }, [isOpen]);
+
+  const disableBookingSummaries = useCallback(() => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.bookingDraft && !m.bookingState
+          ? { ...m, bookingState: "superseded" }
+          : m
+      )
+    );
+  }, []);
+
+  const confirmBooking = useCallback(
+    async (message: ChatMessage) => {
+      const draft = message.bookingDraft;
+      if (
+        !draft ||
+        message.bookingState ||
+        bookingSubmitRef.current ||
+        isLoading ||
+        input.trim() ||
+        bookingSecondsRemaining(draft.expiresAt, Date.now()) === 0
+      )
+        return;
+      bookingSubmitRef.current = true;
+      setIsLoading(true);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? { ...m, bookingState: "submitting", bookingError: undefined }
+            : m
+        )
+      );
+      try {
+        const response = await fetchWithSessionRefresh(
+          "/public/chat/booking/confirm",
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionKey, draftId: draft.draftId })
+          }
+        );
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(
+            response.status === 400
+              ? payload.message ||
+                  "This summary is no longer available. Send a message to prepare an updated summary."
+              : "Booking could not be confirmed. Retry this button; it won't create a second booking."
+          );
+        }
+        const result = (await response.json()) as {
+          requestNumber: string;
+          status: string;
+        };
+        const confirmationMessageId = uid();
+        setMessages((prev) =>
+          prev
+            .map((m) =>
+              m.id === message.id
+                ? {
+                    ...m,
+                    bookingState: "submitted" as const,
+                    bookingError: undefined
+                  }
+                : m
+            )
+            .concat({
+              id: confirmationMessageId,
+              role: "assistant",
+              at: Date.now(),
+              content: `**Repair booked successfully!**\n\n**Tracking Number**: \`${result.requestNumber}\`\n**Status**: ${result.status || "Pending"}\nKeep this number and your booking phone number to track your repair.`,
+              actions: [
+                { label: "Track Repair", url: "/track-request", icon: "search" }
+              ]
+            })
+        );
+        // The booking is already successful. Verification enables its live card;
+        // a tracking outage must never turn this success into a booking failure.
+        try {
+          const tracking = await trackServiceRequest(
+            result.requestNumber,
+            draft.details.phoneNumber
+          );
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === confirmationMessageId ? { ...m, tracking } : m
+            )
+          );
+        } catch {
+          /* Keep the confirmed booking and its tracking link available. */
+        }
+      } catch (error) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === message.id
+              ? {
+                  ...m,
+                  bookingState: undefined,
+                  bookingError:
+                    error instanceof Error
+                      ? error.message
+                      : "Please retry confirmation."
+                }
+              : m
+          )
+        );
+      } finally {
+        bookingSubmitRef.current = false;
+        setIsLoading(false);
+      }
+    },
+    [sessionKey, isLoading, input]
+  );
+
   const executeChatMessage = useCallback(
     async (text: string) => {
       const cleanMsg = text.trim().slice(0, MAX_MESSAGE_LENGTH);
-      if (!cleanMsg) return;
+      if (!cleanMsg || bookingSubmitRef.current) return;
+      disableBookingSummaries();
 
       setLastFailed(null);
       const userMsg: ChatMessage = {
@@ -1897,15 +2327,18 @@ export default function ChatWidget() {
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${API_BASE_URL}/public/chat/stream`, {
+        const response = await fetchWithSessionRefresh("/public/chat/stream", {
           method: "POST",
           headers,
           signal: controller.signal,
+          credentials: "include",
           body: JSON.stringify({
             message: cleanMsg,
+            includeAccountContext: Boolean(token),
             currentPath: window.location.pathname,
             sessionKey,
             history: [...messages, userMsg]
+              .filter((m) => m.role !== "error")
               .slice(-HISTORY_WINDOW - 1, -1)
               .map(({ role, content }) => ({ role, content }))
           })
@@ -1945,6 +2378,8 @@ export default function ChatWidget() {
                 content?: string;
                 products?: ChatProductCardDto[];
                 actions?: ChatActionDto[];
+                tracking?: TrackServiceRequestResult;
+                bookingDraft?: ChatBookingDraft;
               };
 
               if (evt.type === "token" && evt.content) {
@@ -1981,6 +2416,8 @@ export default function ChatWidget() {
                       content: accumulatedReply,
                       products: evt.products,
                       actions: evt.actions,
+                      bookingDraft: evt.bookingDraft,
+                      tracking: evt.tracking,
                       at: Date.now()
                     }
                   ]);
@@ -1991,7 +2428,9 @@ export default function ChatWidget() {
                         ? {
                             ...m,
                             products: evt.products ?? m.products,
-                            actions: evt.actions ?? m.actions
+                            actions: evt.actions ?? m.actions,
+                            bookingDraft: evt.bookingDraft ?? m.bookingDraft,
+                            tracking: evt.tracking ?? m.tracking
                           }
                         : m
                     )
@@ -2444,10 +2883,9 @@ export default function ChatWidget() {
                   }
                 >
                   {/* 1. TEXT BUBBLE */}
-                  {(msg.content?.trim() ||
-                    (!msg.products?.length && !msg.actions?.length)) && (
+                  {shouldShowMessageText(msg) && (
                     <div
-                      className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
+                      className={`min-w-0 rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
                         msg.role === "user"
                           ? "rounded-br-xs bg-[#1f1a12] text-[#f7f5ef] font-semibold dark:bg-[#d6b46a] dark:text-[#11110f]"
                           : "w-full max-w-[95%] sm:max-w-[92%] rounded-bl-xs border border-[#d8cdb6] bg-[#fffdf7] text-[#1f1a12] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#e8e3d8]"
@@ -2459,12 +2897,10 @@ export default function ChatWidget() {
                           "Thank you! How else can I help you today?"
                         }
                         role={msg.role}
+                        tracking={msg.tracking}
                         isStreaming={streamingMessageId === msg.id}
                         onActionClick={(url) =>
-                          handleActionClick(
-                            { preventDefault: () => {} } as any,
-                            url
-                          )
+                          handleActionClick({ preventDefault: () => {} } as any, url)
                         }
                       />
                     </div>
@@ -2493,8 +2929,17 @@ export default function ChatWidget() {
                         {filteredActions.map((act, i) => (
                           <a
                             key={i}
-                            href={act.url}
-                            onClick={(e) => handleActionClick(e, act.url)}
+                            href={
+                              act.url === "chat:book-repair" ? "#" : act.url
+                            }
+                            onClick={(e) => {
+                              if (act.url === "chat:book-repair") {
+                                e.preventDefault();
+                                void send(
+                                  "I'd like to book a repair here in chat."
+                                );
+                              } else handleActionClick(e, act.url);
+                            }}
                             className="inline-flex items-center gap-1.5 rounded-full border border-[#d8cdb6] bg-[#fffdf7] px-3.5 py-1.5 text-[12px] font-bold text-[#1f1a12] shadow-sm transition-all hover:border-[#1f1a12] hover:bg-[#1f1a12] hover:text-[#f7f5ef] dark:border-[#302c24] dark:bg-[#1a1712] dark:text-[#d6b46a] dark:hover:border-[#d6b46a] dark:hover:bg-[#d6b46a] dark:hover:text-[#11110f]"
                           >
                             <ActionIcon name={act.icon} />
@@ -2512,6 +2957,98 @@ export default function ChatWidget() {
                       onActionClick={handleActionClick}
                     />
                   )}
+
+                  {msg.bookingDraft &&
+                    (() => {
+                      const draft = msg.bookingDraft;
+                      const details = draft.details;
+                      const expired =
+                        bookingSecondsRemaining(
+                          draft.expiresAt,
+                          bookingClock
+                        ) === 0;
+                      const disabled =
+                        !!msg.bookingState ||
+                        expired ||
+                        isLoading ||
+                        !!input.trim();
+                      const rows = [
+                        ["Customer", details.customerName],
+                        ["Phone", details.phoneNumber],
+                        ["Email", details.email],
+                        ["Device", details.deviceName],
+                        ["Brand", details.brand],
+                        ["Model", details.modelName],
+                        ["Repair category", draft.categoryName],
+                        ["Issue", details.issueDescription],
+                        ["Service", details.serviceType],
+                        ["Area", draft.locationName],
+                        ["Address", details.visitAddress],
+                        ["Preferred date", details.preferredDate],
+                        ["Preferred time", details.preferredTimeSlot]
+                      ];
+                      return (
+                        <section
+                          aria-label="Review repair booking"
+                          className="mt-3 rounded-2xl border border-[#d8cdb6] bg-[#fffdf7] p-4 dark:border-[#3a3428] dark:bg-[#1a1712]"
+                        >
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="flex items-center gap-2 text-sm font-bold">
+                              <ClipboardCheck size={18} />
+                              Review your repair booking
+                            </h3>
+                            {!msg.bookingState && (
+                              <BookingDraftCountdown
+                                expiresAt={draft.expiresAt}
+                                onExpire={handleBookingExpiry}
+                              />
+                            )}
+                          </div>
+                          <dl className="space-y-2 text-sm">
+                            {rows
+                              .filter(([, value]) => value)
+                              .map(([label, value]) => (
+                                <div key={label}>
+                                  <dt className="text-xs opacity-70">
+                                    {label}
+                                  </dt>
+                                  <dd className="break-words font-medium">
+                                    {value}
+                                  </dd>
+                                </div>
+                              ))}
+                          </dl>
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => void confirmBooking(msg)}
+                            className="mt-4 w-full rounded-xl bg-[#1f1a12] px-4 py-2.5 text-sm font-bold text-[#f7f5ef] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#d6b46a] dark:text-[#11110f]"
+                          >
+                            {msg.bookingState === "submitted"
+                              ? "Booking confirmed"
+                              : msg.bookingState === "submitting"
+                                ? "Confirming…"
+                                : msg.bookingState === "superseded"
+                                  ? "Summary replaced — send your changes"
+                                  : expired
+                                    ? "Summary expired"
+                                    : "Confirm booking"}
+                          </button>
+                          <p className="mt-2 text-xs opacity-70">
+                            To change anything, type a message below. Confirm
+                            within 10 minutes, or ask for a new summary.
+                          </p>
+                          {msg.bookingError && (
+                            <p
+                              role="alert"
+                              className="mt-2 text-sm text-red-600 dark:text-red-400"
+                            >
+                              {msg.bookingError}
+                            </p>
+                          )}
+                        </section>
+                      );
+                    })()}
 
                   {/* Time Stamp */}
                   <span className="mt-1.5 px-1 text-[12px] text-[#817867] dark:text-[var(--warm-muted-dark)]">
@@ -2662,9 +3199,11 @@ export default function ChatWidget() {
                 <textarea
                   ref={inputRef}
                   value={input}
-                  onChange={(e) =>
-                    setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))
-                  }
+                  disabled={bookingSubmitRef.current}
+                  onChange={(e) => {
+                    if (e.target.value.trim()) disableBookingSummaries();
+                    setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH));
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder="Ask anything or book a repair..."
                   rows={1}
@@ -2756,7 +3295,6 @@ export default function ChatWidget() {
           </div>
         </div>
       )}
-
       {!isOpen && (
         <>
           {showPrompt && proactivePrompt && (

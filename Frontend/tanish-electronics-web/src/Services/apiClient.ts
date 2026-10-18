@@ -3,6 +3,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const ACCESS_TOKEN_KEY = "te_access_token";
 const REFRESH_TOKEN_KEY = "te_refresh_token";
 const AUTH_USER_KEY = "te_auth_user";
+const EXPIRY_KEY = "te_access_expires_at";
 
 let refreshRequest: Promise<string | null> | null = null;
 
@@ -22,6 +23,7 @@ type AuthResponse = {
     phoneNumber?: string | null;
     emailConfirmed: boolean;
     roles: string[];
+    profileImageUrl: string | null;
   };
 };
 
@@ -37,6 +39,9 @@ function saveAuthResponse(response: AuthResponse) {
   localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
+  localStorage.setItem(EXPIRY_KEY, response.accessTokenExpiresAt);
+  authRedirectStarted = false;
+  window.dispatchEvent(new Event("te-auth-changed"));
 }
 
 let authRedirectStarted = false;
@@ -45,6 +50,8 @@ export function clearAuthStorage(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
+  localStorage.removeItem(EXPIRY_KEY);
+  window.dispatchEvent(new Event("te-auth-changed"));
 }
 
 function clearAuthStorageAndRedirect(): void {
@@ -61,12 +68,23 @@ function clearAuthStorageAndRedirect(): void {
   }
 }
 
-async function refreshAccessToken() {
+async function refreshAccessToken(rejectedAccessToken?: string | null) {
   if (refreshRequest) {
     return refreshRequest;
   }
 
-  refreshRequest = refreshAccessTokenInternal();
+  const originalRefreshToken = getStoredRefreshToken();
+  const refresh = async () => {
+    const storedAccessToken = getStoredAccessToken();
+    if ((rejectedAccessToken && storedAccessToken && storedAccessToken !== rejectedAccessToken) ||
+        getStoredRefreshToken() !== originalRefreshToken) {
+      return storedAccessToken;
+    }
+    return refreshAccessTokenInternal();
+  };
+  refreshRequest = navigator.locks
+    ? navigator.locks.request("te-auth-refresh", refresh)
+    : refresh();
 
   try {
     return await refreshRequest;
@@ -113,6 +131,8 @@ async function refreshAccessTokenInternal(): Promise<string | null> {
 
   const data = (await response.json()) as AuthResponse;
 
+  // Logout or a new login while refresh was in flight must not be overwritten.
+  if (getStoredRefreshToken() !== refreshToken) return getStoredAccessToken();
   saveAuthResponse(data);
 
   return data.accessToken;
@@ -193,6 +213,7 @@ export async function apiClient<T>(
   }
 
   const response = await fetch(`${BASE_URL}${fixedEndpoint}`, {
+    credentials: "include",
     ...fetchOptions,
     headers
   });
@@ -200,13 +221,15 @@ export async function apiClient<T>(
   if (
     response.status === 401 &&
     !skipAuthRefresh &&
+    Boolean(finalAuthToken) && Boolean(getStoredRefreshToken()) &&
+    !fixedEndpoint.startsWith("/auth/custom/forgot-password/" ) &&
     fixedEndpoint !== "/auth/custom/login" &&
-    fixedEndpoint !== "/auth/custom/google-login" &&
+    fixedEndpoint !== "/auth/custom/google" &&
     fixedEndpoint !== "/auth/custom/register" &&
     fixedEndpoint !== "/auth/custom/refresh" &&
     fixedEndpoint !== "/auth/custom/logout"
   ) {
-    const newAccessToken = await refreshAccessToken();
+    const newAccessToken = await refreshAccessToken(finalAuthToken);
 
     if (!newAccessToken) {
       throw new Error("Your session has ended. Please sign in again.");
@@ -221,11 +244,12 @@ export async function apiClient<T>(
     retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
 
     const retryResponse = await fetch(`${BASE_URL}${fixedEndpoint}`, {
-      ...fetchOptions,
+      credentials: "include",
+    ...fetchOptions,
       headers: retryHeaders
     });
 
-    if (retryResponse.status === 401 || retryResponse.status === 403) {
+    if (retryResponse.status === 401) {
       clearAuthStorageAndRedirect();
 
       throw new Error("Your session has ended. Please sign in again.");
@@ -235,4 +259,35 @@ export async function apiClient<T>(
   }
 
   return await parseResponse<T>(response);
+}
+
+export async function refreshStoredAuthSession(): Promise<AuthResponse | null> {
+  const accessToken = await refreshAccessToken();
+  const storedUser = localStorage.getItem(AUTH_USER_KEY);
+  const refreshToken = getStoredRefreshToken();
+  if (!accessToken || !storedUser || !refreshToken) return null;
+  return {
+    accessToken, refreshToken,
+    accessTokenExpiresAt: localStorage.getItem(EXPIRY_KEY) ?? "",
+    user: JSON.parse(storedUser) as AuthResponse["user"]
+  };
+}
+// Keeps streaming response bodies intact while sharing the normal refresh coordination.
+export async function fetchWithSessionRefresh(endpoint: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers);
+  const accessToken = getStoredAccessToken();
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  let response = await fetch(url, { credentials: "include", ...options, headers });
+  if (response.status === 401 && accessToken && getStoredRefreshToken()) {
+    const renewed = await refreshAccessToken(accessToken);
+    if (!renewed) throw new Error("Your session has ended. Please sign in again.");
+    headers.set("Authorization", `Bearer ${renewed}`);
+    response = await fetch(url, { credentials: "include", ...options, headers });
+    if (response.status === 401) {
+      clearAuthStorageAndRedirect();
+      throw new Error("Your session has ended. Please sign in again.");
+    }
+  }
+  return response;
 }

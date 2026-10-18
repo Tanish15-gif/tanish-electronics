@@ -8,33 +8,45 @@ function ThemeToggle() {
   );
 
   useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved === "dark") {
-      document.documentElement.classList.add("dark");
-      setIsDark(true);
-    } else if (saved === "light") {
-      document.documentElement.classList.remove("dark");
-      setIsDark(false);
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function syncTheme() {
+      const saved = localStorage.getItem("theme");
+      const dark =
+        saved === "dark" || (saved !== "light" && systemTheme.matches);
+      document.documentElement.classList.toggle("dark", dark);
+      document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      setIsDark(dark);
     }
+
+    syncTheme();
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("te-theme-changed", syncTheme);
+    systemTheme.addEventListener("change", syncTheme);
+
+    return () => {
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("te-theme-changed", syncTheme);
+      systemTheme.removeEventListener("change", syncTheme);
+    };
   }, []);
 
   function toggleTheme() {
     const root = document.documentElement;
     const next = !root.classList.contains("dark");
-    root.classList.toggle("dark", next);
     localStorage.setItem("theme", next ? "dark" : "light");
-    setIsDark(next);
+    window.dispatchEvent(new Event("te-theme-changed"));
   }
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label="Toggle theme"
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       aria-pressed={isDark}
       className="group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors duration-200 ease-out
-        border-[#d6dbe1] bg-white hover:bg-[#f5f7f9] active:scale-95
-        dark:border-[#2b2e36] dark:bg-[#14161b] dark:hover:bg-[#1b1e24]
+        border-[#d8cdb6] bg-[#fffdf7] hover:bg-[#f2eadb] active:scale-95
+        dark:border-[#302c24] dark:bg-[#1a1712] dark:hover:bg-[#242016]
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33404f]/40 dark:focus-visible:ring-[#d6b46a]/50"
     >
       <SunGlyph

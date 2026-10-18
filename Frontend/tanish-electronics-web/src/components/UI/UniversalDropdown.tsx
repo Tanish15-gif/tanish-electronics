@@ -25,6 +25,7 @@ type UniversalDropdownProps<T extends string | number> = {
   disabled?: boolean;
   error?: string;
   className?: string;
+  menuClassName?: string;
 };
 
 function UniversalDropdown<T extends string | number>({
@@ -36,7 +37,8 @@ function UniversalDropdown<T extends string | number>({
   placeholder = "Select option",
   disabled = false,
   error,
-  className = ""
+  className = "",
+  menuClassName = ""
 }: UniversalDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -52,6 +54,7 @@ function UniversalDropdown<T extends string | number>({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const listboxId = useId();
+  const labelId = useId();
 
   const selectedOption =
     options.find((option) => option.value === value) ?? null;
@@ -232,7 +235,10 @@ function UniversalDropdown<T extends string | number>({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       {label && (
-        <label className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]">
+        <label
+          id={labelId}
+          className="mb-2 block text-sm font-bold text-[#4f4638] dark:text-[#d8cdb6]"
+        >
           {label}
 
           {required && (
@@ -254,6 +260,7 @@ function UniversalDropdown<T extends string | number>({
         ref={buttonRef}
         type="button"
         role="combobox"
+        aria-labelledby={label ? labelId : undefined}
         aria-expanded={open}
         aria-controls={listboxId}
         aria-haspopup="listbox"
@@ -289,6 +296,7 @@ function UniversalDropdown<T extends string | number>({
             ref={menuRef}
             id={listboxId}
             role="listbox"
+            aria-labelledby={label ? labelId : undefined}
             style={{
               position: "fixed",
               ...(menuRect.top !== undefined ? { top: menuRect.top } : {}),
@@ -298,7 +306,7 @@ function UniversalDropdown<T extends string | number>({
               left: menuRect.left,
               width: menuRect.width
             }}
-            className="z-[1000] max-h-64 overflow-y-auto rounded-xl border border-[#d8cdb6] bg-[#fffdf7] p-1.5 shadow-[0_18px_50px_-20px_rgba(31,26,18,0.45)] dark:border-[#302c24] dark:bg-[#181612] dark:shadow-black/60"
+            className={`z-[1000] max-h-64 overflow-y-auto rounded-xl border border-[#d8cdb6] bg-[#fffdf7] p-1.5 shadow-[0_18px_50px_-20px_rgba(31,26,18,0.45)] dark:border-[#302c24] dark:bg-[#181612] dark:shadow-black/60 ${menuClassName}`}
           >
             {options.length === 0 ? (
               <p className="px-3 py-4 text-center text-sm font-semibold text-[#817867] dark:text-[#928a7d]">

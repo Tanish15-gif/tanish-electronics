@@ -13,6 +13,11 @@ export type ProductListItem = {
   primaryImageUrl?: string;
 };
 
+export type ProductRecommendation = ProductListItem & {
+  recommendationKind: "alternative" | "accessory" | "device";
+  recommendationReason: string;
+};
+
 export type ProductDetails = {
   productId: number;
   productName: string;
@@ -50,9 +55,22 @@ export async function getProducts() {
 export async function getProductById(productId: number) {
   return await apiClient<ProductDetails>(`/Products/${productId}`);
 }
+export async function getProductRecommendations(productId: number) {
+  return await apiClient<ProductRecommendation[]>(
+    `/Products/${productId}/recommendations`
+  );
+}
+
+const pendingEnquiries = new Map<string, string>();
 export async function createEnquiry(data: CreateEnquiry) {
-  return await apiClient<EnquiryCreated>("/Enquiries", {
+  const signature = JSON.stringify(data);
+  const key = pendingEnquiries.get(signature) ?? crypto.randomUUID();
+  pendingEnquiries.set(signature, key);
+  const response = await apiClient<EnquiryCreated>("/Enquiries", {
     method: "POST",
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
+    headers: { "Idempotency-Key": key }
   });
+  pendingEnquiries.delete(signature);
+  return response;
 }

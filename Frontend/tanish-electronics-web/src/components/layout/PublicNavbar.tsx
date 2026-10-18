@@ -14,12 +14,18 @@ function PublicNavbar() {
 
   const location = useLocation();
 
-  const { user, logout } = useCustomAuth();
+  const { user, logout, isAdmin: hasAdminRole } = useCustomAuth();
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuRoute, setMenuRoute] = useState(location.key);
   const [scrolled, setScrolled] = useState(false);
+
+  if (menuRoute !== location.key) {
+    setMenuRoute(location.key);
+    setMenuOpen(false);
+  }
 
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const navigate = useNavigate();
@@ -93,13 +99,6 @@ function PublicNavbar() {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
-
-  /*
-   * Close the mobile menu after route navigation.
-   */
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname, location.search]);
 
   /*
    * Close the mobile drawer when resizing to desktop.
@@ -177,11 +176,13 @@ function PublicNavbar() {
     };
   }, [menuOpen]);
 
-  const dashboardPath = authUser?.isAdmin
+  const isAdminAccount = hasAdminRole || Boolean(authUser?.isAdmin);
+
+  const dashboardPath = isAdminAccount
     ? "/admin/dashboard"
     : "/customer/dashboard";
 
-  const dashboardLabel = authUser?.isAdmin ? "Admin Dashboard" : "My Dashboard";
+  const dashboardLabel = isAdminAccount ? "Admin Dashboard" : "My Dashboard";
 
   function closeMenu() {
     setMenuOpen(false);
@@ -204,7 +205,7 @@ function PublicNavbar() {
           <Brand onClick={closeMenu} compact />
 
           <div className="ml-3 flex shrink-0 items-center gap-2">
-            <ThemeToggle />
+            {isLoaded && !isSignedIn && <ThemeToggle />}
 
             {isLoaded && isSignedIn && (
               <>
@@ -221,9 +222,17 @@ function PublicNavbar() {
                   displayName={displayName}
                   email={displayEmail}
                   imageUrl={profileImageUrl}
-                  manageAccountTo="/customer/profile"
-                  securityTo="/customer/security"
-                  accountLabel="Customer account"
+                  manageAccountTo={
+                    isAdminAccount ? "/admin/account" : "/customer/profile"
+                  }
+                  securityTo={
+                    isAdminAccount ? "/admin/security" : "/customer/security"
+                  }
+                  accountLabel={
+                    isAdminAccount
+                      ? "Administrator account"
+                      : "Customer account"
+                  }
                   onLogout={handleLogout}
                 />
               </>
@@ -304,15 +313,23 @@ function PublicNavbar() {
                   displayName={displayName}
                   email={displayEmail}
                   imageUrl={profileImageUrl}
-                  manageAccountTo="/customer/profile"
-                  securityTo="/customer/security"
-                  accountLabel="Customer account"
+                  manageAccountTo={
+                    isAdminAccount ? "/admin/account" : "/customer/profile"
+                  }
+                  securityTo={
+                    isAdminAccount ? "/admin/security" : "/customer/security"
+                  }
+                  accountLabel={
+                    isAdminAccount
+                      ? "Administrator account"
+                      : "Customer account"
+                  }
                   onLogout={handleLogout}
                 />
               </>
             )}
 
-            <ThemeToggle />
+            {isLoaded && !isSignedIn && <ThemeToggle />}
           </div>
         </nav>
       </header>
@@ -328,7 +345,7 @@ function PublicNavbar() {
             signedIn={Boolean(isLoaded && isSignedIn)}
             dashboardPath={dashboardPath}
             dashboardLabel={dashboardLabel}
-            isAdmin={Boolean(authUser?.isAdmin)}
+            isAdmin={isAdminAccount}
             profileImageUrl={profileImageUrl}
             onClose={closeMenu}
           />,

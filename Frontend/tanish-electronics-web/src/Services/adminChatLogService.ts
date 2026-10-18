@@ -57,7 +57,8 @@ export async function getAdminChatLogs(
     search?: string;
     from?: string;
     to?: string;
-  }
+  },
+  signal?: AbortSignal
 ) {
   const query = new URLSearchParams();
   query.append("page", String(params.page ?? 1));
@@ -77,21 +78,28 @@ export async function getAdminChatLogs(
     `/admin/chat-logs?${query.toString()}`,
     {
       method: "GET",
-      authToken: token
+      authToken: token,
+      signal
     }
   );
 }
 
-export async function getAdminChatSession(token: string, sessionId: number) {
+export async function getAdminChatSession(
+  token: string,
+  sessionId: number,
+  signal?: AbortSignal
+) {
   return await apiClient<ChatSessionDetail>(`/admin/chat-logs/${sessionId}`, {
     method: "GET",
-    authToken: token
+    authToken: token,
+    signal
   });
 }
 
-export async function getAdminChatStats(token: string) {
+export async function getAdminChatStats(token: string, signal?: AbortSignal) {
   return await apiClient<ChatLogStats>(`/admin/chat-logs/stats`, {
     method: "GET",
-    authToken: token
+    authToken: token,
+    signal
   });
 }
