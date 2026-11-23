@@ -10,6 +10,6 @@ public static class AuthHelpers
     }
     public static void EnsureUserIsActive(AppUser appUser)
     {
-        if (!appUser.IsActive || appUser.DeletedAt == null) throw new UnauthorizedAccessException("Account is Inactive");
+        if (!appUser.IsActive || appUser.DeletedAt != null) throw new UnauthorizedAccessException("Account is inactive.");
     }
 }

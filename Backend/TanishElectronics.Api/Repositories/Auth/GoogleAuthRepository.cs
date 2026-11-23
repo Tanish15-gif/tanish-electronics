@@ -63,7 +63,9 @@ public class GoogleAuthRepository : IGoogleAuthRepository
                 .Where(session =>
                     session.PasswordResetSessionId == setupSession.PasswordResetSessionId &&
                     session.ConsumedAt == null &&
-                    session.ExpiresAt > now
+                    session.ExpiresAt > now &&
+                    session.AppUser.IsActive && session.AppUser.DeletedAt == null &&
+                    session.AppUser.PasswordHash == null
                 )
                 .ExecuteUpdateAsync(setters =>
                     setters.SetProperty(
@@ -74,7 +76,8 @@ public class GoogleAuthRepository : IGoogleAuthRepository
 
             if (affectedRows != 1) throw new InvalidOperationException("Invalid or expired setup session.");
 
-            _dbContext.AppUsers.Update(user);
+            _dbContext.Entry(setupSession).State = EntityState.Detached;
+            // The user is tracked; persist only fields changed by password setup.
 
             await _dbContext.SaveChangesAsync();
 

@@ -95,6 +95,8 @@ public class ChatLogService : IChatLogService
     public async Task<PagedResultDto<ChatLogItemDto>> GetLogsAsync(
         int page, int pageSize, string? search, DateTime? from, DateTime? to)
     {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
         var query = _db.ChatSessions
             .Include(s => s.AppUser)
             .Include(s => s.Messages)

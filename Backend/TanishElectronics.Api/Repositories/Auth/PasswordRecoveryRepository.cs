@@ -69,18 +69,39 @@ public class PasswordRecoveryRepository : IPasswordRecoveryRepository
 
     public async Task UpdateOtpAsync(OtpCode otpCode)
     {
-        _dbContext.OtpCodes.Update(otpCode);
-
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.OtpCodes.Where(otp => otp.OtpCodeId == otpCode.OtpCodeId && otp.ConsumedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(otp => otp.ConsumedAt, otpCode.ConsumedAt));
+        _dbContext.Entry(otpCode).State = EntityState.Detached;
     }
 
-    public async Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession)
+    public async Task RecordFailedOtpAttemptAsync(int otpCodeId, int maxAttempts)
+    {
+        var now = DateTime.UtcNow;
+        await _dbContext.OtpCodes
+            .Where(otp => otp.OtpCodeId == otpCodeId && otp.ConsumedAt == null &&
+                otp.ExpiresAt > now && otp.AttemptCount < maxAttempts)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(otp => otp.AttemptCount, otp => otp.AttemptCount + 1)
+                .SetProperty(otp => otp.ConsumedAt, otp => otp.AttemptCount + 1 >= maxAttempts ? now : (DateTime?)null));
+        var tracked = _dbContext.OtpCodes.Local.FirstOrDefault(otp => otp.OtpCodeId == otpCodeId);
+        if (tracked != null) _dbContext.Entry(tracked).State = EntityState.Detached;
+    }
+
+    public async Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession, int maxAttempts)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
         try
         {
             var now = DateTime.UtcNow;
+
+            var affected = await _dbContext.OtpCodes
+                .Where(otp => otp.OtpCodeId == otpCode.OtpCodeId && otp.ConsumedAt == null &&
+                    otp.ExpiresAt > now && otp.AttemptCount < maxAttempts &&
+                    otp.AppUser != null && otp.AppUser.IsActive && otp.AppUser.DeletedAt == null)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(otp => otp.ConsumedAt, now));
+            if (affected != 1) throw new InvalidOperationException("Invalid or expired verification code.");
+            _dbContext.Entry(otpCode).State = EntityState.Detached;
 
             var existingSessions = await _dbContext.PasswordResetSessions
                 .Where(session =>
@@ -93,10 +114,6 @@ public class PasswordRecoveryRepository : IPasswordRecoveryRepository
             {
                 existingSession.ConsumedAt = now;
             }
-
-            otpCode.ConsumedAt = now;
-
-            _dbContext.OtpCodes.Update(otpCode);
 
             _dbContext.PasswordResetSessions.Add(resetSession);
 
@@ -129,7 +146,13 @@ public class PasswordRecoveryRepository : IPasswordRecoveryRepository
             var now = DateTime.UtcNow;
 
             user.UpdatedAt = now;
-            resetSession.ConsumedAt = now;
+            var affected = await _dbContext.PasswordResetSessions
+                .Where(session => session.PasswordResetSessionId == resetSession.PasswordResetSessionId &&
+                    session.ConsumedAt == null && session.ExpiresAt > now &&
+                    session.AppUser.IsActive && session.AppUser.DeletedAt == null)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(session => session.ConsumedAt, now));
+            if (affected != 1) throw new InvalidOperationException("Invalid or expired reset session.");
+            _dbContext.Entry(resetSession).State = EntityState.Detached;
 
             var activeSessions = await _dbContext.UserSessions
             .Where(session =>
@@ -211,7 +234,7 @@ public class PasswordRecoveryRepository : IPasswordRecoveryRepository
             refreshToken.RevokedAt = now;
             refreshToken.RevokedByIp = revokedByIp;
         }
-        _dbContext.AppUsers.Update(user);
+        // Persist only the changed password fields on the tracked user.
 
         await _dbContext.SaveChangesAsync();
     }

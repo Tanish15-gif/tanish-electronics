@@ -9,11 +9,16 @@ public partial class ChatbotService
 {
     public async Task<ChatResponseDto> GetReplyAsync(ChatRequestDto request)
     {
+        ValidateChatRequest(request);
+        _verifiedTracking = null;
         var appUserId = await _currentUserService.GetCurrentAppUserIdAsync();
+        var bookingOwner = GetOwnedSessionKey(request, appUserId);
+        var bookingRevision = await _bookingDrafts.BeginMessageAsync(bookingOwner);
         var ipAddress = _authContextAccessor.GetClientIpAddress();
         var userAgent = _authContextAccessor.GetUserAgent();
 
-        var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath, appUserId, request.History);
+        var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath,
+            request.IncludeAccountContext ? appUserId : null, request.History);
         var systemPrompt = BuildSystemPrompt(groundingContext);
         var messages = new List<object> { new { role = "system", content = systemPrompt } };
 
@@ -40,20 +45,19 @@ public partial class ChatbotService
             "application/json"
         );
 
-        var response = await _httpClient.SendAsync(httpRequest);
+        using var response = await _httpClient.SendAsync(httpRequest);
         var responseBody = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError(
-                "Groq API failed. Status: {StatusCode}, Body: {Body}",
-                response.StatusCode,
-                responseBody
+                "Groq API failed. Status: {StatusCode}",
+                response.StatusCode
             );
 
             throw new HttpRequestException(
                 $"Groq API returned {(int)response.StatusCode} " +
-                $"{response.StatusCode}: {responseBody}"
+                $"{response.StatusCode}"
             );
         }
         using var doc = JsonDocument.Parse(responseBody);
@@ -65,6 +69,8 @@ public partial class ChatbotService
             .GetString() ?? "Sorry, I couldn't process that. Please try again.";
 
         reply = reply.Trim();
+        var hasBookingTag = GenericBookingTagRegex.IsMatch(reply);
+        var bookingDraft = await PrepareBookingAsync(reply, bookingOwner, bookingRevision);
 
         // --- Process Enquiry Tag ---
         var enquiry = await ProcessEnquiryTagAsync(reply, request);
@@ -77,25 +83,19 @@ public partial class ChatbotService
                 reply += BuildEnquirySummaryCard(enquiry);
             }
 
-            var (companionProducts, isBrandMatched) = await GetCompanionProductsForEnquiryAsync(enquiry.ProductId, enquiry.ProductName);
+            var companionProducts = await GetCompanionProductsForEnquiryAsync(enquiry.ProductId, enquiry.ProductName);
             if (companionProducts.Any())
             {
                 enquiryCompanionProducts = companionProducts;
-                if (isBrandMatched)
-                {
-                    var pLabel = !string.IsNullOrWhiteSpace(enquiry.ProductName) ? $" for **{enquiry.ProductName}**" : "";
-                    reply += $"\n\n**Matching Accessories & Companion Items:**\nWe also have these compatible accessories in stock{pLabel}:";
-                }
-                else
-                {
-                    reply += "\n\n**Featured Promotions & Popular Workshop Deals:**\nWhile our team reviews your enquiry, check out these trending items currently in stock:";
-                }
+                reply += "\n\n**Related products to explore:**\nThese items are currently in stock. For remotes and accessories, ask the shop to confirm your exact model.";
             }
         }
 
         // --- Process Booking Tag ---
         var booking = await ProcessBookingTagAsync(reply);
         reply = GenericBookingTagRegex.Replace(reply, "").Trim().Trim('`', '\'', '"', '\n', '\r', ' ');
+        if (bookingDraft == null && hasBookingTag)
+            reply += "\n\nI couldn't prepare that summary. Please check your name, phone, device, issue and service area, and ask me for an updated booking summary.";
         if (booking.Submitted && !reply.Contains("Booking Summary", StringComparison.OrdinalIgnoreCase))
         {
             reply += BuildBookingSummaryCard(booking);
@@ -103,14 +103,11 @@ public partial class ChatbotService
 
         // --- Build Actions ---
         var actions = await BuildChatActionsAsync(request.Message, reply, enquiry.Submitted, booking.Submitted, matchedProducts);
+        if (bookingDraft != null) actions.RemoveAll(a => a.Url == "chat:book-repair");
 
         // --- Save conversation to DB (fire-and-forget, never blocks chat reply) ---
-        var sessionKey = string.IsNullOrWhiteSpace(request.SessionKey)
-            ? $"anon-{Guid.NewGuid():N}"
-            : request.SessionKey;
+        var sessionKey = GetOwnedSessionKey(request, appUserId);
 
-        _ = Task.Run(async () =>
-        {
             await _chatLogService.SaveMessageAsync(
                 sessionKey: sessionKey,
                 appUserId: appUserId,
@@ -122,7 +119,6 @@ public partial class ChatbotService
                 ipAddress: ipAddress,
                 userAgent: userAgent
             );
-        });
 
         List<ChatProductCardDto>? finalProducts = null;
         if (enquiry.Submitted)
@@ -136,6 +132,8 @@ public partial class ChatbotService
 
         return new ChatResponseDto
         {
+            BookingDraft = bookingDraft,
+            Tracking = _verifiedTracking,
             Reply = reply,
             Products = finalProducts,
             Actions = actions.Any() ? actions.DistinctBy(a => a.Label).ToList() : null

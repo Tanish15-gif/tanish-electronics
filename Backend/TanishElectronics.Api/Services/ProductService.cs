@@ -161,6 +161,107 @@ public class ProductService : IProductService
     );
         return await _repository.GetProductsAsync(categoryId, conditionId, search, featuredOnly);
     }
+    public async Task<List<ProductsListItemDto>> GetRecommendationsAsync(int productId, int limit = 4)
+    {
+        var current = await GetProductByIdAsync(productId);
+        var candidates = await _repository.GetProductsAsync(null, null, null, false);
+        return RankRecommendations(current, candidates, limit);
+    }
+
+    // The details page and chatbot share these rules. Brand affinity is a hint,
+    // never proof of model compatibility; unverified electrical parts are excluded.
+    internal static List<ProductsListItemDto> RankRecommendations(
+        ProductDetailsDto current, IEnumerable<ProductsListItemDto> candidates, int limit)
+    {
+        var currentType = RecommendationProductType(current.CategoryName, current.ProductName);
+        var currentBrand = RecommendationBrand(current.Brand, current.ProductName);
+        return candidates
+            .Where(p => p.ProductId != current.ProductId && p.IsAvailable && p.StockQuantity > 0)
+            .Select(p => (Product: p, Match: RecommendationMatch(current, currentType, currentBrand, p)))
+            .Where(entry => entry.Match.Score > 0)
+            .OrderByDescending(entry => entry.Match.Score)
+            .ThenBy(entry => Math.Abs(entry.Product.Price - current.Price))
+            .ThenByDescending(entry => entry.Product.IsFeatured)
+            .ThenByDescending(entry => entry.Product.ProductId)
+            .Take(Math.Clamp(limit, 1, 8))
+            .Select(entry =>
+            {
+                entry.Product.RecommendationKind = entry.Match.Kind;
+                entry.Product.RecommendationReason = entry.Match.Reason;
+                return entry.Product;
+            })
+            .ToList();
+    }
+
+    private static (int Score, string Kind, string Reason) RecommendationMatch(
+        ProductDetailsDto current, string currentType, string currentBrand, ProductsListItemDto candidate)
+    {
+        var candidateType = RecommendationProductType(candidate.CategoryName, candidate.ProductName);
+        var candidateBrand = RecommendationBrand(candidate.Brand, candidate.ProductName);
+        var brandMatches = currentBrand.Length > 0 &&
+            (currentBrand == candidateBrand || MentionsRecommendationTerm(candidate.ProductName, currentBrand) ||
+             (candidateBrand.Length > 0 && MentionsRecommendationTerm(current.ProductName, candidateBrand)));
+        var modelMatches = !string.IsNullOrWhiteSpace(current.ModelName) &&
+            (string.Equals(current.ModelName.Trim(), candidate.ModelName?.Trim(), StringComparison.OrdinalIgnoreCase) ||
+             MentionsRecommendationTerm(candidate.ProductName, current.ModelName.Trim()));
+        var sameCategory = !string.IsNullOrWhiteSpace(current.CategoryName) &&
+            string.Equals(current.CategoryName.Trim(), candidate.CategoryName.Trim(), StringComparison.OrdinalIgnoreCase);
+        var sameType = currentType == candidateType && (currentType != "other" || sameCategory);
+        var conditionBonus = string.Equals(current.ConditionName, candidate.ConditionName, StringComparison.OrdinalIgnoreCase) ? 5 : 0;
+        var priceBonus = current.Price > 0 ? (int)(20m * (1m - Math.Min(1m, Math.Abs(candidate.Price - current.Price) / current.Price))) : 0;
+
+        if (sameType)
+        {
+            // A different TV brand is a valid alternative. Remotes and parts need
+            // explicit brand/model evidence, even when advertised as universal.
+            if (currentType == "remote" && !brandMatches) return default;
+            if (currentType is "adapter" or "stand" or "accessory" && !(brandMatches && modelMatches)) return default;
+            return (100 + (brandMatches ? 25 : 0) + (modelMatches ? 30 : 0) + conditionBonus + priceBonus,
+                "alternative", currentType == "tv" ? "Another TV to compare on price, size and condition."
+                    : currentType == "remote" ? "A remote for the same brand. Confirm your device model before buying."
+                    : "A similar item to compare. Confirm specifications with the shop.");
+        }
+
+        if (currentType == "tv" && candidateType == "remote" && brandMatches &&
+            !MentionsRecommendationTerm(candidate.CategoryName + " " + candidate.ProductName, "ac|air conditioner|set top|set-top|receiver", true))
+            return (200 + (modelMatches ? 30 : 0), "accessory", "Listed for this TV brand. Ask the shop to confirm your exact model.");
+        if (currentType == "remote" && candidateType == "tv" && brandMatches &&
+            !MentionsRecommendationTerm(current.CategoryName + " " + current.ProductName, "ac|air conditioner|set top|set-top|receiver", true))
+            return (160 + (modelMatches ? 30 : 0), "device", "A TV from the same brand. Remote compatibility needs a model check.");
+        if (currentType == "tv" && candidateType is "adapter" or "stand" or "cable" or "accessory" && brandMatches && modelMatches)
+            return (180, "accessory", "Mentions this brand and model. Confirm fit and electrical specifications with the shop.");
+        return default;
+    }
+
+    private static string RecommendationProductType(string category, string name)
+    {
+        var text = category + " " + name;
+        if (MentionsRecommendationTerm(text, "remotes?|remote controls?", true)) return "remote";
+        if (MentionsRecommendationTerm(text, "adapters?|adaptors?|power supplies|power supply|chargers?", true)) return "adapter";
+        if (MentionsRecommendationTerm(text, "cables?|cords?", true)) return "cable";
+        if (MentionsRecommendationTerm(text, "stands?|mounts?|brackets?", true)) return "stand";
+        if (MentionsRecommendationTerm(text, "accessories|accessory|parts?|spares?", true)) return "accessory";
+        if (MentionsRecommendationTerm(text, "tv|tvs|television|televisions|qled|oled", true)) return "tv";
+        return "other";
+    }
+
+    private static string RecommendationBrand(string? brand, string name)
+    {
+        var value = (brand ?? "").Trim().ToLowerInvariant();
+        if (value.Length > 0 && value is not ("general" or "generic" or "remote" or "accessories" or "unknown" or "universal" or "n/a"))
+            return value;
+        string[] knownBrands = ["vu", "lg", "samsung", "sony", "sansui", "kodak", "croma", "mi", "xiaomi", "oneplus", "tcl", "panasonic", "philips", "haier", "videocon", "onida", "bpl", "toshiba", "sharp", "micromax", "realme", "intex", "lloyd", "iffalcon", "hisense", "motorola", "nxt", "tata sky", "airtel", "dish tv", "d2h"];
+        return knownBrands.FirstOrDefault(b => MentionsRecommendationTerm(name, b)) ?? "";
+    }
+
+    private static bool MentionsRecommendationTerm(string text, string term, bool pattern = false)
+    {
+        var expression = @"(?<![\p{L}\p{N}])(?:" + (pattern ? term : System.Text.RegularExpressions.Regex.Escape(term)) + @")(?![\p{L}\p{N}])";
+        return System.Text.RegularExpressions.Regex.IsMatch(text, expression,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+    }
+
     private static void ValidateCreateProduct(CreateProductDto dto)
     {
         if (dto.ProductCategoryId <= 0)
@@ -326,121 +427,44 @@ public class ProductService : IProductService
 
     public async Task<UploadProductImageResultDto> UploadProductImageAsync(int productId, IFormFile image)
     {
-        var product = await _repository.GetProductEntityByIdAsync(productId);
-
-        if (product == null)
+        var product = await _repository.GetProductEntityByIdAsync(productId)
+            ?? throw new KeyNotFoundException("Product not found.");
+        var cleaned = await TanishElectronics.Api.Helpers.ImageUploadSecurity.SanitizeAsync(image);
+        var root = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+        var folder = Path.Combine(root, "uploads", "products", productId.ToString());
+        Directory.CreateDirectory(folder);
+        var name = $"{Guid.NewGuid():N}.png";
+        var path = Path.Combine(folder, name);
+        var url = $"/uploads/products/{productId}/{name}";
+        var primary = await _repository.GetPrimaryProductImageAsync(productId);
+        var oldUrl = primary?.ImageUrl;
+        try
         {
-            throw new KeyNotFoundException("Product not found");
+            await File.WriteAllBytesAsync(path, cleaned);
+            if (primary == null)
+                await _repository.AddProductImageAsync(new ProductImage
+                { ProductId = productId, ImageUrl = url, AltText = product.ProductName, IsPrimary = true, SortOrder = 1 });
+            else
+            { primary.ImageUrl = url; primary.AltText = product.ProductName; primary.IsPrimary = true; primary.SortOrder = 1; }
+            product.PrimaryImageUrl = url;
+            product.UpdatedAt = DateTime.UtcNow;
+            await _repository.SaveChangesAsync();
         }
-
-        if (image == null || image.Length == 0)
+        catch
+        { if (File.Exists(path)) File.Delete(path); throw; }
+        // Delete the old file only after committing its replacement, and only in this product folder.
+        if (oldUrl?.StartsWith($"/uploads/products/{productId}/", StringComparison.Ordinal) == true)
         {
-            throw new InvalidOperationException("Please upload product image.");
-        }
-
-        string[] allowedContentTypes =
-        {
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-    };
-
-        if (!allowedContentTypes.Contains(image.ContentType))
-        {
-            throw new InvalidOperationException("Only JPG, PNG and WEBP images are allowed.");
-        }
-
-        const long maxFileSize = 5 * 1024 * 1024;
-
-        if (image.Length > maxFileSize)
-        {
-            throw new InvalidOperationException("Product image must be less than 5MB.");
-        }
-
-        var webRootPath = _environment.WebRootPath;
-
-        if (string.IsNullOrWhiteSpace(webRootPath))
-        {
-            webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-        }
-
-        var uploadFolder = Path.Combine(
-            webRootPath,
-            "uploads",
-            "products",
-            productId.ToString()
-        );
-
-        Directory.CreateDirectory(uploadFolder);
-
-        var extension = Path.GetExtension(image.FileName).ToLowerInvariant();
-
-        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-
-        if (!allowedExtensions.Contains(extension))
-        {
-            throw new InvalidOperationException("Only JPG, PNG and WEBP images are allowed.");
-        }
-
-        var safeFileName = $"{Guid.NewGuid()}{extension}";
-
-        var filePath = Path.Combine(uploadFolder, safeFileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await image.CopyToAsync(stream);
-        }
-
-        var imageUrl = $"/uploads/products/{productId}/{safeFileName}";
-
-        var primaryImage = await _repository.GetPrimaryProductImageAsync(productId);
-
-        if (primaryImage == null)
-        {
-            var productImage = new ProductImage
+            var oldName = oldUrl.Split('/').Last();
+            if (oldName == Path.GetFileName(oldName) && !oldName.Contains('\\'))
             {
-                ProductId = product.ProductId,
-                ImageUrl = imageUrl,
-                AltText = product.ProductName,
-                IsPrimary = true,
-                SortOrder = 1
-            };
-
-            await _repository.AddProductImageAsync(productImage);
-        }
-        else
-        {
-            if (!string.IsNullOrWhiteSpace(primaryImage.ImageUrl))
-            {
-                var oldOImagePath = Path.Combine(
-                    webRootPath,
-                    primaryImage.ImageUrl
-                        .TrimStart('/')
-                        .Replace("/", Path.DirectorySeparatorChar.ToString())
-                );
-                if (File.Exists(oldOImagePath))
-                {
-                    File.Delete(oldOImagePath);
-                }
+                var oldPath = Path.Combine(folder, oldName);
+                try { if (File.Exists(oldPath)) File.Delete(oldPath); }
+                catch (IOException ex) { _logger.LogWarning(ex, "Previous product image could not be removed."); }
             }
-            primaryImage.ImageUrl = imageUrl;
-            primaryImage.AltText = product.ProductName;
-            primaryImage.IsPrimary = true;
-            primaryImage.SortOrder = 1;
         }
-
-        product.PrimaryImageUrl = imageUrl;
-        product.UpdatedAt = DateTime.Now;
-
-        await _repository.SaveChangesAsync();
-
         await _outputCacheInvalidator.EvictProductsAsync();
-
-        return new UploadProductImageResultDto
-        {
-            Message = "Product image uploaded successfully.",
-            ImageUrl = imageUrl
-        };
+        return new UploadProductImageResultDto { Message = "Product image uploaded successfully.", ImageUrl = url };
     }
     private async Task HandleLowStockNotificationAsync(Product product)
     {

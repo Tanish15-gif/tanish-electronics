@@ -57,15 +57,25 @@ public class ServiceRequestRepository : IServiceRequestRepository
 
     public async Task<string> GenerateRequestNumberAsync()
     {
-        var year = DateTime.Now.Year;
+        // Keep the original customer-friendly sequence. All booking writers hold
+        // this SQL Server lock until the booking transaction commits or rolls back.
+        var transaction = _dbContext.Database.CurrentTransaction
+            ?? throw new InvalidOperationException("Request numbers must be allocated inside a booking transaction.");
+        var year = DateTime.UtcNow.Year;
+        await using var command = _dbContext.Database.GetDbConnection().CreateCommand();
+        command.Transaction = Microsoft.EntityFrameworkCore.Storage.DbContextTransactionExtensions.GetDbTransaction(transaction);
+        command.CommandText = "DECLARE @result int; EXEC @result = sys.sp_getapplock @Resource = @resource, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 15000; SELECT @result;";
+        var resource = command.CreateParameter();
+        resource.ParameterName = "@resource";
+        resource.Value = $"TanishElectronics.RepairNumber.{year}";
+        command.Parameters.Add(resource);
+        if (Convert.ToInt32(await command.ExecuteScalarAsync()) < 0)
+            throw new TimeoutException("Booking is busy. Please retry shortly.");
         var prefix = $"TE-{year}-";
-
-        var countThisYear = await _dbContext.ServiceRequests
-            .CountAsync(request => request.RequestNumber.StartsWith(prefix));
-
-        var nextNumber = countThisYear + 1;
-
-        return $"{prefix}{nextNumber:D5}";
+        // Include deleted records so an old customer's number is never reused.
+        var existing = await _dbContext.ServiceRequests.Where(r => r.RequestNumber.StartsWith(prefix)
+            && r.RequestNumber.Length < 32).Select(r => r.RequestNumber).ToListAsync();
+        return Helpers.RepairRequestNumbers.Next(year, existing);
     }
 
     public async Task AddServiceRequestAsync(ServiceRequest serviceRequest)

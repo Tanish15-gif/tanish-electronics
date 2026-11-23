@@ -9,14 +9,17 @@ public class CustomerRepairsService : ICustomerRepairsService
 {
     private readonly ICustomerRepairsRepository _repository;
     private readonly ICustomerAccountResolver _customerAccountResolver;
+    private readonly TanishElectronics.Api.Services.Security.RepairAccessService _repairAccess;
 
     public CustomerRepairsService(
         ICustomerRepairsRepository repository,
-        ICustomerAccountResolver customerAccountResolver
+        ICustomerAccountResolver customerAccountResolver,
+        TanishElectronics.Api.Services.Security.RepairAccessService repairAccess
     )
     {
         _repository = repository;
         _customerAccountResolver = customerAccountResolver;
+        _repairAccess = repairAccess;
     }
 
     public async Task<CustomerRepairFeedbackDto?> GetFeedbackAsync(int serviceRequestId)
@@ -69,6 +72,8 @@ public class CustomerRepairsService : ICustomerRepairsService
             throw new KeyNotFoundException("Repair request not found.");
         }
 
+        foreach (var image in repair.Images)
+            image.ImageUrl = _repairAccess.SignImageUrl(serviceRequestId, image.ImageUrl);
         return repair;
     }
 

@@ -15,6 +15,7 @@ public interface IProductService
     );
 
     Task<ProductDetailsDto> GetProductByIdAsync(int productId);
+    Task<List<ProductsListItemDto>> GetRecommendationsAsync(int productId, int limit = 4);
 
     Task<PagedResultDto<AdminProductListItemDto>> GetAdminProductsAsync(AdminProductQueryDto query);
     Task<ProductCreatedDto> CreateProductAsync(CreateProductDto dto);

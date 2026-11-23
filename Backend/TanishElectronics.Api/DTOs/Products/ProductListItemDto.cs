@@ -12,5 +12,7 @@ public class ProductsListItemDto
     public int StockQuantity { get; set; }
     public bool IsAvailable { get; set; }
     public bool IsFeatured { get; set; }
+    public string? RecommendationKind { get; set; }
+    public string? RecommendationReason { get; set; }
     public string? PrimaryImageUrl { get; set; }
 }

@@ -2,6 +2,7 @@ namespace TanishElectronics.Api.DTOs.ServiceRequests;
 
 public class ServiceRequestCreatedDto
 {
+    public string? UploadToken { get; set; }
     public int ServiceRequestId {get;set;}
     public string? RequestNumber {get;set;}
     public string? Status {get;set;}

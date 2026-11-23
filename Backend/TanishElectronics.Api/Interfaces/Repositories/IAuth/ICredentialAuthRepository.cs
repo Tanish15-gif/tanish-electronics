@@ -8,6 +8,8 @@ public interface ICredentialAuthRepository
     Task<bool> EmailExistsAsync(string normalizedEmail);
     Task<AppUser> CreateUserAsync(AppUser user);
     Task UpdateUserAsync(AppUser user);
+    Task<int> RecordFailedLoginAttemptAsync(int appUserId);
+    Task<bool> CompletePasswordLoginAsync(int appUserId, string expectedPasswordHash);
     Task AssignRoleAsync(int appUserId, string roleName);
     Task<List<string>> GetUserRolesAsync(int appUserId);
     Task CreateCustomerProfileIfMissingAsync(AppUser appUser);

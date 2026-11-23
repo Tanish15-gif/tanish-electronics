@@ -42,7 +42,8 @@ public class CredentialAuthRepository : ICredentialAuthRepository
     {
         user.UpdatedAt = DateTime.UtcNow;
 
-        _dbContext.AppUsers.Update(user);
+        if (_dbContext.Entry(user).State == EntityState.Detached)
+            _dbContext.Entry(user).State = EntityState.Modified;
 
         await _dbContext.SaveChangesAsync();
     }
@@ -77,6 +78,31 @@ public class CredentialAuthRepository : ICredentialAuthRepository
         });
 
         await _dbContext.SaveChangesAsync();
+    }
+
+    public async Task<int> RecordFailedLoginAttemptAsync(int appUserId)
+    {
+        var now = DateTime.UtcNow;
+        var lockoutUntil = now.AddMinutes(15);
+        await _dbContext.AppUsers.Where(u => u.AppUserId == appUserId && u.IsActive && u.DeletedAt == null &&
+            (u.LockoutEndAt == null || u.LockoutEndAt <= now))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(u => u.AccessFailedCount, u => u.LockoutEndAt != null && u.LockoutEndAt <= now ? 1 : u.AccessFailedCount + 1)
+                .SetProperty(u => u.LockoutEndAt, u =>
+                    (u.LockoutEndAt != null && u.LockoutEndAt <= now ? 1 : u.AccessFailedCount + 1) >= 5 ? lockoutUntil : (DateTime?)null));
+        return await _dbContext.AppUsers.AsNoTracking().Where(u => u.AppUserId == appUserId)
+            .Select(u => u.AccessFailedCount).SingleAsync();
+    }
+
+    public async Task<bool> CompletePasswordLoginAsync(int appUserId, string expectedPasswordHash)
+    {
+        var now = DateTime.UtcNow;
+        return await _dbContext.AppUsers.Where(u => u.AppUserId == appUserId && u.IsActive && u.DeletedAt == null &&
+            u.PasswordHash == expectedPasswordHash && (u.LockoutEndAt == null || u.LockoutEndAt <= now))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(u => u.AccessFailedCount, 0).SetProperty(u => u.LockoutEndAt, (DateTime?)null)
+                .SetProperty(u => u.LastLoginAt, now).SetProperty(u => u.LastSeenAt, now)
+                .SetProperty(u => u.UpdatedAt, now)) == 1;
     }
 
     public async Task<List<string>> GetUserRolesAsync(int appUserId)
@@ -149,6 +175,7 @@ public class CredentialAuthRepository : ICredentialAuthRepository
             .AsNoTracking()
             .AnyAsync(userRole =>
                 userRole.AppUserId == appUserId &&
+                userRole.AppUser.IsActive && userRole.AppUser.DeletedAt == null &&
                 userRole.Role.RoleName == roleName
             );
     }

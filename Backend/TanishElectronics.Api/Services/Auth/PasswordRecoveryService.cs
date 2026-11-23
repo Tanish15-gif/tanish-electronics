@@ -20,7 +20,6 @@ public class PasswordRecoveryService : IPasswordRecoveryService
     private readonly OtpSettings _otpSettings;
     private readonly IEmailService _emailService;
     private readonly IPasswordResetTokenService _passwordResetTokenService;
-    private readonly IWebHostEnvironment _environment;
     private readonly ILogger<PasswordRecoveryService> _logger;
 
     public PasswordRecoveryService
@@ -32,7 +31,6 @@ public class PasswordRecoveryService : IPasswordRecoveryService
         IOptions<OtpSettings> options,
         IEmailService emailService,
         IPasswordResetTokenService passwordResetTokenService,
-        IWebHostEnvironment environment,
         ILogger<PasswordRecoveryService> logger
     )
     {
@@ -43,7 +41,6 @@ public class PasswordRecoveryService : IPasswordRecoveryService
         _otpSettings = options.Value;
         _emailService = emailService;
         _passwordResetTokenService = passwordResetTokenService;
-        _environment = environment;
         _logger = logger;
     }
     public async Task RequestForgotPasswordOtpAsync(ForgotPasswordRequestDto dto)
@@ -54,9 +51,8 @@ public class PasswordRecoveryService : IPasswordRecoveryService
 
         var user = await _authRepository.GetUserByNormalizedEmailAsync(normalizedEmail);
 
-        if (user == null || user.DeletedAt != null) throw new KeyNotFoundException("No account is registered with this email.");
-        if (!user.IsActive) throw new InvalidOperationException("This account is currently inactive");
-        if (string.IsNullOrWhiteSpace(user.PasswordHash)) throw new InvalidOperationException("This account uses Google sign-in. Please sign in with Google.");
+        if (user == null || user.DeletedAt != null || !user.IsActive ||
+            string.IsNullOrWhiteSpace(user.PasswordHash)) return;
 
         var purpose = OtpPurpose.ForgotPassword.ToString();
 
@@ -89,8 +85,6 @@ public class PasswordRecoveryService : IPasswordRecoveryService
         };
 
         await _authRepository.AddOtpAsync(otpEntity);
-
-        _logger.LogInformation("🔑 [OTP] Generated Forgot Password OTP for {Email}: {Code}", user.Email, plainCode);
 
         try
         {
@@ -152,19 +146,9 @@ public class PasswordRecoveryService : IPasswordRecoveryService
         }
         catch (Exception ex)
         {
-            if (_environment.IsDevelopment())
-            {
-                _logger.LogWarning(
-                    ex,
-                    "⚠️ [DEV MODE] SMTP delivery failed ({Message}). Environment is Development, so OTP is preserved for local testing: {Code}",
-                    ex.Message,
-                    plainCode
-                );
-                return;
-            }
-
             await _authRepository.InvalidateActiveOtpsAsync(normalizedEmail, purpose);
-            throw;
+            // Do not log SMTP exception details: a provider may include message contents.
+            _logger.LogWarning("Password reset email delivery failed ({FailureType}).", ex.GetType().Name);
         }
     }
 
@@ -240,18 +224,7 @@ public class PasswordRecoveryService : IPasswordRecoveryService
 
         if (!valid)
         {
-            otp.AttemptCount += 1;
-
-            if
-            (
-                otp.AttemptCount >=
-                _otpSettings.MaxAttempts
-            )
-            {
-                otp.ConsumedAt = now;
-            }
-
-            await _authRepository.UpdateOtpAsync(otp);
+            await _authRepository.RecordFailedOtpAttemptAsync(otp.OtpCodeId, _otpSettings.MaxAttempts);
 
             throw new InvalidOperationException("Invalid or expired verification code.");
         }
@@ -272,7 +245,7 @@ public class PasswordRecoveryService : IPasswordRecoveryService
             CreatedByIp = _authContextAccessor.GetClientIpAddress()
         };
 
-        await _authRepository.ConsumeOtpAndCreateResetSessionAsync(otp, resetSession);
+        await _authRepository.ConsumeOtpAndCreateResetSessionAsync(otp, resetSession, _otpSettings.MaxAttempts);
 
         return new VerifyForgotPasswordOtpResponseDto
         {

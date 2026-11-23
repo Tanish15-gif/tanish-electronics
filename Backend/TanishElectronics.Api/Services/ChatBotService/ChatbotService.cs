@@ -27,6 +27,9 @@ public partial class ChatbotService : IChatbotService
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuthContextAccessor _authContextAccessor;
     private readonly IKnowledgeVectorService _knowledgeVectorService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly Security.ChatBookingDraftStore _bookingDrafts;
+    private DTOs.ServiceRequests.ServiceRequestTrackingDto? _verifiedTracking;
     private readonly string GroqEndpoint = "https://api.groq.com/openai/v1/chat/completions";
 
     public ChatbotService
@@ -46,7 +49,9 @@ public partial class ChatbotService : IChatbotService
         IChatLogService chatLogService,
         ICurrentUserService currentUserService,
         IAuthContextAccessor authContextAccessor,
-        IKnowledgeVectorService knowledgeVectorService
+        IKnowledgeVectorService knowledgeVectorService,
+        IHttpContextAccessor httpContextAccessor,
+        Security.ChatBookingDraftStore bookingDrafts
     )
     {
         _httpClient = httpClient;
@@ -65,6 +70,8 @@ public partial class ChatbotService : IChatbotService
         _currentUserService = currentUserService;
         _authContextAccessor = authContextAccessor;
         _knowledgeVectorService = knowledgeVectorService;
+        _httpContextAccessor = httpContextAccessor;
+        _bookingDrafts = bookingDrafts;
     }
 
     private static readonly Dictionary<string, string> Synonyms = new()
@@ -91,7 +98,23 @@ public partial class ChatbotService : IChatbotService
         new(@"\[SUBMIT_BOOKING:\s*(.*?)\]", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     private static readonly Regex RequestNumberPattern =
-        new(@"\bTE-\d{4}-\d{3,6}\b", RegexOptions.IgnoreCase);
+        new(@"\bTE-\d{4}-(?:[A-F0-9]{32}|\d{3,10})\b", RegexOptions.IgnoreCase);
+
+    private string GetOwnedSessionKey(TanishElectronics.Api.DTOs.Public.ChatBot.ChatRequestDto request, int? appUserId)
+    {
+        var owner = appUserId.HasValue ? "user:" + appUserId :
+            "guest:" + (_httpContextAccessor.HttpContext?.Items["ChatOwner"]?.ToString() ?? Guid.NewGuid().ToString());
+        var input = owner + ":" + (request.SessionKey ?? "default");
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input)));
+    }
+
+    private static void ValidateChatRequest(TanishElectronics.Api.DTOs.Public.ChatBot.ChatRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Message) || request.Message.Length > 500 || request.History == null ||
+            request.History.Count > 12 || request.History.Any(i => i == null ||
+                i.Role is not ("user" or "assistant") || string.IsNullOrWhiteSpace(i.Content) || i.Content.Length > 4000))
+            throw new TanishElectronics.Api.Exceptions.BadRequestException("Invalid chat message or history.");
+    }
 
     private static readonly Regex PhoneNumberPattern =
         new(@"\b\d{10}\b");

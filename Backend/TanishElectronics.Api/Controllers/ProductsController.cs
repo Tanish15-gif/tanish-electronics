@@ -36,20 +36,19 @@ public class ProductsController : ControllerBase
         return Ok(products);
     }
 
+    [HttpGet("{id:int}/recommendations")]
+    [OutputCache(Duration = 60, Tags = new[] { OutputCachePolicies.ProductsTag })]
+    public async Task<IActionResult> GetRecommendations(int id)
+    {
+        if (id <= 0) return BadRequest("Invalid product.");
+        return Ok(await _productService.GetRecommendationsAsync(id));
+    }
+
     [HttpGet("{id:int}")]
     [OutputCache(Duration = 60, Tags = new[] { OutputCachePolicies.ProductsTag })]
     public async Task<IActionResult> GetProductById(int id)
     {
         var product = await _productService.GetProductByIdAsync(id);
         return Ok(product);
-    }
-
-    [EnableRateLimiting(RateLimitPolicies.ImageUpload)]
-    [HttpPost("{productId:int}/images")]
-    [RequestSizeLimit(30_000_000)]
-    public async Task<IActionResult> UploadProductImage(int productId, [FromForm(Name = "image")] IFormFile images)
-    {
-        var result = await _productService.UploadProductImageAsync(productId, images);
-        return Ok(result);
     }
 }

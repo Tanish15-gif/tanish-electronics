@@ -25,6 +25,11 @@ public class ChatbotController : ControllerBase
         return Ok(reply);
     }
 
+    [HttpPost("booking/confirm")]
+    [EnableRateLimiting(RateLimitPolicies.FormSubmit)]
+    public async Task<IActionResult> ConfirmBooking([FromBody] ConfirmChatBookingDto request)
+        => Ok(await _chatbotService.ConfirmBookingAsync(request));
+
     [HttpPost("stream")]
     [EnableRateLimiting(RateLimitPolicies.ChatMessage)]
     public async Task StreamChat([FromBody] ChatRequestDto request, CancellationToken cancellationToken)

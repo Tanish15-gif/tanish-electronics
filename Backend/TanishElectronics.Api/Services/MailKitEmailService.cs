@@ -65,8 +65,7 @@ public class MailKitEmailService : IEmailService
             {
                 465 => SecureSocketOptions.SslOnConnect,
                 587 => SecureSocketOptions.StartTls,
-                25 => SecureSocketOptions.None,
-                _ => SecureSocketOptions.Auto
+                _ => SecureSocketOptions.StartTls
             };
 
             await smtpClient.ConnectAsync(

@@ -5,7 +5,8 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  type KeyboardEvent,
+  memo,
+  type MutableRefObject,
   type MouseEvent
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -14,6 +15,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  SquarePen,
   RotateCcw,
   ArrowDown,
   Maximize2,
@@ -1758,6 +1760,146 @@ function shouldShowMessageText(message: ChatMessage): boolean {
   );
 }
 
+interface IdleChatComposerProps {
+  isLoading: boolean;
+  isBookingSubmitting: boolean;
+  draftCacheRef: MutableRefObject<string>;
+  onSend: (message: string) => void;
+  onDraftPresenceChange: (hasDraft: boolean) => void;
+}
+
+const IdleChatComposer = memo(function IdleChatComposer({
+  isLoading,
+  isBookingSubmitting,
+  draftCacheRef,
+  onSend,
+  onDraftPresenceChange
+}: IdleChatComposerProps) {
+  const [draft, setDraft] = useState(() => draftCacheRef.current);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resizeFrameRef = useRef<number | null>(null);
+  const hasDraftRef = useRef(Boolean(draftCacheRef.current.trim()));
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => textareaRef.current?.focus(), 50);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (resizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+      }
+    },
+    []
+  );
+
+  const updateDraftPresence = useCallback(
+    (nextDraft: string) => {
+      const hasDraft = Boolean(nextDraft.trim());
+      if (hasDraft === hasDraftRef.current) return;
+      hasDraftRef.current = hasDraft;
+      onDraftPresenceChange(hasDraft);
+    },
+    [onDraftPresenceChange]
+  );
+
+  const resizeTextarea = useCallback((element: HTMLTextAreaElement) => {
+    if (resizeFrameRef.current !== null) {
+      window.cancelAnimationFrame(resizeFrameRef.current);
+    }
+    resizeFrameRef.current = window.requestAnimationFrame(() => {
+      element.style.height = "auto";
+      element.style.height = `${Math.min(element.scrollHeight, 96)}px`;
+      resizeFrameRef.current = null;
+    });
+  }, []);
+
+  const submitDraft = useCallback(() => {
+    const cleanDraft = draft.trim();
+    if (!cleanDraft || isLoading || isBookingSubmitting) return;
+
+    setDraft("");
+    draftCacheRef.current = "";
+    updateDraftPresence("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+    onSend(cleanDraft);
+  }, [draft, isBookingSubmitting, isLoading, onSend, updateDraftPresence]);
+
+  const charsLeft = MAX_MESSAGE_LENGTH - draft.length;
+  const showCounter = charsLeft <= 60;
+
+  return (
+    <>
+      <div className="flex items-center gap-2 rounded-3xl border border-[#d8cdb6] bg-[#fffdf7] px-3 py-1.5 shadow-xs transition-colors focus-within:border-[#8a6624] focus-within:ring-2 focus-within:ring-[#8a6624]/15 dark:border-[#3a3428] dark:bg-[#1a1712] dark:focus-within:border-[#d6b46a] dark:focus-within:ring-2 dark:focus-within:ring-[#d6b46a]/20">
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          disabled={isBookingSubmitting}
+          onChange={(event) => {
+            const nextDraft = event.target.value.slice(0, MAX_MESSAGE_LENGTH);
+            setDraft(nextDraft);
+            draftCacheRef.current = nextDraft;
+            updateDraftPresence(nextDraft);
+            resizeTextarea(event.currentTarget);
+          }}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
+              submitDraft();
+            }
+          }}
+          placeholder="Ask anything or book a repair..."
+          rows={1}
+          maxLength={MAX_MESSAGE_LENGTH}
+          aria-label="Message"
+          style={{
+            resize: "none",
+            overflowY:
+              draft.includes("\n") || draft.length > 70 ? "auto" : "hidden"
+          }}
+          className="max-h-24 flex-1 resize-none bg-transparent px-2 py-1 text-[14px] leading-normal text-[#1f1a12] placeholder:text-[#8a8170] focus:outline-none dark:text-[#f7f5ef] dark:placeholder:text-[#9e9585] sm:text-[15px]"
+        />
+
+        <button
+          type="button"
+          onClick={submitDraft}
+          disabled={isLoading || isBookingSubmitting || !draft.trim()}
+          aria-label="Send message"
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#1f1a12] transition hover:bg-[#8a6624]/10 focus-visible:outline-none disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/15 sm:h-9 sm:w-9"
+        >
+          <Send size={17} />
+        </button>
+      </div>
+
+      <div className="mt-2 flex items-center justify-center gap-4 px-1 text-[11px] text-[#7d7363] dark:text-[#a8a093] sm:text-[12px]">
+        <span className="flex items-center gap-1.5 text-center font-medium">
+          <ShieldCheck
+            size={14}
+            className="text-emerald-600 dark:text-emerald-400"
+          />
+          Verified Shop Assistant
+        </span>
+        {showCounter && (
+          <span
+            className={
+              charsLeft <= 0 ? "text-red-500 dark:text-red-400" : undefined
+            }
+          >
+            {charsLeft}
+          </span>
+        )}
+      </div>
+    </>
+  );
+});
+
 export default function ChatWidget() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1960,11 +2102,15 @@ export default function ChatWidget() {
   }, [mobileHeight]);
 
   useEffect(() => {
-    try {
-      const json = JSON.stringify(messages);
-      localStorage.setItem("te_chat_messages", json);
-      sessionStorage.setItem("te_chat_messages", json);
-    } catch {}
+    const timer = window.setTimeout(() => {
+      try {
+        const json = JSON.stringify(messages);
+        localStorage.setItem("te_chat_messages", json);
+        sessionStorage.setItem("te_chat_messages", json);
+      } catch {}
+    }, 250);
+
+    return () => window.clearTimeout(timer);
   }, [messages]);
 
   const { isAuthenticated, login } = useCustomAuth();
@@ -2017,6 +2163,9 @@ export default function ChatWidget() {
   const pendingMessageRef = useRef<string | null>(null);
 
   const [input, setInput] = useState("");
+  const composerDraftTextRef = useRef("");
+  const composerHasDraftRef = useRef(false);
+  const [composerHasDraft, setComposerHasDraft] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastFailed, setLastFailed] = useState<string | null>(null);
   const [hasNewBelow, setHasNewBelow] = useState(false);
@@ -2056,7 +2205,6 @@ export default function ChatWidget() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const atBottomRef = useRef(true);
   const prefersReducedMotion = useRef(
     typeof window !== "undefined" &&
@@ -2119,13 +2267,6 @@ export default function ChatWidget() {
   }, [messages, isLoading, scrollToBottom]);
 
   useEffect(() => {
-    if (isOpen) {
-      const t = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(t);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
     if (!isOpen) return;
 
     const onKeyDown = (e: globalThis.KeyboardEvent) => {
@@ -2154,15 +2295,6 @@ export default function ChatWidget() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
 
-  const resizeInput = useCallback(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
-  }, []);
-
-  useEffect(resizeInput, [input, resizeInput]);
-
   const bookingSubmitRef = useRef(false);
   const [bookingClock, setBookingClock] = useState(Date.now());
   const handleBookingExpiry = useCallback(
@@ -2176,14 +2308,25 @@ export default function ChatWidget() {
   }, [isOpen]);
 
   const disableBookingSummaries = useCallback(() => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.bookingDraft && !m.bookingState
-          ? { ...m, bookingState: "superseded" }
-          : m
-      )
-    );
+    setMessages((prev) => {
+      let changed = false;
+      const next = prev.map((message) => {
+        if (!message.bookingDraft || message.bookingState) return message;
+        changed = true;
+        return { ...message, bookingState: "superseded" as const };
+      });
+      return changed ? next : prev;
+    });
   }, []);
+
+  const handleComposerDraftPresenceChange = useCallback(
+    (hasDraft: boolean) => {
+      composerHasDraftRef.current = hasDraft;
+      setComposerHasDraft(hasDraft);
+      if (hasDraft) disableBookingSummaries();
+    },
+    [disableBookingSummaries]
+  );
 
   const confirmBooking = useCallback(
     async (message: ChatMessage) => {
@@ -2193,7 +2336,7 @@ export default function ChatWidget() {
         message.bookingState ||
         bookingSubmitRef.current ||
         isLoading ||
-        input.trim() ||
+        composerHasDraftRef.current ||
         bookingSecondsRemaining(draft.expiresAt, Date.now()) === 0
       )
         return;
@@ -2286,7 +2429,7 @@ export default function ChatWidget() {
         setIsLoading(false);
       }
     },
-    [sessionKey, isLoading, input]
+    [sessionKey, isLoading]
   );
 
   const executeChatMessage = useCallback(
@@ -2484,7 +2627,7 @@ export default function ChatWidget() {
         setStreamingMessageId(null);
       }
     },
-    [messages, sessionKey]
+    [disableBookingSummaries, messages, sessionKey]
   );
 
   const handleSkipAuth = useCallback(() => {
@@ -2661,15 +2804,12 @@ export default function ChatWidget() {
     ]
   );
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      void send(input);
-    }
-  };
-
-  const charsLeft = MAX_MESSAGE_LENGTH - input.length;
-  const showCounter = charsLeft <= 60;
+  const handleComposerSend = useCallback(
+    (message: string) => {
+      void send(message);
+    },
+    [send]
+  );
 
   return (
     <>
@@ -2809,11 +2949,11 @@ export default function ChatWidget() {
                       sessionStorage.removeItem("te_chat_user_count");
                     } catch {}
                   }}
-                  aria-label="Restart conversation"
-                  title="Restart conversation"
+                  aria-label="Start new chat"
+                  title="Start new chat"
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d8cdb6]/60 bg-[#fffdf7] text-[#817867] shadow-xs transition hover:border-[#8a6624]/40 hover:bg-[#1f1a12]/5 hover:text-[#1f1a12] focus-visible:outline-none dark:border-[#3a3428] dark:bg-[#161410] dark:text-[#9e9585] dark:hover:text-[#f7f5ef]"
                 >
-                  <RotateCcw size={14} />
+                  <SquarePen size={14} />
                 </button>
 
                 <button
@@ -2900,7 +3040,10 @@ export default function ChatWidget() {
                         tracking={msg.tracking}
                         isStreaming={streamingMessageId === msg.id}
                         onActionClick={(url) =>
-                          handleActionClick({ preventDefault: () => {} } as any, url)
+                          handleActionClick(
+                            { preventDefault: () => {} } as any,
+                            url
+                          )
                         }
                       />
                     </div>
@@ -2971,7 +3114,7 @@ export default function ChatWidget() {
                         !!msg.bookingState ||
                         expired ||
                         isLoading ||
-                        !!input.trim();
+                        composerHasDraft;
                       const rows = [
                         ["Customer", details.customerName],
                         ["Phone", details.phoneNumber],
@@ -3181,117 +3324,91 @@ export default function ChatWidget() {
 
           {/* Composer */}
           <div className="shrink-0 border-t border-[#d8cdb6] bg-[#fbf8f0] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] pt-2.5 sm:pb-4 dark:border-[#383124] dark:bg-[var(--warm-bg-dark)]">
-            <div className="flex items-center gap-2 rounded-3xl border border-[#d8cdb6] bg-[#fffdf7] px-3 py-1.5 shadow-xs transition-colors focus-within:border-[#8a6624] focus-within:ring-2 focus-within:ring-[#8a6624]/15 dark:border-[#3a3428] dark:bg-[#1a1712] dark:focus-within:border-[#d6b46a] dark:focus-within:ring-2 dark:focus-within:ring-[#d6b46a]/20">
-              {/* Context Icon */}
-              {authFlowStage === "email" && (
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#8a6624]/10 text-[#8a6624] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a]">
-                  <Mail size={14} strokeWidth={2.2} />
-                </span>
-              )}
-              {authFlowStage === "password" && (
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber-500/35 bg-amber-500/15 text-amber-700 shadow-xs dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300">
-                  <Lock size={14} strokeWidth={2.2} />
-                </span>
-              )}
+            {authFlowStage === "idle" ? (
+              <IdleChatComposer
+                isLoading={isLoading}
+                isBookingSubmitting={bookingSubmitRef.current}
+                draftCacheRef={composerDraftTextRef}
+                onSend={handleComposerSend}
+                onDraftPresenceChange={handleComposerDraftPresenceChange}
+              />
+            ) : (
+              <>
+                <div className="flex items-center gap-2 rounded-3xl border border-[#d8cdb6] bg-[#fffdf7] px-3 py-1.5 shadow-xs transition-colors focus-within:border-[#8a6624] focus-within:ring-2 focus-within:ring-[#8a6624]/15 dark:border-[#3a3428] dark:bg-[#1a1712] dark:focus-within:border-[#d6b46a] dark:focus-within:ring-2 dark:focus-within:ring-[#d6b46a]/20">
+                  {authFlowStage === "email" && (
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#8a6624]/10 text-[#8a6624] dark:bg-[#d6b46a]/15 dark:text-[#d6b46a]">
+                      <Mail size={14} strokeWidth={2.2} />
+                    </span>
+                  )}
+                  {authFlowStage === "password" && (
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber-500/35 bg-amber-500/15 text-amber-700 shadow-xs dark:border-amber-400/35 dark:bg-amber-400/20 dark:text-amber-300">
+                      <Lock size={14} strokeWidth={2.2} />
+                    </span>
+                  )}
 
-              {/* Dynamic Input / Textarea */}
-              {authFlowStage === "idle" ? (
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  disabled={bookingSubmitRef.current}
-                  onChange={(e) => {
-                    if (e.target.value.trim()) disableBookingSummaries();
-                    setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH));
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask anything or book a repair..."
-                  rows={1}
-                  maxLength={MAX_MESSAGE_LENGTH}
-                  aria-label="Message"
-                  style={{
-                    resize: "none",
-                    overflowY:
-                      input.includes("\n") || input.length > 70
-                        ? "auto"
-                        : "hidden"
-                  }}
-                  className="max-h-24 flex-1 resize-none bg-transparent px-2 py-1 text-[14px] sm:text-[15px] leading-normal text-[#1f1a12] placeholder:text-[#8a8170] focus:outline-none dark:text-[#f7f5ef] dark:placeholder:text-[#9e9585]"
-                />
-              ) : (
-                <input
-                  ref={authInputRef}
-                  type={
-                    authFlowStage === "password"
-                      ? showPassword
-                        ? "text"
-                        : "password"
-                      : "email"
-                  }
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void send(input);
+                  <input
+                    ref={authInputRef}
+                    type={
+                      authFlowStage === "password"
+                        ? showPassword
+                          ? "text"
+                          : "password"
+                        : "email"
                     }
-                  }}
-                  placeholder={
-                    authFlowStage === "email"
-                      ? "Enter your email address..."
-                      : "Enter your password..."
-                  }
-                  autoComplete={
-                    authFlowStage === "email" ? "email" : "current-password"
-                  }
-                  className="flex-1 bg-transparent px-2 py-1 text-[14px] sm:text-[15px] leading-normal text-[#1f1a12] placeholder:text-[#8a8170] focus:outline-none dark:text-[#f7f5ef] dark:placeholder:text-[#9e9585]"
-                />
-              )}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void send(input);
+                      }
+                    }}
+                    placeholder={
+                      authFlowStage === "email"
+                        ? "Enter your email address..."
+                        : "Enter your password..."
+                    }
+                    autoComplete={
+                      authFlowStage === "email" ? "email" : "current-password"
+                    }
+                    className="flex-1 bg-transparent px-2 py-1 text-[14px] sm:text-[15px] leading-normal text-[#1f1a12] placeholder:text-[#8a8170] focus:outline-none dark:text-[#f7f5ef] dark:placeholder:text-[#9e9585]"
+                  />
 
-              {/* Password eye toggle */}
-              {authFlowStage === "password" && (
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#d8cdb6]/60 bg-[#fffdf7] text-[#817867] shadow-2xs hover:border-[#8a6624]/40 hover:text-[#1f1a12] dark:border-[#3a3428] dark:bg-[#161410] dark:text-[#9e9585] dark:hover:text-[#f7f5ef] transition cursor-pointer"
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              )}
+                  {authFlowStage === "password" && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#d8cdb6]/60 bg-[#fffdf7] text-[#817867] shadow-2xs transition hover:border-[#8a6624]/40 hover:text-[#1f1a12] dark:border-[#3a3428] dark:bg-[#161410] dark:text-[#9e9585] dark:hover:text-[#f7f5ef]"
+                    >
+                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  )}
 
-              <button
-                onClick={() => void send(input)}
-                disabled={isLoading || !input.trim()}
-                aria-label={
-                  authFlowStage !== "idle" ? "Submit" : "Send message"
-                }
-                className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full text-[#1f1a12] transition hover:bg-[#8a6624]/10 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/15 cursor-pointer"
-              >
-                <Send size={17} />
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => void send(input)}
+                    disabled={isLoading || !input.trim()}
+                    aria-label="Submit"
+                    className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#1f1a12] transition hover:bg-[#8a6624]/10 focus-visible:outline-none disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent dark:text-[#d6b46a] dark:hover:bg-[#d6b46a]/15 sm:h-9 sm:w-9"
+                  >
+                    <Send size={17} />
+                  </button>
+                </div>
 
-            <div className="mt-2 flex items-center justify-center gap-4 px-1 text-[11px] sm:text-[12px] text-[#7d7363] dark:text-[#a8a093]">
-              <span className="flex items-center gap-1.5 text-center font-medium">
-                <ShieldCheck
-                  size={14}
-                  className="text-emerald-600 dark:text-emerald-400"
-                />
-                Verified Shop Assistant
-              </span>
-              {showCounter && authFlowStage === "idle" && (
-                <span
-                  className={
-                    charsLeft <= 0
-                      ? "text-red-500 dark:text-red-400"
-                      : undefined
-                  }
-                >
-                  {charsLeft}
-                </span>
-              )}
-            </div>
+                <div className="mt-2 flex items-center justify-center gap-4 px-1 text-[11px] text-[#7d7363] dark:text-[#a8a093] sm:text-[12px]">
+                  <span className="flex items-center gap-1.5 text-center font-medium">
+                    <ShieldCheck
+                      size={14}
+                      className="text-emerald-600 dark:text-emerald-400"
+                    />
+                    Verified Shop Assistant
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -34,6 +34,9 @@ using TanishElectronics.Api.Services.AuthService.Password;
 using TanishElectronics.Api.Services.AuthService.Sessions;
 using TanishElectronics.Api.Services.AuthService.Context;
 using TanishElectronics.Api.Services.AuthService;
+using TanishElectronics.Api.Services.Security;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,24 +51,24 @@ builder.Logging.AddSimpleConsole(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSignalR();
+builder.Services.AddSingleton<LiveConnectionRegistry>();
+builder.Services.AddScoped<SessionHubFilter>();
+builder.Services.AddSignalR(options => options.AddFilter<SessionHubFilter>());
+builder.Services.AddHostedService<LiveConnectionMonitor>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
+builder.Services.AddDataProtection();
+builder.Services.AddScoped<RepairAccessService>();
+builder.Services.AddSingleton<SubmissionIdempotencyStore>();
 
 builder.Services.Configure<GoogleAuthSettings>(
     builder.Configuration.GetSection("GoogleAuth")
 );
 
-builder.Services.Configure<JwtSettings>(
-    builder.Configuration.GetSection("JwtSettings")
-);
-
-var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
-
-if (jwtSettings == null || string.IsNullOrWhiteSpace(jwtSettings.SecretKey))
-{
-    throw new InvalidOperationException("Jwt settings are missing");
-}
+builder.Services.AddOptions<JwtSettings>().Bind(builder.Configuration.GetSection("JwtSettings"))
+    .Validate(settings => settings.IsValid(),
+        "JWT configuration requires at least 32 secret bytes, issuer, audience, access lifetime of 1-60 minutes and refresh/absolute lifetimes of 1-90 days. Configure JwtSettings__SecretKey or User Secrets.")
+    .ValidateOnStart();
 
 builder.Services
     .AddAuthentication(options =>
@@ -76,6 +79,8 @@ builder.Services
     })
     .AddJwtBearer(AuthSchemes.CustomJwt, options =>
     {
+        var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
+            ?? throw new InvalidOperationException("JWT configuration is missing.");
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -123,7 +128,9 @@ builder.Services
                     .AnyAsync(session =>
                         session.UserSessionId == sessionId &&
                         session.AppUserId == appUserId &&
-                        session.RevokedAt == null
+                        session.RevokedAt == null &&
+                        session.CreatedAt > DateTime.UtcNow.AddDays(-jwtSettings.AbsoluteSessionDays) &&
+                        session.AppUser.IsActive && session.AppUser.DeletedAt == null
                     );
 
                 if (!sessionIsActive) context.Fail("This session has been revoked.");
@@ -169,9 +176,12 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ??
+            (builder.Environment.IsDevelopment() ? ["http://localhost:5173"] : []);
+        policy.WithOrigins(origins)
         .AllowAnyHeader()
-        .AllowAnyMethod();
+        .AllowAnyMethod()
+        .AllowCredentials();
     });
 });
 
@@ -204,6 +214,7 @@ builder.Services
             settings.ExpiryMinutes > 0 &&
             settings.ResendCooldownSeconds > 0 &&
             settings.MaxAttempts > 0 &&
+            settings.ResetTokenExpiryMinutes > 0 &&
             !string.IsNullOrWhiteSpace(settings.HashKey),
         "OTP configuration is incomplete."
     )
@@ -374,7 +385,7 @@ builder.Services.AddOutputCache(options =>
     options.AddPolicy(OutputCachePolicies.PublicProducts, cacheBuilder =>
         cacheBuilder
             .Expire(TimeSpan.FromSeconds(60))
-            .SetVaryByQuery("category", "search", "page", "pageSize")
+            .SetVaryByQuery("categoryId", "conditionId", "search", "featuredOnly")
             .Tag(OutputCachePolicies.ProductsTag)
     );
     options.AddPolicy(OutputCachePolicies.PublicStatic, cacheBuilder =>
@@ -416,6 +427,7 @@ builder.Services.Configure<GroqSettings>(
     builder.Configuration.GetSection(GroqSettings.SectionName)
 );
 
+builder.Services.AddSingleton<TanishElectronics.Api.Services.Security.ChatBookingDraftStore>();
 builder.Services.AddHttpClient<IChatbotService, ChatbotService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);
@@ -500,6 +512,7 @@ builder.Services.AddScoped<ICustomAuthRepository, CustomAuthRepository>();
 builder.Services.AddScoped<ICredentialAuthService, CredentialAuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+builder.Services.AddScoped<IGoogleIdTokenValidator, GoogleIdTokenValidator>();
 builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<ICustomAuthService, CustomAuthService>();
@@ -539,6 +552,8 @@ builder.Services.AddSingleton<AnnouncementAudienceMatcher>(
 
 var app = builder.Build();
 
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -548,32 +563,42 @@ if (app.Environment.IsDevelopment())
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
+    app.UseHsts();
 }
 
-app.UseStaticFiles();
+app.UseRouting();
 
 app.UseCors("AllowAll");
 
-app.UseMiddleware<GlobalExceptionMiddleware>();
-
-app.UseAuthorization();
+app.UseMiddleware<AuthAbuseLimitMiddleware>();
 app.UseAuthentication();
+app.UseMiddleware<OptionalAuthenticationMiddleware>();
+app.UseAuthorization();
 
 app.UseRateLimiter();
+app.UseMiddleware<PrivateRepairImagesMiddleware>();
+app.UseMiddleware<ChatSessionOwnershipMiddleware>();
+app.UseMiddleware<SubmissionIdempotencyMiddleware>();
+app.UseStaticFiles();
 app.UseOutputCache();
 
 app.MapControllers();
 app.MapHub<AnnouncementHub>("/hubs/announcements");
-app.MapHub<NotificationHub>("/hubs/notifications");
-app.MapHub<RepairTrackingHub>("/hubs/repair-tracking");
+app.MapHub<NotificationHub>("/hubs/notifications", options => options.CloseOnAuthenticationExpiration = true);
+app.MapHub<RepairTrackingHub>("/hubs/repair-tracking", options => options.CloseOnAuthenticationExpiration = true);
 
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false })
+    .RequireRateLimiting(RateLimitPolicies.PublicRead);
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready") && !check.Tags.Contains("external")
+}).RequireRateLimiting(RateLimitPolicies.PublicRead);
 app.MapHealthChecks(
      "/health/details",
      new HealthCheckOptions
      {
          ResponseWriter = HealthCheckResponseWriter.WriteJsonResponse
      }
-);
+).RequireAuthorization(AppPolicies.AdminOnly);
 app.Run();

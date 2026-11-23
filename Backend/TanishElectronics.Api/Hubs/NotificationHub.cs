@@ -26,8 +26,12 @@ public class NotificationHub : Hub
             return;
         }
 
-        var isAdmin = user.IsInRole(RoleNames.Admin) ||
-                      user.IsInRole(RoleNames.Owner);
+        if (!int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var currentUserId))
+        { Context.Abort(); return; }
+        var roles = await _dbContext.AppUserRoles.AsNoTracking()
+            .Where(r => r.AppUserId == currentUserId && r.AppUser.IsActive && r.AppUser.DeletedAt == null)
+            .Select(r => r.Role.RoleName).ToListAsync();
+        var isAdmin = roles.Contains(RoleNames.Admin) || roles.Contains(RoleNames.Owner);
 
         if (isAdmin)
         {
@@ -37,7 +41,7 @@ public class NotificationHub : Hub
             );
         }
 
-        var isCustomer = user.IsInRole(RoleNames.Customer);
+        var isCustomer = roles.Contains(RoleNames.Customer);
 
         if (isCustomer)
         {

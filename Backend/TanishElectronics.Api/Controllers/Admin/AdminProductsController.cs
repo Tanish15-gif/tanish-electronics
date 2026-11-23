@@ -65,4 +65,12 @@ public class AdminProductController : ControllerBase
             message = "Product Deleted SuccessFully"
         });
     }
+    [EnableRateLimiting(RateLimitPolicies.ImageUpload)]
+    [HttpPost("{productId:int}/images")]
+    [RequestSizeLimit(30_000_000)]
+    public async Task<IActionResult> UploadProductImage(int productId, [FromForm(Name = "image")] IFormFile images)
+    {
+        var result = await _productService.UploadProductImageAsync(productId, images);
+        return Ok(result);
+    }
 }

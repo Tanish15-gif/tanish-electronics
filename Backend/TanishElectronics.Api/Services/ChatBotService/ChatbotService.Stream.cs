@@ -9,11 +9,16 @@ public partial class ChatbotService
 {
     public async IAsyncEnumerable<ChatStreamEventDto> StreamReplyAsync(ChatRequestDto request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        ValidateChatRequest(request);
+        _verifiedTracking = null;
         var appUserId = await _currentUserService.GetCurrentAppUserIdAsync();
+        var bookingOwner = GetOwnedSessionKey(request, appUserId);
+        var bookingRevision = await _bookingDrafts.BeginMessageAsync(bookingOwner);
         var ipAddress = _authContextAccessor.GetClientIpAddress();
         var userAgent = _authContextAccessor.GetUserAgent();
 
-        var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath, appUserId, request.History);
+        var (groundingContext, matchedProducts) = await BuildGroundingContextAsync(request.Message, request.CurrentPath,
+            request.IncludeAccountContext ? appUserId : null, request.History);
         var systemPrompt = BuildSystemPrompt(groundingContext);
 
         var messages = new List<object> { new { role = "system", content = systemPrompt } };
@@ -46,8 +51,7 @@ public partial class ChatbotService
 
         if (!response.IsSuccessStatusCode)
         {
-            var err = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogError("Groq streaming failed: {Status}, {Body}", response.StatusCode, err);
+            _logger.LogError("Groq streaming failed: {Status}", response.StatusCode);
             yield return new ChatStreamEventDto
             {
                 Type = "token",
@@ -194,6 +198,9 @@ public partial class ChatbotService
 
         // --- Post-stream: Process tags and emit summary cards ---
         var fullReply = fullReplyBuilder.ToString();
+        var bookingDraft = await PrepareBookingAsync(fullReply, bookingOwner, bookingRevision);
+        if (GenericBookingTagRegex.IsMatch(fullReply) && bookingDraft == null)
+            yield return new ChatStreamEventDto { Type = "token", Content = "\n\nI couldn't prepare that summary. Please check your name, phone, device, issue and service area, and ask me for an updated booking summary." };
 
         var enquiry = await ProcessEnquiryTagAsync(fullReply, request);
         var booking = await ProcessBookingTagAsync(fullReply);
@@ -222,27 +229,15 @@ public partial class ChatbotService
                 };
             }
 
-            var (companionProducts, isBrandMatched) = await GetCompanionProductsForEnquiryAsync(enquiry.ProductId, enquiry.ProductName);
+            var companionProducts = await GetCompanionProductsForEnquiryAsync(enquiry.ProductId, enquiry.ProductName);
             if (companionProducts.Any())
             {
                 enquiryCompanionProducts = companionProducts;
-                if (isBrandMatched)
+                yield return new ChatStreamEventDto
                 {
-                    var pLabel = !string.IsNullOrWhiteSpace(enquiry.ProductName) ? $" for **{enquiry.ProductName}**" : "";
-                    yield return new ChatStreamEventDto
-                    {
-                        Type = "token",
-                        Content = $"\n\n**Matching Accessories & Companion Items:**\nWe also have these compatible accessories in stock{pLabel}:"
-                    };
-                }
-                else
-                {
-                    yield return new ChatStreamEventDto
-                    {
-                        Type = "token",
-                        Content = "\n\n**Featured Promotions & Popular Workshop Deals:**\nWhile our team reviews your enquiry, check out these trending items currently in stock:"
-                    };
-                }
+                    Type = "token",
+                    Content = "\n\n**Related products to explore:**\nThese items are currently in stock. For remotes and accessories, ask the shop to confirm your exact model."
+                };
             }
         }
         else if (booking.Submitted)
@@ -277,6 +272,7 @@ public partial class ChatbotService
 
         // --- Emit metadata (products + action buttons) ---
         var actions = await BuildChatActionsAsync(request.Message, fullReply, enquiry.Submitted, booking.Submitted, matchedProducts);
+        if (bookingDraft != null) actions.RemoveAll(a => a.Url == "chat:book-repair");
 
         List<ChatProductCardDto>? finalProducts = null;
         if (enquiry.Submitted)
@@ -291,17 +287,15 @@ public partial class ChatbotService
         yield return new ChatStreamEventDto
         {
             Type = "metadata",
+            BookingDraft = bookingDraft,
+            Tracking = _verifiedTracking,
             Products = finalProducts,
             Actions = actions.Any() ? actions.DistinctBy(a => a.Label).ToList() : null
         };
 
         // --- Save conversation to DB (fire-and-forget, never blocks streaming) ---
-        var sessionKey = string.IsNullOrWhiteSpace(request.SessionKey)
-            ? $"anon-{Guid.NewGuid():N}"
-            : request.SessionKey;
+        var sessionKey = GetOwnedSessionKey(request, appUserId);
 
-        _ = Task.Run(async () =>
-        {
             await _chatLogService.SaveMessageAsync(
                 sessionKey: sessionKey,
                 appUserId: appUserId,
@@ -313,7 +307,6 @@ public partial class ChatbotService
                 ipAddress: ipAddress,
                 userAgent: userAgent
             );
-        });
 
         yield return new ChatStreamEventDto { Type = "done" };
     }

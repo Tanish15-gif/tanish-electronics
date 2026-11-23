@@ -9,7 +9,8 @@ public interface IPasswordRecoveryRepository
     Task InvalidateActiveOtpsAsync(string normalizedEmail, string purpose);
     Task<OtpCode?> GetLatestActiveOtpAsync(string normalizedEmail, string purpose);
     Task UpdateOtpAsync(OtpCode otpCode);
-    Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession);
+    Task RecordFailedOtpAttemptAsync(int otpCodeId, int maxAttempts);
+    Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession, int maxAttempts);
     Task<PasswordResetSession?> GetPasswordResetSessionByHashAsync(string tokenHash);
     Task CompletePasswordResetAsync(AppUser user, PasswordResetSession resetSession, string? revokedByIp);
     Task CompletePasswordChangeAsync(AppUser user, string? revokedByIp);

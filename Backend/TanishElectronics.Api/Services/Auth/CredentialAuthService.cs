@@ -7,6 +7,7 @@ using TanishElectronics.Api.Interfaces.Services;
 using TanishElectronics.Api.Interfaces.Services.AuthService;
 using TanishElectronics.Api.Services.Helpers;
 using TanishElectronics.Api.Settings;
+using TanishElectronics.Api.Data;
 
 namespace TanishElectronics.Api.Services.AuthService.CredentialAuth;
 
@@ -18,6 +19,7 @@ public class CredentialAuthService : ICredentialAuthService
     private readonly ISessionService _sessionService;
     private readonly IPasswordHasherService _hasherService;
     private readonly ITokenService _tokenService;
+    private readonly TanishElectronicsDbContext _dbContext;
     public CredentialAuthService
     (
         ICustomAuthRepository authRepository,
@@ -25,7 +27,8 @@ public class CredentialAuthService : ICredentialAuthService
         IJwtTokenService jwtTokenService,
         ISessionService sessionService,
         IPasswordHasherService hasherService,
-        ITokenService tokenService
+        ITokenService tokenService,
+        TanishElectronicsDbContext dbContext
     )
     {
         _authRepository = authRepository;
@@ -34,6 +37,7 @@ public class CredentialAuthService : ICredentialAuthService
         _sessionService = sessionService;
         _hasherService = hasherService;
         _tokenService = tokenService;
+        _dbContext = dbContext;
     }
     public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto dto)
     {
@@ -55,6 +59,7 @@ public class CredentialAuthService : ICredentialAuthService
 
             throw new InvalidOperationException("Email already exists.");
         }
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
         var user = new AppUser
         {
             ClerkUserId = null,
@@ -94,7 +99,9 @@ public class CredentialAuthService : ICredentialAuthService
             "User registered successfully."
         );
 
-        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
+        var response = _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
+        await transaction.CommitAsync();
+        return response;
     }
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto dto)
     {
@@ -113,7 +120,7 @@ public class CredentialAuthService : ICredentialAuthService
                 false,
                 AuthFailureReason.UserNotFound.ToString()
             );
-            throw new UnauthorizedAccessException("Invalid email and password");
+            throw new UnauthorizedAccessException("Invalid email or password.");
         }
         if (!user.IsActive || user.DeletedAt != null)
         {
@@ -137,17 +144,16 @@ public class CredentialAuthService : ICredentialAuthService
                 AuthFailureReason.AccountLocked.ToString()
             );
 
-            throw new UnauthorizedAccessException("Account is temporarily locked.");
+            throw new UnauthorizedAccessException("Invalid email or password.");
         }
 
         var isPasswordValid = _hasherService.VerifyPassword(dto.Password, user.PasswordHash ?? "");
 
         if (!isPasswordValid)
         {
-            user.AccessFailedCount += 1;
-            if (user.AccessFailedCount >= 5)
+            var failureCount = await _authRepository.RecordFailedLoginAttemptAsync(user.AppUserId);
+            if (failureCount >= 5)
             {
-                user.LockoutEndAt = DateTime.UtcNow.AddMinutes(15);
                 await _authEventLogger.LogAsync(
                     user.AppUserId,
                     user.Email,
@@ -156,8 +162,6 @@ public class CredentialAuthService : ICredentialAuthService
                     "Account locked after too many failed login attempts."
                 );
             }
-            await _authRepository.UpdateUserAsync(user);
-
             await _authEventLogger.LogAsync(
                 user.AppUserId,
                 user.Email,
@@ -166,14 +170,11 @@ public class CredentialAuthService : ICredentialAuthService
                 AuthFailureReason.InvalidPassword.ToString()
             );
 
-            throw new UnauthorizedAccessException("Invalid email or password");
+            throw new UnauthorizedAccessException("Invalid email or password.");
         }
-        user.AccessFailedCount = 0;
-        user.LockoutEndAt = null;
-        user.LastLoginAt = DateTime.UtcNow;
-        user.LastSeenAt = DateTime.UtcNow;
-
-        await _authRepository.UpdateUserAsync(user);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        if (!await _authRepository.CompletePasswordLoginAsync(user.AppUserId, user.PasswordHash!))
+            throw new UnauthorizedAccessException("Invalid email or password.");
 
         var roles = await _authRepository.GetUserRolesAsync(user.AppUserId);
 
@@ -191,11 +192,15 @@ public class CredentialAuthService : ICredentialAuthService
             "User logged in successfully"
         );
 
-        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
+        var response = _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
+        await transaction.CommitAsync();
+        return response;
     }
 
     private static void ValidateRegisterRequest(RegisterRequestDto dto)
     {
+        System.ComponentModel.DataAnnotations.Validator.ValidateObject(dto,
+            new System.ComponentModel.DataAnnotations.ValidationContext(dto), true);
         if (string.IsNullOrWhiteSpace(dto.FullName)) throw new InvalidOperationException("Full name is required.");
 
         if (string.IsNullOrWhiteSpace(dto.Email)) throw new InvalidOperationException("Email is required.");

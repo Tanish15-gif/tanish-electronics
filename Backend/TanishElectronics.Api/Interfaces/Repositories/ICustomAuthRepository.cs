@@ -15,8 +15,11 @@ public interface ICustomAuthRepository
     Task<List<string>> GetUserRolesAsync(int appUserId);
 
     Task AddRefreshTokenAsync(RefreshToken refreshToken);
+    Task<bool> RotateRefreshTokenAsync(RefreshToken oldToken, RefreshToken replacement, string? revokedByIp);
 
     Task UpdateUserAsync(AppUser user);
+    Task<int> RecordFailedLoginAttemptAsync(int appUserId);
+    Task<bool> CompletePasswordLoginAsync(int appUserId, string expectedPasswordHash);
 
     Task AddAuthEventAsync(UserAuthEvent authEvent);
 
@@ -38,7 +41,8 @@ public interface ICustomAuthRepository
 
     Task UpdateOtpAsync(OtpCode otpCode);
 
-    Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession);
+    Task RecordFailedOtpAttemptAsync(int otpCodeId, int maxAttempts);
+    Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession, int maxAttempts);
     Task<PasswordResetSession?> GetPasswordResetSessionByHashAsync(string tokenRefresh);
 
     Task CompletePasswordResetAsync(AppUser user, PasswordResetSession resetSession, string? revokedByIp);

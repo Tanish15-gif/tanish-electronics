@@ -2,6 +2,7 @@ namespace TanishElectronics.Api.DTOs.ServiceRequests;
 
 public class ServiceRequestTrackingDto
 {
+    public string? TrackingToken { get; set; }
     public string RequestNumber { get; set; } = "";
     public string CustomerName { get; set; } = "";
     public string PhoneNumber { get; set; } = "";

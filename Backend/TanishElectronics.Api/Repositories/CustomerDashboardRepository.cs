@@ -25,18 +25,10 @@ public class CustomerDashboardRepository : ICustomerDashboardRepository
         {
             return null;
         }
-        var email = appUser.Email;
-        var phoneNumber = appUser.PhoneNumber;
-
         var customerIds = await _dbContext.Customers
             .Where(customer =>
                 customer.IsActive && customer.DeletedAt == null &&
-                (
-                    customer.AppUserId == appUserId ||
-                    customer.Email == email ||
-                    (!string.IsNullOrWhiteSpace(phoneNumber) &&
-                        customer.PhoneNumber == phoneNumber)
-                ))
+                customer.AppUserId == appUserId)
                 .Select(customer => customer.CustomerId)
                 .ToListAsync();
 
@@ -47,12 +39,7 @@ public class CustomerDashboardRepository : ICustomerDashboardRepository
             join status in _dbContext.ServiceStatuses
                 on request.CurrentStatusId equals status.ServiceStatusId
             where request.DeletedAt == null &&
-                (
-                    customerIds.Contains(request.CustomerId ?? 0) ||
-                    request.Email == email ||
-                    (!string.IsNullOrWhiteSpace(phoneNumber) &&
-                        request.PhoneNumber == phoneNumber)
-                )
+                customerIds.Contains(request.CustomerId ?? 0)
             orderby request.CreatedAt descending
             select new CustomerDashboardServiceRequestDto
             {
@@ -78,12 +65,7 @@ public class CustomerDashboardRepository : ICustomerDashboardRepository
                 on enquiry.ProductId equals product.ProductId into productJoin
             from product in productJoin.DefaultIfEmpty()
             where enquiry.DeletedAt == null &&
-                  (
-                      customerIds.Contains(enquiry.CustomerId ?? 0) ||
-                      enquiry.Email == email ||
-                      (!string.IsNullOrWhiteSpace(phoneNumber) &&
-                       enquiry.PhoneNumber == phoneNumber)
-                  )
+                  customerIds.Contains(enquiry.CustomerId ?? 0)
             orderby enquiry.CreatedAt descending
             select new CustomerDashboardEnquiryDto
             {

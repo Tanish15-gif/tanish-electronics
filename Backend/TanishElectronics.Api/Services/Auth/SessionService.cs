@@ -40,6 +40,8 @@ public class SessionService : ISessionService
             currentToken == null ||
             currentToken.AppUserId != appUserId ||
             currentToken.RevokedAt != null ||
+            currentToken.UserSessionId == null || currentToken.UserSession == null ||
+            currentToken.UserSession.RevokedAt != null ||
             currentToken.ExpiresAt <= DateTime.UtcNow
         )
         {

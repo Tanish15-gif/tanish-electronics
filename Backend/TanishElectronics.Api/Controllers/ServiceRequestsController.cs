@@ -25,6 +25,7 @@ public class ServiceRequestsController : ControllerBase
     }
 
     [HttpGet("track")]
+    [EnableRateLimiting(RateLimitPolicies.AuthAttempt)]
     public async Task<IActionResult> Track([FromQuery] TrackServiceRequestDto dto)
     {
         var result = await _serviceRequest.TrackAsync(dto);

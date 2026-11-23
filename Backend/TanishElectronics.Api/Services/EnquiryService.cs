@@ -15,17 +15,23 @@ public class EnquiryService : IEnquiryService
     private readonly TanishElectronicsDbContext _dbContext;
     private readonly IAuditLogService _auditLogService;
     private readonly INotificationRealtimeNotifier _notificationNotifier;
+    private readonly ICustomerAccountResolver _customerAccountResolver;
+    private readonly TanishElectronics.Api.Services.Security.RepairAccessService _repairAccess;
     public EnquiryService(
         IEnquiryRepository repository,
         TanishElectronicsDbContext dbContext,
         IAuditLogService auditLogService,
-        INotificationRealtimeNotifier notificationNotifier
+        INotificationRealtimeNotifier notificationNotifier,
+        ICustomerAccountResolver customerAccountResolver,
+        TanishElectronics.Api.Services.Security.RepairAccessService repairAccess
     )
     {
         _repository = repository;
         _dbContext = dbContext;
         _auditLogService = auditLogService;
         _notificationNotifier = notificationNotifier;
+        _customerAccountResolver = customerAccountResolver;
+        _repairAccess = repairAccess;
     }
 
     public async Task<EnquiryCreatedDto> CreateAsync(CreateEnquiryDto dto)
@@ -43,6 +49,7 @@ public class EnquiryService : IEnquiryService
 
         if (dto.ServiceRequestId.HasValue)
         {
+            await _repairAccess.RequireAsync(dto.ServiceRequestId.Value);
             var requestExists = await _repository.ServiceRequestExistsAsync(dto.ServiceRequestId.Value);
 
             if (!requestExists)
@@ -50,10 +57,14 @@ public class EnquiryService : IEnquiryService
                 throw new InvalidOperationException("Selected service request was not found.");
             }
         }
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        var customer = await _customerAccountResolver.GetCurrentCustomerAsync();
         var newStatusId = await _repository.GetStatusIdByNameAsync(EnquiryStatusNames.New);
         var enquiry = new Enquiry
         {
             ProductId = dto.ProductId,
+            CustomerId = customer?.CustomerId,
+            CreatedAt = DateTime.UtcNow,
             ServiceRequestId = dto.ServiceRequestId,
 
             FullName = dto.FullName.Trim(),
@@ -82,17 +93,22 @@ public class EnquiryService : IEnquiryService
         await _dbContext.AdminNotifications.AddAsync(adminNotification);
         await _repository.SaveChangesAsync();
 
-        await _notificationNotifier.NotifyAdminsAsync(new DTOs.Admin.Notifications.GetAdminNotificationDto
+        await transaction.CommitAsync();
+        try
         {
-            AdminNotificationId = adminNotification.AdminNotificationId,
-            EnquiryId = adminNotification.EnquiryId,
-            ProductId = adminNotification.ProductId,
-            Title = adminNotification.Title,
-            Message = adminNotification.Message,
-            NotificationType = adminNotification.NotificationType,
-            IsRead = false,
-            CreatedAt = adminNotification.CreatedAt
-        });
+            await _notificationNotifier.NotifyAdminsAsync(new DTOs.Admin.Notifications.GetAdminNotificationDto
+            {
+                AdminNotificationId = adminNotification.AdminNotificationId,
+                EnquiryId = adminNotification.EnquiryId,
+                ProductId = adminNotification.ProductId,
+                Title = adminNotification.Title,
+                Message = adminNotification.Message,
+                NotificationType = adminNotification.NotificationType,
+                IsRead = false,
+                CreatedAt = adminNotification.CreatedAt
+            });
+        }
+        catch { /* The persisted admin notification remains available through the dashboard. */ }
 
         return new EnquiryCreatedDto
         {
@@ -103,6 +119,8 @@ public class EnquiryService : IEnquiryService
     }
     private static void Validate(CreateEnquiryDto dto)
     {
+        System.ComponentModel.DataAnnotations.Validator.ValidateObject(dto,
+            new System.ComponentModel.DataAnnotations.ValidationContext(dto), true);
         if (string.IsNullOrWhiteSpace(dto.FullName))
         {
             throw new InvalidOperationException("Full name is required.");

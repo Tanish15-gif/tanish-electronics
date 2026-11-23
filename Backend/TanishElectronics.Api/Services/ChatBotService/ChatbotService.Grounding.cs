@@ -8,6 +8,15 @@ namespace TanishElectronics.Api.Services;
 
 public partial class ChatbotService
 {
+    internal static string BuildAccountContactContext(string? fullName, string? phoneNumber)
+    {
+        var contact = new Dictionary<string, string>();
+        if (!string.IsNullOrWhiteSpace(fullName)) contact["Name"] = fullName.Trim();
+        if (!string.IsNullOrWhiteSpace(phoneNumber)) contact["Phone"] = phoneNumber.Trim();
+        return contact.Count == 0 ? "" : "- Signed-in account contact (booking defaults):\n" +
+            System.Text.Json.JsonSerializer.Serialize(contact);
+    }
+
     private async Task<(string Context, List<ChatProductCardDto> Products)> BuildGroundingContextAsync(
         string message, string? currentPath = null, int? appUserId = null, List<ChatHistoryItemDto>? history = null)
     {
@@ -46,83 +55,33 @@ public partial class ChatbotService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to retrieve semantic vector knowledge for message: {Message}", message);
+            _logger.LogWarning(ex, "Failed to retrieve semantic vector knowledge.");
         }
 
-        // --- Authenticated Customer Profile ---
+        // Resolve only the current authenticated account's booking contact details.
+        // Never send email, addresses, customer IDs or unrelated repair history as profile context.
         if (appUserId.HasValue)
         {
             try
             {
-                var customer = await _dbContext.Customers
+                var contact = await _dbContext.AppUsers
                     .AsNoTracking()
-                    .Where(c => c.AppUserId == appUserId.Value && c.DeletedAt == null && c.IsActive)
-                    .Select(c => new
+                    .Where(u => u.AppUserId == appUserId.Value && u.DeletedAt == null && u.IsActive)
+                    .Select(u => new
                     {
-                        c.CustomerId,
-                        c.FullName,
-                        c.PhoneNumber,
-                        c.Email,
-                        Repairs = c.ServiceRequests
-                            .Where(r => r.DeletedAt == null)
-                            .OrderByDescending(r => r.CreatedAt)
-                            .Take(3)
-                            .Select(r => new
-                            {
-                                r.RequestNumber,
-                                r.DeviceName,
-                                Status = r.CurrentStatus.StatusName,
-                                r.CreatedAt
-                            })
-                            .ToList()
+                        FullName = u.Customer != null && u.Customer.DeletedAt == null && u.Customer.IsActive
+                            ? u.Customer.FullName : u.FullName,
+                        PhoneNumber = u.Customer != null && u.Customer.DeletedAt == null && u.Customer.IsActive
+                            ? u.Customer.PhoneNumber : u.PhoneNumber
                     })
                     .FirstOrDefaultAsync();
 
-                if (customer != null)
-                {
-                    sb.AppendLine("- Authenticated Customer Profile (Active Signed-In User):");
-                    sb.AppendLine($"  - Name: {customer.FullName}");
-                    sb.AppendLine($"  - Phone: {customer.PhoneNumber}");
-                    if (!string.IsNullOrWhiteSpace(customer.Email))
-                    {
-                        sb.AppendLine($"  - Email: {customer.Email}");
-                    }
-
-                    if (customer.Repairs.Any())
-                    {
-                        sb.AppendLine("  - Customer's Recent & Active Repair Requests:");
-                        foreach (var rep in customer.Repairs)
-                        {
-                            sb.AppendLine($"    * #{rep.RequestNumber} - {rep.DeviceName} (Status: {rep.Status}, Created: {rep.CreatedAt:dd MMM yyyy})");
-                        }
-                    }
-                }
-                else
-                {
-                    var appUser = await _dbContext.AppUsers
-                        .AsNoTracking()
-                        .Where(u => u.AppUserId == appUserId.Value && u.DeletedAt == null && u.IsActive)
-                        .Select(u => new { u.FullName, u.PhoneNumber, u.Email })
-                        .FirstOrDefaultAsync();
-
-                    if (appUser != null)
-                    {
-                        sb.AppendLine("- Authenticated Customer Profile (Active Signed-In User):");
-                        sb.AppendLine($"  - Name: {appUser.FullName}");
-                        if (!string.IsNullOrWhiteSpace(appUser.PhoneNumber))
-                        {
-                            sb.AppendLine($"  - Phone: {appUser.PhoneNumber}");
-                        }
-                        if (!string.IsNullOrWhiteSpace(appUser.Email))
-                        {
-                            sb.AppendLine($"  - Email: {appUser.Email}");
-                        }
-                    }
-                }
+                if (contact != null)
+                    sb.AppendLine(BuildAccountContactContext(contact.FullName, contact.PhoneNumber));
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to load authenticated user profile in chatbot grounding.");
+                _logger.LogWarning(ex, "Failed to load authenticated booking contact details.");
             }
         }
 
@@ -147,7 +106,7 @@ public partial class ChatbotService
                             sb.AppendLine($"  - Title: {product.ProductName}");
                             sb.AppendLine($"  - Brand: {product.Brand ?? "N/A"} | Model: {product.ModelName ?? "N/A"}");
                             sb.AppendLine($"  - Category: {product.CategoryName} | Condition: {product.ConditionName}");
-                            sb.AppendLine($"  - Price: ₹{product.Price:N0}");
+                            sb.AppendLine($"  - Price: â‚¹{product.Price:N0}");
                             sb.AppendLine($"  - Stock Status: {(product.IsAvailable ? "In Stock" : "Out of Stock")} ({product.StockQuantity} available)");
                             sb.AppendLine($"  - Features & Description: {(string.IsNullOrWhiteSpace(product.Description) ? "Tested and certified by Tanish Electronics." : product.Description)}");
                         }
@@ -225,15 +184,17 @@ public partial class ChatbotService
                     RequestNumber = requestNumberMatch.Value.ToUpperInvariant(),
                     PhoneNumber = resolvedPhoneNumber
                 });
+                // Return verification metadata to the UI, never to the AI prompt.
+                _verifiedTracking = tracking;
 
                 sb.AppendLine($"- Repair request {tracking.RequestNumber} found:");
                 sb.AppendLine($"  - Status: {tracking.CurrentStatus}");
                 sb.AppendLine($"  - Device: {tracking.DeviceName} {tracking.Brand} {tracking.ModelName}".Trim());
                 sb.AppendLine($"  - Service type: {tracking.ServiceType}");
                 if (tracking.EstimatedPrice.HasValue)
-                    sb.AppendLine($"  - Estimated price: ₹{tracking.EstimatedPrice}");
+                    sb.AppendLine($"  - Estimated price: â‚¹{tracking.EstimatedPrice}");
                 if (tracking.FinalPrice.HasValue)
-                    sb.AppendLine($"  - Final price: ₹{tracking.FinalPrice}");
+                    sb.AppendLine($"  - Final price: â‚¹{tracking.FinalPrice}");
             }
             catch (InvalidOperationException)
             {
@@ -359,7 +320,7 @@ public partial class ChatbotService
                 foreach (var p in topMatches)
                 {
                     var brandInfo = string.IsNullOrWhiteSpace(p.Brand) ? "" : $" ({p.Brand})";
-                    sb.AppendLine($"  - [Product #{p.ProductId}] {p.ProductName}{brandInfo} — ₹{p.Price:N0}, {p.StockQuantity} in stock, condition: {p.ConditionName}");
+                    sb.AppendLine($"  - [Product #{p.ProductId}] {p.ProductName}{brandInfo} â€” â‚¹{p.Price:N0}, {p.StockQuantity} in stock, condition: {p.ConditionName}");
                     productCards.Add(new ChatProductCardDto
                     {
                         ProductId = p.ProductId,
@@ -374,7 +335,7 @@ public partial class ChatbotService
             }
             else
             {
-                sb.AppendLine("— No matching products currently in stock.");
+                sb.AppendLine("â€” No matching products currently in stock.");
             }
         }
 
@@ -432,7 +393,7 @@ public partial class ChatbotService
                 sb.AppendLine($"- Customer Reviews (average {avgRating:F1}/5 from recent reviews):");
                 foreach (var f in feedbacks)
                 {
-                    sb.AppendLine($"  - \"{f.Comment}\" — {f.CustomerName} ({f.Rating}★, {f.ServiceCategory})");
+                    sb.AppendLine($"  - \"{f.Comment}\" â€” {f.CustomerName} ({f.Rating}â˜…, {f.ServiceCategory})");
                 }
             }
             else
@@ -456,7 +417,7 @@ public partial class ChatbotService
         {
             var categoryNames = serviceCategories
                 .Where(c => !string.IsNullOrWhiteSpace(c.Name))
-                .Select(c => c.Name!)
+                .Select(c => $"{c.Name} (ID {c.Id})")
                 .ToList();
             sb.AppendLine($"- Repair service categories we offer: {string.Join(", ", categoryNames)}");
         }
@@ -472,7 +433,7 @@ public partial class ChatbotService
         {
             var locationNames = serviceLocations
                 .Where(l => !string.IsNullOrWhiteSpace(l.Name))
-                .Select(l => l.Name!)
+                .Select(l => $"{l.Name} (ID {l.Id})")
                 .ToList();
             sb.AppendLine($"- Home visit available in: {string.Join(", ", locationNames)}");
         }

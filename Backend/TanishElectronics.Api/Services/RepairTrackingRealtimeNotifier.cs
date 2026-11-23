@@ -28,7 +28,12 @@ public class RepairTrackingRealtimeNotifier : IRepairTrackingRealtimeNotifier
         try
         {
             var groupName = RepairTrackingGroups.ForRequest(requestNumber);
-            await _hubContext.Clients.Group(groupName).SendAsync("ReceiveRepairUpdated", trackingData);
+            // Only fields that change are broadcast; personal/contact details stay in the verified REST response.
+            await _hubContext.Clients.Group(groupName).SendAsync("ReceiveRepairUpdated", new
+            {
+                trackingData.RequestNumber, trackingData.CurrentStatus,
+                trackingData.EstimatedPrice, trackingData.FinalPrice
+            });
             _logger.LogInformation("Broadcasted real-time repair update to SignalR group '{Group}' for request '{RequestNumber}'", groupName, requestNumber);
         }
         catch (Exception ex)

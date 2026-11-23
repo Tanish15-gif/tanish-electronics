@@ -42,6 +42,12 @@ public class CustomAuthRepository : ICustomAuthRepository
     public Task UpdateUserAsync(AppUser user)
         => _credentialRepository.UpdateUserAsync(user);
 
+    public Task<int> RecordFailedLoginAttemptAsync(int appUserId)
+        => _credentialRepository.RecordFailedLoginAttemptAsync(appUserId);
+
+    public Task<bool> CompletePasswordLoginAsync(int appUserId, string expectedPasswordHash)
+        => _credentialRepository.CompletePasswordLoginAsync(appUserId, expectedPasswordHash);
+
     public Task AssignRoleAsync(int appUserId, string roleName)
         => _credentialRepository.AssignRoleAsync(appUserId, roleName);
 
@@ -58,6 +64,9 @@ public class CustomAuthRepository : ICustomAuthRepository
         => _credentialRepository.GetUserByIdWithExternalLoginsAsync(appUserId);
 
     // ---- Token ----
+
+    public Task<bool> RotateRefreshTokenAsync(RefreshToken oldToken, RefreshToken replacement, string? revokedByIp)
+        => _tokenRepository.RotateRefreshTokenAsync(oldToken, replacement, revokedByIp);
 
     public Task AddRefreshTokenAsync(RefreshToken refreshToken)
         => _tokenRepository.AddRefreshTokenAsync(refreshToken);
@@ -99,8 +108,11 @@ public class CustomAuthRepository : ICustomAuthRepository
     public Task UpdateOtpAsync(OtpCode otpCode)
         => _passwordRepository.UpdateOtpAsync(otpCode);
 
-    public Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession)
-        => _passwordRepository.ConsumeOtpAndCreateResetSessionAsync(otpCode, resetSession);
+    public Task RecordFailedOtpAttemptAsync(int otpCodeId, int maxAttempts)
+        => _passwordRepository.RecordFailedOtpAttemptAsync(otpCodeId, maxAttempts);
+
+    public Task ConsumeOtpAndCreateResetSessionAsync(OtpCode otpCode, PasswordResetSession resetSession, int maxAttempts)
+        => _passwordRepository.ConsumeOtpAndCreateResetSessionAsync(otpCode, resetSession, maxAttempts);
 
     public Task<PasswordResetSession?> GetPasswordResetSessionByHashAsync(string tokenHash)
         => _passwordRepository.GetPasswordResetSessionByHashAsync(tokenHash);

@@ -9,6 +9,7 @@ using TanishElectronics.Api.Settings;
 using TanishElectronics.Api.Services.Helpers;
 using TanishElectronics.Api.Interfaces.Services.AuthService;
 using Microsoft.Extensions.Options;
+using TanishElectronics.Api.Data;
 
 namespace TanishElectronics.Api.Services.AuthService.GoogleAuthService;
 
@@ -23,6 +24,8 @@ public class GoogleAuthService : IGoogleAuthService
     private readonly ITokenService _tokenService;
     private readonly OtpSettings _otpSettings;
     private readonly IPasswordResetTokenService _passwordResetTokenService;
+    private readonly TanishElectronicsDbContext _dbContext;
+    private readonly IGoogleIdTokenValidator _googleTokenValidator;
     public GoogleAuthService
     (
         ICustomAuthRepository authRepository,
@@ -33,7 +36,9 @@ public class GoogleAuthService : IGoogleAuthService
         ISessionService sessionService,
         ITokenService tokenService,
         IOptions<OtpSettings> otpOptions,
-        IPasswordResetTokenService passwordResetTokenService
+        IPasswordResetTokenService passwordResetTokenService,
+        TanishElectronicsDbContext dbContext,
+        IGoogleIdTokenValidator googleTokenValidator
     )
     {
         _authRepository = authRepository;
@@ -45,6 +50,8 @@ public class GoogleAuthService : IGoogleAuthService
         _tokenService = tokenService;
         _otpSettings = otpOptions.Value;
         _passwordResetTokenService = passwordResetTokenService;
+        _dbContext = dbContext;
+        _googleTokenValidator = googleTokenValidator;
     }
     public async Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginRequestDto dto)
     {
@@ -70,13 +77,7 @@ public class GoogleAuthService : IGoogleAuthService
         {
             ///<section>
             /// Validating the Google token from the client Id
-            payload = await GoogleJsonWebSignature.ValidateAsync(
-                dto.IdToken,
-                new GoogleJsonWebSignature.ValidationSettings
-                {
-                    Audience = new[] { _googleAuthSettings.ClientId }
-                }
-            );
+            payload = await _googleTokenValidator.ValidateAsync(dto.IdToken, _googleAuthSettings.ClientId);
             ///</section>
         }
         catch
@@ -114,9 +115,12 @@ public class GoogleAuthService : IGoogleAuthService
         var providerUserId = payload.Subject.Trim();
         var normalizedEmail = AuthHelpers.NormalizeEmail(payload.Email);
 
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
         var externalLogin = await _authRepository.GetExternalLoginAsync(provider, providerUserId);
 
         AppUser? user = externalLogin?.AppUser;
+
+        if (user != null) AuthHelpers.EnsureUserIsActive(user);
 
         var userWasCreated = false;
 
@@ -185,6 +189,17 @@ public class GoogleAuthService : IGoogleAuthService
 
             if (!userWasCreated)
             {
+                // A password registered against an unverified email is not proof of mailbox ownership.
+                // Prevent pre-registration takeover when the real owner first signs in with Google.
+                if (!user.EmailConfirmed)
+                {
+                    user.PasswordHash = null;
+                    user.PasswordUpdatedAt = null;
+                    user.AccessFailedCount = 0;
+                    user.LockoutEndAt = null;
+                    await _authRepository.RevokeAllRefreshTokensAsync(user.AppUserId,
+                        _authContextAccessor.GetClientIpAddress());
+                }
                 user.EmailConfirmed = true;
                 user.LastLoginAt = DateTime.UtcNow;
                 user.LastSeenAt = DateTime.UtcNow;
@@ -206,6 +221,15 @@ public class GoogleAuthService : IGoogleAuthService
             }
 
         }
+        AuthHelpers.EnsureUserIsActive(user);
+
+        if (externalLogin != null)
+        {
+            user.LastLoginAt = DateTime.UtcNow;
+            user.LastSeenAt = DateTime.UtcNow;
+            await _authRepository.UpdateUserAsync(user);
+        }
+
         if (externalLogin == null)
         {
             var newExternalLogin = new ExternalLogin
@@ -235,7 +259,9 @@ public class GoogleAuthService : IGoogleAuthService
             "User logged in with Google."
         );
 
-        return _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
+        var response = _jwtTokenService.GenerateAuthResponse(user, roles, refreshToken, userSession.UserSessionId);
+        await transaction.CommitAsync();
+        return response;
     }
 
     public async Task<GooglePasswordReauthResponseDto> ReauthenticateGoogleForPasswordAsync(GooglePasswordReauthRequestDto dto)
@@ -266,17 +292,7 @@ public class GoogleAuthService : IGoogleAuthService
 
         try
         {
-            payload = await GoogleJsonWebSignature.ValidateAsync(
-                dto.IdToken,
-                new GoogleJsonWebSignature.ValidationSettings
-                {
-                    Audience =
-                        new[]
-                        {
-                            _googleAuthSettings.ClientId
-                        }
-                }
-            );
+            payload = await _googleTokenValidator.ValidateAsync(dto.IdToken, _googleAuthSettings.ClientId);
         }
         catch
         {

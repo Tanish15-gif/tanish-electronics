@@ -102,125 +102,13 @@ public partial class ChatbotService
     /// Processes a SUBMIT_ENQUIRY tag from the AI reply and submits the enquiry to the database.
     /// Returns submission details for building the summary card.
     /// </summary>
-    private async Task<EnquirySubmissionResult> ProcessEnquiryTagAsync(string fullReply, ChatRequestDto request)
-    {
-        var result = new EnquirySubmissionResult();
-        var enquiryMatch = GenericEnquiryTagRegex.Match(fullReply);
-        if (!enquiryMatch.Success) return result;
+    // Legacy automatic submission tags do not write. Repair drafts are prepared in
+    // ChatbotService.Booking.cs and submitted only by the UI confirmation endpoint.
+    private Task<EnquirySubmissionResult> ProcessEnquiryTagAsync(string fullReply, ChatRequestDto request)
+        => Task.FromResult(new EnquirySubmissionResult());
 
-        var dict = ParseTagKeyValues(enquiryMatch.Groups[1].Value);
-        dict.TryGetValue("name", out var name);
-        dict.TryGetValue("phone", out var phone);
-        dict.TryGetValue("message", out var msg);
-        dict.TryGetValue("productid", out var tagProductIdStr);
-        dict.TryGetValue("product", out var tagProductName);
-
-        var finalMessage = !string.IsNullOrWhiteSpace(msg) && !msg.EndsWith("?") ? msg.Trim() : request.Message.Trim();
-
-        result.Name = name;
-        result.Phone = phone;
-        result.ProductName = tagProductName;
-        result.Message = finalMessage;
-
-        int? resolvedProductId = await ResolveProductId(tagProductIdStr, tagProductName, request.CurrentPath);
-        result.ProductId = resolvedProductId;
-        var subject = await BuildEnquirySubjectAsync(resolvedProductId, tagProductName);
-
-        if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone) && !string.IsNullOrWhiteSpace(finalMessage))
-        {
-            try
-            {
-                await _enquiryService.CreateAsync(new CreateEnquiryDto
-                {
-                    ProductId = resolvedProductId,
-                    FullName = name.Trim(),
-                    PhoneNumber = phone.Trim(),
-                    Message = finalMessage,
-                    Subject = subject
-                });
-                result.Submitted = true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to submit enquiry via chatbot.");
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Processes a SUBMIT_BOOKING tag from the AI reply and creates the service request in the database.
-    /// Returns submission details for building the summary card.
-    /// </summary>
-    private async Task<BookingSubmissionResult> ProcessBookingTagAsync(string fullReply)
-    {
-        var result = new BookingSubmissionResult();
-        var bookingMatch = GenericBookingTagRegex.Match(fullReply);
-        if (!bookingMatch.Success) return result;
-
-        var dict = ParseTagKeyValues(bookingMatch.Groups[1].Value);
-        dict.TryGetValue("name", out var name);
-        dict.TryGetValue("phone", out var phone);
-        dict.TryGetValue("device", out var device);
-        dict.TryGetValue("category", out var categoryName);
-        dict.TryGetValue("issue", out var issue);
-        dict.TryGetValue("servicetype", out var serviceType);
-        dict.TryGetValue("address", out var address);
-
-        name ??= "";
-        phone ??= "";
-        device ??= "";
-        categoryName ??= "TV Repair";
-        issue = string.IsNullOrWhiteSpace(issue) ? "Booked via AI Chatbot" : issue;
-        serviceType ??= "Shop Repair";
-
-        result.Name = name;
-        result.Phone = phone;
-        result.Device = device;
-        result.Issue = issue;
-        result.Address = address;
-        result.ServiceType = serviceType.Contains("home", StringComparison.OrdinalIgnoreCase) ? "Home Visit" : "Shop Drop-off";
-
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(device))
-            return result;
-
-        try
-        {
-            var serviceCategories = await _lookUpService.GetServiceCategoriesAsync();
-            var matchedCategory = serviceCategories.FirstOrDefault(c =>
-                !string.IsNullOrWhiteSpace(c.Name) && categoryName.Contains(c.Name, StringComparison.OrdinalIgnoreCase)
-            ) ?? serviceCategories.FirstOrDefault();
-
-            var locations = await _lookUpService.GetServiceLocationAsync();
-            var matchedLocation = locations.FirstOrDefault();
-
-            var normalizedServiceType = serviceType.Contains("home", StringComparison.OrdinalIgnoreCase)
-                ? "Home Visit"
-                : "Shop Repair";
-
-            var sr = await _serviceRequestService.CreateAsync(new CreateServiceRequestDto
-            {
-                CustomerName = name.Trim(),
-                PhoneNumber = phone.Trim(),
-                ServiceCategoryId = matchedCategory?.Id ?? 1,
-                ServiceLocationId = normalizedServiceType == "Home Visit" ? (matchedLocation?.Id ?? 1) : null,
-                DeviceName = device.Trim(),
-                IssueDescription = issue.Trim(),
-                ServiceType = normalizedServiceType,
-                VisitAddress = normalizedServiceType == "Home Visit" ? (!string.IsNullOrWhiteSpace(address) ? address.Trim() : "Address to be confirmed by phone") : null
-            });
-
-            result.Submitted = true;
-            result.TrackingNumber = sr.RequestNumber;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to create service request via chatbot.");
-        }
-
-        return result;
-    }
+    private Task<BookingSubmissionResult> ProcessBookingTagAsync(string fullReply)
+        => Task.FromResult(new BookingSubmissionResult());
 
     /// <summary>
     /// Builds the enquiry summary card string for chat display.
@@ -228,7 +116,7 @@ public partial class ChatbotService
     private static string BuildEnquirySummaryCard(EnquirySubmissionResult enquiry)
     {
         var pName = !string.IsNullOrWhiteSpace(enquiry.ProductName) ? enquiry.ProductName : "Electronics Enquiry";
-        return $"\n\n**Enquiry Summary:**\n• **Product**: {pName}\n• **Customer**: {enquiry.Name}\n• **Phone**: {enquiry.Phone}\n• **Message**: {enquiry.Message ?? "General Enquiry"}\n• **Status**: Received — Our team will contact you shortly.";
+        return $"\n\n**Enquiry Summary:**\nâ€¢ **Product**: {pName}\nâ€¢ **Customer**: {enquiry.Name}\nâ€¢ **Phone**: {enquiry.Phone}\nâ€¢ **Message**: {enquiry.Message ?? "General Enquiry"}\nâ€¢ **Status**: Received â€” Our team will contact you shortly.";
     }
 
     /// <summary>
@@ -237,8 +125,8 @@ public partial class ChatbotService
     private static string BuildBookingSummaryCard(BookingSubmissionResult booking)
     {
         var addrLine = booking.ServiceType == "Home Visit" && !string.IsNullOrWhiteSpace(booking.Address) && booking.Address != "Shop Drop-off"
-            ? $" — {booking.Address}" : "";
-        return $"\n\n**Repair Request Booked Successfully!**\n\n**Booking Summary:**\n• **Tracking Number**: `{booking.TrackingNumber}`\n• **Customer**: {booking.Name} ({booking.Phone})\n• **Device**: {booking.Device}\n• **Issue**: {booking.Issue ?? "Repairs required"}\n• **Service Type**: {booking.ServiceType}{addrLine}\n• **Status**: Received — Technician assigned shortly.";
+            ? $" â€” {booking.Address}" : "";
+        return $"\n\n**Repair Request Booked Successfully!**\n\n**Booking Summary:**\nâ€¢ **Tracking Number**: `{booking.TrackingNumber}`\nâ€¢ **Customer**: {booking.Name} ({booking.Phone})\nâ€¢ **Device**: {booking.Device}\nâ€¢ **Issue**: {booking.Issue ?? "Repairs required"}\nâ€¢ **Service Type**: {booking.ServiceType}{addrLine}\nâ€¢ **Status**: Received â€” Technician assigned shortly.";
     }
 
     /// <summary>
@@ -254,9 +142,8 @@ public partial class ChatbotService
             TimeSpan.FromMinutes(1)
         );
 
-        var shopPhone = !string.IsNullOrWhiteSpace(shopSettings?.PrimaryPhone)
-            ? shopSettings.PrimaryPhone
-            : "+91 98200 00000";
+        var shopPhone = NormalizeContactNumber(shopSettings?.PrimaryPhone);
+        var whatsappPhone = NormalizeContactNumber(shopSettings?.WhatsAppNumber);
 
         var actions = new List<ChatActionDto>();
         var lowerMsg = NormalizeMessage(userMessage);
@@ -311,7 +198,7 @@ public partial class ChatbotService
 
                 if (isRepairRelated)
                 {
-                    actions.Add(new ChatActionDto { Label = "Book Repair", Url = "/book-repair", Icon = "wrench" });
+                    actions.Add(new ChatActionDto { Label = "Book Repair in Chat", Url = "chat:book-repair", Icon = "wrench" });
                 }
 
                 if (lowerMsg.Contains("contact") || lowerMsg.Contains("call") || lowerMsg.Contains("phone") || lowerMsg.Contains("location") || lowerMsg.Contains("address"))
@@ -321,173 +208,56 @@ public partial class ChatbotService
             }
         }
 
-        return actions;
+        if (new[] { "contact", "call", "phone", "number", "owner", "whatsapp" }.Any(lowerMsg.Contains))
+        {
+            actions.RemoveAll(a => a.Url.StartsWith("tel:"));
+            if (shopPhone != null)
+                actions.Add(new ChatActionDto { Label = $"Call {shopSettings!.PrimaryPhone}", Url = $"tel:+{shopPhone}", Icon = "phone" });
+            if (whatsappPhone != null)
+                actions.Add(new ChatActionDto { Label = "WhatsApp", Url = $"https://wa.me/{whatsappPhone}", Icon = "message" });
+        }
+        // Never advertise a made-up fallback number or an empty dial link.
+        return actions.Where(a => !a.Url.StartsWith("tel:") || shopPhone != null)
+            .Select(a => { if (a.Url.StartsWith("tel:")) a.Url = $"tel:+{shopPhone}"; return a; })
+            .DistinctBy(a => a.Url).OrderByDescending(a => a.Label.StartsWith("Call ") && a.Label != "Call Shop").ToList();
     }
 
-    /// <summary>
-    /// Finds compatible accessories (such as remotes, adapters, cables) or matching items
-    /// for a product that was just enquired about in chat.
-    /// If no brand-specific accessories exist (e.g. Vu TV), returns promotional / featured
-    /// workshop items so the customer always receives helpful product cards!
-    /// </summary>
-    private async Task<(List<ChatProductCardDto> Products, bool IsBrandMatched)> GetCompanionProductsForEnquiryAsync(int? productId, string? productName)
+    private static string? NormalizeContactNumber(string? value)
     {
-        var companionCards = new List<ChatProductCardDto>();
-        bool isBrandMatched = false;
+        var digits = new string((value ?? "").Where(char.IsAsciiDigit).ToArray());
+        if (digits.Length == 10) digits = "91" + digits;
+        return digits.Length is >= 11 and <= 15 ? digits : null;
+    }
+
+    // Use the same ranked, in-stock recommendations as the product details page.
+    private async Task<List<ChatProductCardDto>> GetCompanionProductsForEnquiryAsync(int? productId, string? productName)
+    {
         try
         {
-            var allProducts = await _productService.GetProductsAsync(null, null, null, false);
-            if (!allProducts.Any()) return (companionCards, false);
-
-            string targetBrand = "";
-            string targetCategory = "";
-            string targetName = productName ?? "";
-
-            if (productId.HasValue)
+            if (!productId.HasValue && !string.IsNullOrWhiteSpace(productName))
             {
-                try
-                {
-                    var details = await _productService.GetProductByIdAsync(productId.Value);
-                    if (details != null)
-                    {
-                        targetBrand = (details.Brand ?? "").Trim().ToLowerInvariant();
-                        targetCategory = (details.CategoryName ?? "").Trim().ToLowerInvariant();
-                        targetName = details.ProductName;
-                    }
-                }
-                catch { }
+                var products = await _productService.GetProductsAsync(null, null, productName, false);
+                var exactMatches = products.Where(p => string.Equals(p.ProductName.Trim(), productName.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+                if (exactMatches.Count == 1) productId = exactMatches[0].ProductId;
             }
-
-            var knownBrands = new[] { "vu", "lg", "samsung", "sony", "sansui", "kodak", "croma", "mi", "xiaomi", "oneplus", "tcl", "panasonic", "philips", "nxt" };
-            if (string.IsNullOrWhiteSpace(targetBrand))
+            if (!productId.HasValue) return [];
+            var recommendations = await _productService.GetRecommendationsAsync(productId.Value, 3);
+            return recommendations.Select(p => new ChatProductCardDto
             {
-                var lowerName = targetName.ToLowerInvariant();
-                targetBrand = knownBrands.FirstOrDefault(b => lowerName.Contains(b)) ?? "";
-            }
-
-            var lowerTargetName = targetName.ToLowerInvariant();
-            var isTargetTv = targetCategory.Contains("tv") || targetCategory.Contains("television") ||
-                             lowerTargetName.Contains("tv") || lowerTargetName.Contains("television") ||
-                             lowerTargetName.Contains("led") || lowerTargetName.Contains("oled") ||
-                             lowerTargetName.Contains("smart tv");
-
-            var candidates = allProducts.Where(p => !productId.HasValue || p.ProductId != productId.Value).ToList();
-
-            foreach (var candidate in candidates)
-            {
-                var candName = candidate.ProductName.ToLowerInvariant();
-                var candCategory = (candidate.CategoryName ?? "").ToLowerInvariant();
-                var candBrand = (candidate.Brand ?? "").Trim().ToLowerInvariant();
-
-                if (string.IsNullOrWhiteSpace(candBrand))
-                {
-                    candBrand = knownBrands.FirstOrDefault(b => candName.Contains(b)) ?? "";
-                }
-
-                var isRemote = candCategory.Contains("remote") || candName.Contains("remote");
-                var isAccessory = candCategory.Contains("accessory") || candCategory.Contains("accessories") ||
-                                  candCategory.Contains("adapter") || candCategory.Contains("cable") ||
-                                  candName.Contains("adapter") || candName.Contains("cable");
-                var isUniversal = candName.Contains("universal") || candCategory.Contains("universal");
-
-                var brandMatches = !string.IsNullOrWhiteSpace(targetBrand) &&
-                    (candBrand == targetBrand || candName.Contains(targetBrand));
-
-                var hasConflictingBrand = !string.IsNullOrWhiteSpace(targetBrand) &&
-                    !string.IsNullOrWhiteSpace(candBrand) &&
-                    targetBrand != candBrand &&
-                    !brandMatches &&
-                    !isUniversal;
-
-                // Strict brand isolation: If candidate belongs to a conflicting brand (e.g. LG remote for Vu TV), reject it!
-                if (hasConflictingBrand) continue;
-
-                // If target is a TV: prioritize matching remotes or universal remotes, then accessories
-                if (isTargetTv && isRemote)
-                {
-                    if (brandMatches || isUniversal)
-                    {
-                        companionCards.Add(new ChatProductCardDto
-                        {
-                            ProductId = candidate.ProductId,
-                            ProductName = candidate.ProductName,
-                            CategoryName = candidate.CategoryName!,
-                            ConditionName = candidate.ConditionName,
-                            Price = candidate.Price,
-                            IsAvailable = candidate.IsAvailable,
-                            PrimaryImageUrl = candidate.PrimaryImageUrl
-                        });
-                        isBrandMatched = true;
-                    }
-                }
-                else if (isTargetTv && isAccessory)
-                {
-                    if (brandMatches || isUniversal)
-                    {
-                        companionCards.Add(new ChatProductCardDto
-                        {
-                            ProductId = candidate.ProductId,
-                            ProductName = candidate.ProductName,
-                            CategoryName = candidate.CategoryName!,
-                            ConditionName = candidate.ConditionName,
-                            Price = candidate.Price,
-                            IsAvailable = candidate.IsAvailable,
-                            PrimaryImageUrl = candidate.PrimaryImageUrl
-                        });
-                        isBrandMatched = true;
-                    }
-                }
-                else if (brandMatches && candidate.IsAvailable)
-                {
-                    companionCards.Add(new ChatProductCardDto
-                    {
-                        ProductId = candidate.ProductId,
-                        ProductName = candidate.ProductName,
-                        CategoryName = candidate.CategoryName!,
-                        ConditionName = candidate.ConditionName,
-                        Price = candidate.Price,
-                        IsAvailable = candidate.IsAvailable,
-                        PrimaryImageUrl = candidate.PrimaryImageUrl
-                    });
-                    isBrandMatched = true;
-                }
-
-                if (companionCards.Count >= 3) break;
-            }
-
-            // Fallback: If no matching brand accessories exist (e.g. Vu TV), show workshop featured & popular promotion items!
-            if (!companionCards.Any())
-            {
-                var promoProducts = candidates
-                    .Where(c => c.IsAvailable)
-                    .OrderByDescending(c => c.IsFeatured)
-                    .ThenByDescending(c => c.StockQuantity > 0)
-                    .ThenBy(c => c.Price)
-                    .Take(3)
-                    .ToList();
-
-                foreach (var promo in promoProducts)
-                {
-                    companionCards.Add(new ChatProductCardDto
-                    {
-                        ProductId = promo.ProductId,
-                        ProductName = promo.ProductName,
-                        CategoryName = promo.CategoryName,
-                        ConditionName = promo.ConditionName,
-                        Price = promo.Price,
-                        IsAvailable = promo.IsAvailable,
-                        PrimaryImageUrl = promo.PrimaryImageUrl
-                    });
-                }
-                isBrandMatched = false;
-            }
+                ProductId = p.ProductId,
+                ProductName = p.ProductName,
+                CategoryName = p.CategoryName,
+                ConditionName = p.ConditionName,
+                Price = p.Price,
+                IsAvailable = p.IsAvailable,
+                PrimaryImageUrl = p.PrimaryImageUrl
+            }).ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to retrieve companion products for chatbot enquiry.");
+            _logger.LogWarning(ex, "Failed to retrieve related products for chatbot enquiry.");
+            return [];
         }
-
-        return (companionCards.Take(3).ToList(), isBrandMatched);
     }
 
     // --- Internal result DTOs for tag processing ---

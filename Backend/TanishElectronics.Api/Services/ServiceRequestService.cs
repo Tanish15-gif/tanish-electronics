@@ -9,6 +9,9 @@ using TanishElectronics.Api.Interfaces.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using TanishElectronics.Api.DTOs.Common;
+using TanishElectronics.Api.Services.Security;
+using TanishElectronics.Api.Helpers;
+using System.Data;
 
 namespace TanishElectronics.Api.Services;
 
@@ -21,6 +24,8 @@ public class ServiceRequestService : IServiceRequestService
     private readonly INotificationRealtimeNotifier _notificationNotifier;
     private readonly IRepairTrackingRealtimeNotifier _trackingNotifier;
     private readonly ILogger<ServiceRequestService> _logger;
+    private readonly RepairAccessService _repairAccess;
+    private readonly IHttpContextAccessor _httpContext;
 
     public ServiceRequestService
     (
@@ -30,7 +35,9 @@ public class ServiceRequestService : IServiceRequestService
         TanishElectronicsDbContext dbContext,
         INotificationRealtimeNotifier notificationNotifier,
         IRepairTrackingRealtimeNotifier trackingNotifier,
-        ILogger<ServiceRequestService> logger
+        ILogger<ServiceRequestService> logger,
+        RepairAccessService repairAccess,
+        IHttpContextAccessor httpContext
     )
     {
         _repository = repository;
@@ -40,6 +47,8 @@ public class ServiceRequestService : IServiceRequestService
         _notificationNotifier = notificationNotifier;
         _trackingNotifier = trackingNotifier;
         _logger = logger;
+        _repairAccess = repairAccess;
+        _httpContext = httpContext;
     }
 
     public async Task<ServiceRequestCreatedDto> CreateAsync(CreateServiceRequestDto dto)
@@ -54,7 +63,7 @@ public class ServiceRequestService : IServiceRequestService
         }
         if (dto.ServiceType == "Home Visit")
         {
-            if (dto.ServiceType == null)
+            if (!dto.ServiceLocationId.HasValue || dto.ServiceLocationId <= 0)
             {
                 throw new InvalidOperationException("Please select your service location.");
             }
@@ -69,7 +78,9 @@ public class ServiceRequestService : IServiceRequestService
             }
         }
         var pendingStatusId = await _repository.GetStatusIdByNameAsync(ServiceStatusName.Pending);
-        var customer = await _repository.GetCustomerByPhoneAsync(dto.PhoneNumber.Trim());
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        // Contact strings do not establish ownership. Guests get a separate customer record.
+        var customer = await _customerAccountResolver.GetCurrentCustomerAsync();
 
         if (customer == null)
         {
@@ -78,7 +89,8 @@ public class ServiceRequestService : IServiceRequestService
                 FullName = dto.CustomerName.Trim(),
                 PhoneNumber = dto.PhoneNumber.Trim(),
                 Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
-                IsActive = true
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
             };
 
             await _repository.AddCustomerAsync(customer);
@@ -110,7 +122,8 @@ public class ServiceRequestService : IServiceRequestService
             PreferredDate = dto.PreferredDate,
             PreferredTimeSlot = string.IsNullOrWhiteSpace(dto.PreferredTimeSlot) ? null : dto.PreferredTimeSlot.Trim(),
 
-            CurrentStatusId = pendingStatusId
+            CurrentStatusId = pendingStatusId,
+            CreatedAt = DateTime.UtcNow
         };
 
         var currentCustomer = await _customerAccountResolver.GetCurrentCustomerAsync();
@@ -160,7 +173,8 @@ public class ServiceRequestService : IServiceRequestService
             OldStatusId = null,
             NewStatusId = pendingStatusId,
             ChangedByAppUserId = null,
-            Note = "Service request created by customer."
+            Note = "Service request created by customer.",
+            ChangedAt = DateTime.UtcNow
         };
         await _repository.AddStatusHistoryAsync(history);
 
@@ -176,20 +190,26 @@ public class ServiceRequestService : IServiceRequestService
         await _dbContext.AdminNotifications.AddAsync(adminNotification);
         await _repository.SaveChangesAsync();
 
-        await _notificationNotifier.NotifyAdminsAsync(new DTOs.Admin.Notifications.GetAdminNotificationDto
+        await transaction.CommitAsync();
+        try
         {
-            AdminNotificationId = adminNotification.AdminNotificationId,
-            ServiceRequestId = adminNotification.ServiceRequestId,
-            Title = adminNotification.Title,
-            Message = adminNotification.Message,
-            NotificationType = adminNotification.NotificationType,
-            IsRead = false,
-            CreatedAt = adminNotification.CreatedAt
-        });
+            await _notificationNotifier.NotifyAdminsAsync(new DTOs.Admin.Notifications.GetAdminNotificationDto
+            {
+                AdminNotificationId = adminNotification.AdminNotificationId,
+                ServiceRequestId = adminNotification.ServiceRequestId,
+                Title = adminNotification.Title,
+                Message = adminNotification.Message,
+                NotificationType = adminNotification.NotificationType,
+                IsRead = false,
+                CreatedAt = adminNotification.CreatedAt
+            });
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Repair committed; live admin notification failed."); }
 
         return new ServiceRequestCreatedDto
         {
             ServiceRequestId = serviceRequest.ServiceRequestId,
+            UploadToken = _repairAccess.IssueUploadToken(serviceRequest.ServiceRequestId),
             RequestNumber = serviceRequest.RequestNumber,
             Status = ServiceStatusName.Pending,
             Message = "Service request created successfully."
@@ -198,6 +218,8 @@ public class ServiceRequestService : IServiceRequestService
 
     private static void ValidateBasicDetails(CreateServiceRequestDto dto)
     {
+        System.ComponentModel.DataAnnotations.Validator.ValidateObject(dto,
+            new System.ComponentModel.DataAnnotations.ValidationContext(dto), true);
         if (string.IsNullOrWhiteSpace(dto.CustomerName))
         {
             throw new InvalidOperationException("Customer name is required.");
@@ -235,6 +257,7 @@ public class ServiceRequestService : IServiceRequestService
         {
             throw new InvalidOperationException("No service request found with this request number and phone number.");
         }
+        trackingDetails.TrackingToken = _repairAccess.IssueTrackingToken(trackingDetails.RequestNumber);
         return trackingDetails;
     }
 
@@ -253,6 +276,8 @@ public class ServiceRequestService : IServiceRequestService
         {
             throw new KeyNotFoundException("Service request not found.");
         }
+        foreach (var image in request.Images)
+            image.ImageUrl = _repairAccess.SignImageUrl(serviceRequestId, image.ImageUrl);
         return request;
     }
 
@@ -493,6 +518,8 @@ public class ServiceRequestService : IServiceRequestService
 
     public async Task<UploadServiceRequestImagesResultDto> UploadImageAsync(int serviceRequestId, List<IFormFile> images)
     {
+        var token = _httpContext.HttpContext?.Request.Headers["X-Repair-Upload-Token"].ToString();
+        await _repairAccess.RequireAsync(serviceRequestId, token);
         var serviceRequestExists = await _repository.ServiceRequestExistsAsync(serviceRequestId);
 
         if (!serviceRequestExists)
@@ -503,6 +530,14 @@ public class ServiceRequestService : IServiceRequestService
         {
             throw new InvalidOperationException("No images uploaded.");
         }
+        if (images.Count > 5) throw new InvalidOperationException("Maximum 5 images are allowed.");
+        // Validate and re-encode the whole batch before writing files or database state.
+        var cleaned = new List<byte[]>();
+        foreach (var image in images) cleaned.Add(await ImageUploadSecurity.SanitizeAsync(image));
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        // Serialize batches for one repair before counting images (including when the count is zero).
+        await _dbContext.ServiceRequests.Where(r => r.ServiceRequestId == serviceRequestId)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.UpdatedAt, DateTime.UtcNow));
         var imageCount = await _dbContext.ServiceRequestImages.CountAsync(img => img.ServiceRequestId == serviceRequestId);
         if (imageCount + images.Count > 5)
         {
@@ -511,49 +546,46 @@ public class ServiceRequestService : IServiceRequestService
         var imageUrls = new List<string>();
         var serviceRequestImage = new List<ServiceRequestImage>();
 
-        var uploadfolder = Path.Combine(_environment.WebRootPath, "uploads", "service-requests", serviceRequestId.ToString());
+        var uploadfolder = Path.Combine(_environment.ContentRootPath, "App_Data", "repair-images", serviceRequestId.ToString());
 
         if (!Directory.Exists(uploadfolder))
         {
             Directory.CreateDirectory(uploadfolder);
         }
 
-        foreach (var image in images)
+        var writtenFiles = new List<string>();
+        try
         {
-            if (image.Length > 5 * 1024 * 1024)
+            for (var index = 0; index < images.Count; index++)
             {
-                throw new InvalidOperationException("Max image size is 5MB");
+                var image = images[index];
+                var safeFileName = $"{Guid.NewGuid():N}.png";
+
+                var filePath = Path.Combine(uploadfolder, safeFileName);
+
+                writtenFiles.Add(filePath);
+                await File.WriteAllBytesAsync(filePath, cleaned[index]);
+                var imageUrl = $"/uploads/service-requests/{serviceRequestId}/{safeFileName}";
+                imageUrls.Add(_repairAccess.SignImageUrl(serviceRequestId, imageUrl));
+
+                serviceRequestImage.Add(new ServiceRequestImage
+                {
+                    ServiceRequestId = serviceRequestId,
+                    ImageUrl = imageUrl,
+                    OriginalFileName = Path.GetFileName(image.FileName)[..Math.Min(Path.GetFileName(image.FileName).Length, 255)],
+                    CreatedAt = DateTime.UtcNow
+                });
             }
-            var ext = Path.GetExtension(image.FileName).ToLowerInvariant();
-            var allowExtension = new[] { ".jpg", ".png", ".webp", ".jpeg" };
+            await _repository.AddServiceRequestImagesAsync(serviceRequestImage);
 
-            if (!allowExtension.Contains(ext))
-            {
-                throw new InvalidOperationException("Only JPG, JPEG, PNG and WEBP formats are allowed.");
-            }
-
-            var safeFileName = $"{Guid.NewGuid():N}{ext}";
-
-            var filePath = Path.Combine(uploadfolder, safeFileName);
-
-            await using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await image.CopyToAsync(stream);
-            }
-            var imageUrl = $"/uploads/service-requests/{serviceRequestId}/{safeFileName}";
-            imageUrls.Add(imageUrl);
-
-            serviceRequestImage.Add(new ServiceRequestImage
-            {
-                ServiceRequestId = serviceRequestId,
-                ImageUrl = imageUrl,
-                OriginalFileName = image.FileName,
-                CreatedAt = DateTime.UtcNow
-            });
+            await _repository.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
-        await _repository.AddServiceRequestImagesAsync(serviceRequestImage);
-
-        await _repository.SaveChangesAsync();
+        catch
+        {
+            foreach (var path in writtenFiles) if (File.Exists(path)) File.Delete(path);
+            throw;
+        }
         return new UploadServiceRequestImagesResultDto
         {
             Message = "Image Uploaded successFully",
@@ -563,19 +595,19 @@ public class ServiceRequestService : IServiceRequestService
 
     public async Task UpdateRepairWorkNotesAsync(int id, UpdateRepairWorkNotesDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Diagnosis) && dto.Diagnosis!.Trim().Length > 1000)
+        if (dto.Diagnosis?.Trim().Length > 1000)
         {
             throw new InvalidOperationException("Diagnosis cannot be more than 1000 characters.");
         }
-        if (string.IsNullOrWhiteSpace(dto.WorkNotes) && dto.WorkNotes!.Trim().Length > 1500)
+        if (dto.WorkNotes?.Trim().Length > 1500)
         {
             throw new InvalidOperationException("Work notes cannot be more than 1500 characters.");
         }
-        if (string.IsNullOrWhiteSpace(dto.PartsUsed) && dto.PartsUsed!.Trim().Length > 1000)
+        if (dto.PartsUsed?.Trim().Length > 1000)
         {
             throw new InvalidOperationException("Parts used cannot be more than 1000 characters.");
         }
-        if (string.IsNullOrWhiteSpace(dto.WarrantyNote) && dto.WarrantyNote!.Trim().Length > 500)
+        if (dto.WarrantyNote?.Trim().Length > 500)
         {
             throw new InvalidOperationException("Warranty note cannot be more than 500 characters.");
         }
